@@ -1,0 +1,50 @@
+{
+  "windows": [
+    {
+      "title": "FocusTest GTK same title",
+      "rect": [
+        30,
+        40,
+        440,
+        320
+      ],
+      "controls": [
+        {
+          "type": "label",
+          "text": "ALPHA_REAL_ATSPI_314159\n真实界面文字：正在核验通用无障碍采集。"
+        },
+        {
+          "type": "edit",
+          "text": "VISIBLE_EDITED_VALUE_0"
+        },
+        {
+          "type": "password",
+          "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+        }
+      ]
+    },
+    {
+      "title": "FocusTest GTK same title",
+      "rect": [
+        510,
+        40,
+        440,
+        320
+      ],
+      "controls": [
+        {
+          "type": "label",
+          "text": "BETA_REAL_ATSPI_271828\n真实界面文字：正在核验通用无障碍采集。"
+        },
+        {
+          "type": "edit",
+          "text": "VISIBLE_EDITED_VALUE_1"
+        },
+        {
+          "type": "password",
+          "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+        }
+      ]
+    }
+  ]
+}

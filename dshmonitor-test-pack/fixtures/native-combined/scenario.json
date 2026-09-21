@@ -1,0 +1,9 @@
+{
+  "id":"native-combined",
+  "description":"One sequence combines overlap, focus, covered/minimized windows, same-title association, Unicode edits, log/structure capture and valid close.",
+  "phases":[
+    {"id":"overlap","focus":"B","windows":{"C":{"rect":[400,260,160,130]},"D":{"rect":[10,10,300,280],"minimized":true},"A":{"rect":[40,60,380,340]},"B":{"rect":[240,180,420,380]}},"visible":["A","B"],"hidden":["C","D"]},
+    {"id":"edit-and-switch","focus":"A","windows":{"C":{"visible":false},"D":{"minimized":true},"A":{"rect":[50,60,430,360],"text":"A_EDITED_中文_😀"},"B":{"rect":[360,220,420,380]}},"visible":["A","B"],"hidden":["C","D"]},
+    {"id":"minimize-after-visible","focus":"B","windows":{"C":{"visible":false},"D":{"minimized":true},"A":{"minimized":true},"B":{"rect":[200,100,420,380]}},"visible":["B"],"hidden":["A","C","D"]}
+  ]
+}

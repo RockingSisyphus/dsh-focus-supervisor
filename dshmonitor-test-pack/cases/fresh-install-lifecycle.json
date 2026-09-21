@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "id": "fresh-install-lifecycle",
+  "title": "两端干净新机：正式注册、UI 安装、取证动作及原任务跨重启恢复",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "persistent_session": true,
+  "verification": "product",
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "persistence",
+    "heartbeat",
+    "desktop-setup",
+    "evidence",
+    "actions",
+    "live-reminder-delivery",
+    "system-startup"
+  ],
+  "timeout": 2400,
+  "steps": [
+    {
+      "id": "install",
+      "op": "case.run",
+      "cases": [
+        "fresh-install-ui"
+      ],
+      "bind": "installed"
+    },
+    {
+      "id": "installed",
+      "op": "assert",
+      "actual": {
+        "$ref": "installed.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "load-installed-components",
+      "op": "vm.reboot",
+      "bind": "installation_boot"
+    },
+    {
+      "id": "prepare",
+      "op": "case.run",
+      "cases": [
+        "fresh-install-task"
+      ],
+      "bind": "before"
+    },
+    {
+      "id": "prepare-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "saved-task",
+      "op": "vm.checkpoint",
+      "bind": "saved"
+    },
+    {
+      "id": "reboot",
+      "op": "vm.reboot",
+      "bind": "boot"
+    },
+    {
+      "id": "different-boot",
+      "op": "assert",
+      "actual": {
+        "$ref": "boot.after"
+      },
+      "operator": "not_equals",
+      "expected": {
+        "$ref": "boot.before"
+      }
+    },
+    {
+      "id": "service-sampled-before-dsh",
+      "op": "vm.observe_service",
+      "task_id": {
+        "$ref": "saved.task.value.id"
+      },
+      "sampled_after": {
+        "$ref": "boot.completed_at"
+      },
+      "timeout": 90,
+      "bind": "recovered_service",
+      "capture_error": null
+    },
+    {
+      "id": "same-task-before-dsh",
+      "op": "assert",
+      "actual": {
+        "$ref": "recovered_service.task.id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "saved.task.value.id"
+      }
+    },
+    {
+      "id": "sampling-without-error",
+      "op": "assert",
+      "actual": {
+        "$ref": "recovered_service.state.capture_error"
+      },
+      "operator": "equals",
+      "expected": null
+    },
+    {
+      "id": "resume",
+      "op": "case.run",
+      "cases": [
+        "fresh-install-resume"
+      ],
+      "bind": "after"
+    },
+    {
+      "id": "resume-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ],
+  "installation": "fresh",
+  "verification_layer": "dsh"
+}

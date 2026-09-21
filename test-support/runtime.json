@@ -1,0 +1,20 @@
+{
+  "node": "24.18.0",
+  "npm": {
+    "@deepseek-ai/dsh": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-base": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-web-app": "0.1.5-rc.2"
+  },
+  "python": [
+    "playwright",
+    "PyYAML",
+    "Pillow",
+    "pytest",
+    "pywinauto",
+    "psutil",
+    "requests",
+    "websocket-client",
+    "pyvda==0.6.0"
+  ],
+  "windows_browser_channel": "msedge"
+}

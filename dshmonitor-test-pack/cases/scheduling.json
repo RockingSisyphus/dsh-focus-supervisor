@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "id": "scheduling",
+  "title": "冲突详情、首尾相接与修订冲突",
+  "engine": "dsh",
+  "features": [
+    "scheduling"
+  ],
+  "preview": true,
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "测试：plan",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "overlap",
+      "op": "model.call",
+      "user": "测试：overlap",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "conflict-rejected",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.raw"
+      },
+      "operator": "contains",
+      "expected": "冲突"
+    },
+    {
+      "id": "conflicting-task-named",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.raw"
+      },
+      "operator": "contains",
+      "expected": {
+        "$ref": "task.value.id"
+      }
+    },
+    {
+      "id": "read-state",
+      "op": "state.read",
+      "bind": "state"
+    },
+    {
+      "id": "no-second-task",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live"
+      },
+      "operator": "count",
+      "expected": 1
+    },
+    {
+      "id": "adjacent",
+      "op": "model.call",
+      "user": "测试：adjacent",
+      "tool": "focus_plan",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "start_at": {
+              "$ref": "contract.end_at"
+            },
+            "end_at": {
+              "$iso_after": 1800
+            }
+          }
+        ]
+      },
+      "bind": "adjacent"
+    },
+    {
+      "id": "read-two",
+      "op": "state.read",
+      "bind": "state"
+    },
+    {
+      "id": "adjacent-admitted",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live"
+      },
+      "operator": "count",
+      "expected": 2
+    },
+    {
+      "id": "revise-conflict",
+      "op": "model.call",
+      "user": "测试：revise-conflict",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "adjacent.value.id"
+            },
+            "reason": "尝试改成重叠"
+          }
+        ]
+      },
+      "bind": "result"
+    },
+    {
+      "id": "revision-rejected",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.raw"
+      },
+      "operator": "contains",
+      "expected": "冲突"
+    }
+  ],
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

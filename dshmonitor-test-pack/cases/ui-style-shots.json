@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "id": "ui-style-shots",
+  "title": "蓝粉面板与原生提醒弹窗样式截图",
+  "engine": "dsh",
+  "features": [
+    "settings-ui",
+    "mascot",
+    "notification-sound"
+  ],
+  "preview": true,
+  "live_desktop": true,
+  "timeout": 300,
+  "variables": {
+    "contract": {
+      "agreement": "样式截图任务：仅用于验证界面外观，不构成真实工作承诺。",
+      "task_prompt": "本任务只用于截图，不进行真实监督。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": -1
+      },
+      "end_at": {
+        "$iso_after": 600
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    },
+    "later_contract": {
+      "agreement": "较晚的预约任务：晚上整理实验数据。",
+      "task_prompt": "盯住数据处理窗口。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 1800
+      },
+      "end_at": {
+        "$iso_after": 2400
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    },
+    "earlier_contract": {
+      "agreement": "较早的预约任务：下午先写引言。",
+      "task_prompt": "盯住写作窗口。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 900
+      },
+      "end_at": {
+        "$iso_after": 1500
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "shot-ball",
+      "op": "ui.screenshot",
+      "name": "01-ball-closed"
+    },
+    {
+      "id": "panel",
+      "op": "ui.open",
+      "bind": "panel"
+    },
+    {
+      "id": "shot-panel",
+      "op": "ui.screenshot",
+      "name": "02-panel-open"
+    },
+    {
+      "id": "settings",
+      "op": "ui.settings",
+      "bind": "settings"
+    },
+    {
+      "id": "shot-settings",
+      "op": "ui.screenshot",
+      "name": "03-panel-settings"
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "测试：为样式截图创建一个临时任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "plan-later",
+      "op": "model.call",
+      "user": "测试：登记较晚的预约任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "later_contract"
+      },
+      "bind": "later"
+    },
+    {
+      "id": "plan-earlier",
+      "op": "model.call",
+      "user": "测试：登记较早的预约任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "earlier_contract"
+      },
+      "bind": "earlier"
+    },
+    {
+      "id": "panel-with-tasks",
+      "op": "ui.open",
+      "bind": "tasks"
+    },
+    {
+      "id": "wait-tasks",
+      "op": "ui.wait_tasks",
+      "count": 3,
+      "timeout": 40,
+      "bind": "tasks"
+    },
+    {
+      "id": "shot-tasks",
+      "op": "ui.screenshot",
+      "name": "04-panel-tasks"
+    },
+    {
+      "id": "toggle-earlier",
+      "op": "ui.toggle_task",
+      "task_id": {
+        "$ref": "earlier.value.id"
+      },
+      "bind": "toggled"
+    },
+    {
+      "id": "shot-task-expanded",
+      "op": "ui.screenshot",
+      "name": "05-panel-task-expanded"
+    },
+    {
+      "id": "close-tasks",
+      "op": "ui.close"
+    },
+    {
+      "id": "remind-question",
+      "op": "model.call",
+      "user": "测试：截图用问号提醒",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "question",
+        "message": "这段视频是在查资料吗？请到监工聊天里说明用途，或切回论文阅读。"
+      }
+    },
+    {
+      "id": "popup-question",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒"
+    },
+    {
+      "id": "remind-warning",
+      "op": "model.call",
+      "user": "测试：截图用警告提醒",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "warning",
+        "message": "这次确实分心了，请退出游戏回到论文阅读。"
+      }
+    },
+    {
+      "id": "popup-warning",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒"
+    },
+    {
+      "id": "remind-long",
+      "op": "model.call",
+      "user": "测试：截图用长文案提醒",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "urgent",
+        "message": "我看到你已经在同一个视频窗口连续停留了十二分钟，标题和本任务的论文阅读无关；如果这是在查资料，请在监工聊天里说明查询目标和已经找到的内容，并回到论文继续逐段审阅；如果只是想休息，也可以直接说明，我们按约定商量一个明确的休息时长再继续。"
+      }
+    },
+    {
+      "id": "popup-long",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "测试：样式截图结束，取消临时任务",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "样式截图用例结束"
+      }
+    },
+    {
+      "id": "finish-later",
+      "op": "model.call",
+      "user": "测试：取消较晚预约",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "later.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "样式截图用例结束"
+      }
+    },
+    {
+      "id": "finish-earlier",
+      "op": "model.call",
+      "user": "测试：取消较早预约",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "earlier.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "样式截图用例结束"
+      }
+    }
+  ],
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

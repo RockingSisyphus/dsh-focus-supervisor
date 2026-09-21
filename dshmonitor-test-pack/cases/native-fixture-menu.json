@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "id": "native-fixture-menu",
+  "title": "原生菜单打开时夹具继续处理命令，关闭菜单后仍可输入",
+  "engine": "dsh",
+  "verification": "desktop-contract",
+  "verification_layer": "desktop",
+  "group": "regular",
+  "platforms": [
+    "windows"
+  ],
+  "features": [
+    "test-reporting"
+  ],
+  "timeout": 180,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "model",
+      "op": "model.reply",
+      "user": "验证原生夹具消息循环",
+      "text": "开始真实桌面夹具测试。"
+    },
+    {
+      "id": "app",
+      "op": "fixture.app",
+      "entity": "editor",
+      "windows": [
+        {
+          "id": "editor-0",
+          "title": "消息循环测试窗口",
+          "rect": [
+            120,
+            80,
+            450,
+            300
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "真实输入框"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "focus",
+      "op": "fixture.interact",
+      "entity": "editor-0",
+      "action": "focus"
+    },
+    {
+      "id": "open-menu",
+      "op": "desktop.keys",
+      "keys": "alt-spc"
+    },
+    {
+      "id": "menu-before",
+      "op": "desktop.wait_window",
+      "entity": "editor-0",
+      "bind": "before",
+      "match": {
+        "class_name": "#32768"
+      },
+      "timeout": 5
+    },
+    {
+      "id": "real-menu-present",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.class_name"
+      },
+      "operator": "equals",
+      "expected": "#32768"
+    },
+    {
+      "id": "change-title-with-menu-open",
+      "op": "fixture.configure",
+      "entity": "editor-0",
+      "title": "菜单仍打开时已更新标题",
+      "bind": "changed"
+    },
+    {
+      "id": "title-changed",
+      "op": "assert",
+      "actual": {
+        "$ref": "changed.window.title"
+      },
+      "operator": "equals",
+      "expected": "菜单仍打开时已更新标题"
+    },
+    {
+      "id": "menu-after",
+      "op": "desktop.wait_window",
+      "entity": "editor-0",
+      "bind": "after",
+      "match": {
+        "class_name": "#32768"
+      },
+      "timeout": 5
+    },
+    {
+      "id": "menu-not-dismissed-by-driver",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.class_name"
+      },
+      "operator": "equals",
+      "expected": "#32768"
+    },
+    {
+      "id": "close-menu",
+      "op": "desktop.keys",
+      "keys": "esc"
+    },
+    {
+      "id": "input",
+      "op": "fixture.interact",
+      "entity": "editor-0",
+      "action": "fill",
+      "text": "菜单关闭后真实控件仍可输入",
+      "bind": "input"
+    },
+    {
+      "id": "input-complete",
+      "op": "assert",
+      "actual": {
+        "$ref": "input.input_text"
+      },
+      "operator": "equals",
+      "expected": "菜单关闭后真实控件仍可输入"
+    }
+  ]
+}

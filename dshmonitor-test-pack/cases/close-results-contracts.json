@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "close-results-contracts",
+  "title": "关闭结果、标签身份及进程生命周期契约",
+  "engine": "command",
+  "features": [
+    "actions"
+  ],
+  "argv": [
+    "$python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_close_results.py",
+    "tests/test_force_close.py"
+  ],
+  "expect_exit": 0,
+  "timeout": 90,
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "contract",
+  "verification_layer": "unit"
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "chat-replies",
+  "title": "普通回复的真实模型通道",
+  "engine": "dsh",
+  "features": [
+    "chat-transport"
+  ],
+  "preview": true,
+  "steps": [
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "ordinary-reply",
+      "op": "model.reply",
+      "user": "请给出固定测试回复",
+      "text": "这是通过真实 DSH 模型通道返回的普通回复。",
+      "bind": "reply"
+    },
+    {
+      "id": "reply-visible",
+      "op": "assert",
+      "actual": {
+        "$ref": "reply"
+      },
+      "operator": "equals",
+      "expected": "这是通过真实 DSH 模型通道返回的普通回复。"
+    },
+    {
+      "id": "chat-screenshot",
+      "op": "ui.screenshot",
+      "name": "ordinary-reply"
+    }
+  ],
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

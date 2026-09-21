@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "id": "fresh-script-install-lifecycle",
+  "title": "Linux install.sh 独立入口：安装、真实能力和原任务跨重启恢复",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "persistent_session": true,
+  "verification": "product",
+  "group": "extended",
+  "platforms": [
+    "linux"
+  ],
+  "features": [
+    "persistence",
+    "heartbeat",
+    "desktop-setup",
+    "evidence",
+    "actions",
+    "live-reminder-delivery",
+    "system-startup"
+  ],
+  "timeout": 2400,
+  "steps": [
+    {
+      "id": "script-install",
+      "op": "vm.command.run",
+      "prepare": true,
+      "argv": [
+        "bash",
+        "install.sh",
+        "--modules",
+        "/home/tester/dsh-runtime/node_modules",
+        "--profile",
+        {
+          "$concat": [
+            {
+              "$ref": "session_directory"
+            },
+            "/home/profiles/web"
+          ]
+        }
+      ],
+      "env": {
+        "PATH": "/home/tester/.local/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      },
+      "timeout": 1200,
+      "bind": "install"
+    },
+    {
+      "id": "script-exited",
+      "op": "assert",
+      "actual": {
+        "$ref": "install.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "browser-cli-status",
+      "op": "vm.command.run",
+      "argv": [
+        "python3",
+        "/opt/dafeiyu/deploy/browser_setup.py",
+        "status"
+      ],
+      "bind": "browser_setup",
+      "timeout": 30
+    },
+    {
+      "id": "browser-cli-installed",
+      "op": "assert",
+      "actual": {
+        "$ref": "browser_setup.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "installed-package",
+      "op": "vm.command.run",
+      "argv": [
+        "python3",
+        "-c",
+        "import json,sys;from pathlib import Path;p=Path(sys.argv[1]);assert (p/'node_modules/dsh-focus-supervisor/package.json').is_file();assert 'file://' not in (p/'cordis.patch.yml').read_text();print('packaged plugin installed')",
+        {
+          "$concat": [
+            {
+              "$ref": "session_directory"
+            },
+            "/home/profiles/web"
+          ]
+        }
+      ],
+      "bind": "package"
+    },
+    {
+      "id": "package-registration",
+      "op": "assert",
+      "actual": {
+        "$ref": "package.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "load-installed-components",
+      "op": "vm.reboot",
+      "bind": "installation_boot"
+    },
+    {
+      "id": "prepare",
+      "op": "case.run",
+      "cases": [
+        "fresh-install-task"
+      ],
+      "bind": "before"
+    },
+    {
+      "id": "prepare-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "saved-task",
+      "op": "vm.checkpoint",
+      "bind": "saved"
+    },
+    {
+      "id": "reboot",
+      "op": "vm.reboot",
+      "bind": "boot"
+    },
+    {
+      "id": "different-boot",
+      "op": "assert",
+      "actual": {
+        "$ref": "boot.after"
+      },
+      "operator": "not_equals",
+      "expected": {
+        "$ref": "boot.before"
+      }
+    },
+    {
+      "id": "service-sampled-before-dsh",
+      "op": "vm.observe_service",
+      "task_id": {
+        "$ref": "saved.task.value.id"
+      },
+      "sampled_after": {
+        "$ref": "boot.completed_at"
+      },
+      "timeout": 90,
+      "bind": "recovered_service"
+    },
+    {
+      "id": "same-task-before-dsh",
+      "op": "assert",
+      "actual": {
+        "$ref": "recovered_service.task.id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "saved.task.value.id"
+      }
+    },
+    {
+      "id": "sampling-without-error",
+      "op": "assert",
+      "actual": {
+        "$ref": "recovered_service.state.capture_error"
+      },
+      "operator": "equals",
+      "expected": null
+    },
+    {
+      "id": "resume",
+      "op": "case.run",
+      "cases": [
+        "active-reboot-resume"
+      ],
+      "bind": "after"
+    },
+    {
+      "id": "resume-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ],
+  "installation": "fresh",
+  "verification_layer": "dsh",
+  "installed_host": true
+}

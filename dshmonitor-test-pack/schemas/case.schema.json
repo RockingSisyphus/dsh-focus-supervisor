@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DSH monitor scenario",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "engine",
+    "features",
+    "platforms",
+    "group",
+    "verification"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "engine": {
+      "enum": [
+        "dsh",
+        "command"
+      ]
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "platforms": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "linux",
+          "windows"
+        ]
+      }
+    },
+    "group": {
+      "enum": [
+        "regular",
+        "extended",
+        "manual"
+      ]
+    },
+    "verification": {
+      "enum": [
+        "contract",
+        "desktop-contract",
+        "product"
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "op"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "op": {
+            "type": "string"
+          },
+          "bind": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "argv": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

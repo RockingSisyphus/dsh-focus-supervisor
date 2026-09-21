@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "platforms": {
+    "linux": {
+      "config": "~/.config/dshmonitor-test-pack/linux.json",
+      "desktop": "gnome-wayland"
+    },
+    "windows": {
+      "config": "~/.config/dshmonitor-test-pack/windows.json",
+      "installation_environment": "existing-system"
+    }
+  }
+}

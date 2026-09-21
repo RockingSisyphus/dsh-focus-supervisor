@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "manual",
+  "verification": "desktop-contract",
+  "timeout": 90,
+  "features": [
+    "test-reporting"
+  ],
+  "intentional_failure": true,
+  "id": "failure-service-unavailable",
+  "title": "预期失败注入：failure-service-unavailable",
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "unavailable",
+      "op": "backend.connection_probe",
+      "url": "http://127.0.0.1:1/state",
+      "timeout": 2
+    }
+  ],
+  "verification_layer": "desktop"
+}

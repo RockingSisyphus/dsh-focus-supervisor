@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "id": "reminder-reopen-browser",
+  "title": "完全退出浏览器后点击真实提醒重建 DSH 对应会话",
+  "engine": "dsh",
+  "features": [
+    "live-reminder-delivery",
+    "ui-navigation"
+  ],
+  "preview": true,
+  "present_user": false,
+  "timeout": 360,
+  "live_desktop": true,
+  "note": "OS 默认浏览器临时指向本轮真实 Chrome/Edge profile，关闭后由生产系统打开接口重新启动；结束恢复原关联。",
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "脚本模拟：结合真实采集核对任务，不要求提交文件。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 86400
+      },
+      "end_at": {
+        "$iso_after": 90000
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss",
+      "check_interval_seconds": 6
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "我想预约阅读事务论文，允许提前完成；遇到问题可以商量延期。",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "reminder",
+      "op": "model.call",
+      "user": "请提醒我回到监工聊天。switch-existing-tab",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "start",
+        "message": "任务已建好，点下面的按钮回到监工会话。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "reminder-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "editor",
+      "op": "fixture.app",
+      "entity": "editor-app",
+      "windows": [
+        {
+          "id": "editor",
+          "title": "DSH focus regression input",
+          "controls": [
+            {
+              "type": "edit",
+              "text": ""
+            }
+          ],
+          "rect": [
+            80,
+            120,
+            500,
+            350
+          ]
+        }
+      ]
+    },
+    {
+      "id": "exit-browser",
+      "op": "desktop.browser_exit",
+      "bind": "exited"
+    },
+    {
+      "id": "confirmed-exited",
+      "op": "assert",
+      "actual": {
+        "$ref": "exited.alive"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "click-reminder",
+      "op": "desktop.popup_click",
+      "timeout": 75
+    },
+    {
+      "id": "request-finished",
+      "op": "ui.wait_focus_result",
+      "timeout": 60,
+      "bind": "completion"
+    },
+    {
+      "id": "completion-within-budget",
+      "op": "assert",
+      "actual": {
+        "$ref": "completion.elapsed_seconds"
+      },
+      "operator": "lt",
+      "expected": 60,
+      "continue_on_failure": true
+    },
+    {
+      "id": "request-succeeded",
+      "op": "assert",
+      "actual": {
+        "$ref": "completion.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "reopened-session",
+      "op": "desktop.browser_reopened",
+      "text": "我想预约阅读事务论文",
+      "bind": "reopened",
+      "timeout": 60
+    },
+    {
+      "id": "session-visible",
+      "op": "assert",
+      "actual": {
+        "$ref": "reopened.session_text_found"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "cold-window-visible",
+      "op": "assert",
+      "actual": {
+        "$ref": "reopened.windows.0.minimized"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "cold-window-focused",
+      "op": "assert",
+      "actual": {
+        "$ref": "reopened.windows.0.focused"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "focus-editor",
+      "op": "fixture.interact",
+      "entity": "editor",
+      "action": "focus"
+    },
+    {
+      "id": "no-focus-steal",
+      "op": "fixture.watch_input",
+      "entity": "editor",
+      "seconds": 30,
+      "chunks": [
+        "alpha",
+        "beta",
+        "gamma"
+      ],
+      "bind": "watch"
+    },
+    {
+      "id": "focus-retained",
+      "op": "assert",
+      "actual": {
+        "$ref": "watch.focus_retained"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "typed-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "watch.input_text"
+      },
+      "operator": "contains",
+      "expected": "alphabetagamma"
+    }
+  ],
+  "visible_browser": true,
+  "real_tab_visibility": true,
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "default_browser": true
+}

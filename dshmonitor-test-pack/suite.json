@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "name": "dshmonitor-test-pack",
+  "features": [
+    {
+      "id": "settings-ui",
+      "title": "设置界面与锁定"
+    },
+    {
+      "id": "mascot",
+      "title": "形象、尺寸、拖动、资源"
+    },
+    {
+      "id": "task-admission",
+      "title": "任务创建必填信息"
+    },
+    {
+      "id": "interval",
+      "title": "检查间隔"
+    },
+    {
+      "id": "persistence",
+      "title": "独立后台重启与任务持久化"
+    },
+    {
+      "id": "session-scope",
+      "title": "原会话操作约束"
+    },
+    {
+      "id": "scheduling",
+      "title": "预约与修订冲突"
+    },
+    {
+      "id": "prompt-permissions",
+      "title": "三类提示词修改权限"
+    },
+    {
+      "id": "heartbeat",
+      "title": "原生会话定时心跳"
+    },
+    {
+      "id": "evidence",
+      "title": "材料导出与篡改检测"
+    },
+    {
+      "id": "time-override",
+      "title": "测试时长覆盖与原始数据"
+    },
+    {
+      "id": "native-tools",
+      "title": "DSH 原生工具读取材料"
+    },
+    {
+      "id": "actions",
+      "title": "提醒及关闭专用窗口"
+    },
+    {
+      "id": "cleanup",
+      "title": "任务结束与证据清理"
+    },
+    {
+      "id": "chat-transport",
+      "title": "模型文字、工具调用和图片传输"
+    },
+    {
+      "id": "deadlines",
+      "title": "截止、延期等待与提前验收"
+    },
+    {
+      "id": "desktop-setup",
+      "title": "桌面安装诊断"
+    },
+    {
+      "id": "desktop-gnome",
+      "title": "GNOME Wayland 新桌面安装和采集"
+    },
+    {
+      "id": "test-reporting",
+      "title": "测试器失败识别与回退报告"
+    },
+    {
+      "id": "system-startup",
+      "title": "系统开机恢复与自动唤起 DSH",
+      "manual": "需独立可重启的系统环境；本套件不重启日常电脑。"
+    },
+    {
+      "id": "anti-kill",
+      "title": "root/systemd 防强杀",
+      "manual": "私有普通用户后台不能代表真实系统服务防强杀。"
+    },
+    {
+      "id": "notification-sound",
+      "title": "通知栏与实际可听提示音",
+      "manual": "当前默认场景验证原生弹窗；各桌面的通知和实际声音需专项验证。"
+    },
+    {
+      "id": "real-ai-judgement",
+      "title": "真实 AI 监督和验收质量",
+      "manual": "固定模型验证流程，不评估真实模型判断。"
+    },
+    {
+      "id": "other-platforms",
+      "title": "Windows/macOS 与其他 Wayland",
+      "manual": "Windows 已提供共享核心/原生综合场景和虚拟机自动运行；完整 DSH 界面、系统服务、BrowserSkill 尚未跨平台等价，macOS 未验证。"
+    },
+    {
+      "id": "live-reminder-delivery",
+      "title": "真实桌面三通道请求与本次弹窗截图"
+    },
+    {
+      "id": "browser-skill-integration",
+      "title": "DSH 原生 BrowserSkill 插件调用与页面正文"
+    },
+    {
+      "id": "browser-background",
+      "title": "BrowserSkill 后台语义采集与证据导出"
+    },
+    {
+      "id": "browser-history-capture",
+      "title": "真实浏览器历史采集与盲评材料"
+    },
+    {
+      "id": "browser-visibility",
+      "title": "浏览器可见性区分与不可见内容过滤"
+    },
+    {
+      "id": "application-capture",
+      "title": "通用应用窗口关联、深层正文和自然日志"
+    },
+    {
+      "id": "ui-navigation",
+      "title": "提醒返回正确 DSH 会话"
+    }
+  ]
+}

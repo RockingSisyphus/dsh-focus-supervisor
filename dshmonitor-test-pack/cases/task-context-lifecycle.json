@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 1,
+  "id": "task-context-lifecycle",
+  "title": "真实 DSH 动态任务上下文：修订、压缩、重启、结束与隔离",
+  "engine": "dsh",
+  "features": [
+    "prompt-permissions",
+    "settings-ui"
+  ],
+  "preview": false,
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "initial-settings",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "LOCK_TEST_GLOBAL",
+        "heartbeat_prompt": "LOCK_TEST_HEARTBEAT"
+      },
+      "save": true
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "测试：plan",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "read-current",
+      "op": "model.reply",
+      "user": "发送 read-current",
+      "text": "REPLIED_read-current"
+    },
+    {
+      "id": "initial-context",
+      "op": "model.messages",
+      "contains": "Current runtime context",
+      "bind": "initial-context",
+      "selection": "last"
+    },
+    {
+      "id": "initial-context-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "initial-context.text"
+      },
+      "operator": "contains",
+      "expected": "TASK_EXTRA_314159"
+    },
+    {
+      "id": "revise",
+      "op": "model.call",
+      "user": "测试 revise",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "task.value.id"
+            },
+            "task_prompt": "TASK_REVISED_2718",
+            "reason": "用户修订测试约定"
+          }
+        ]
+      },
+      "bind": "revised"
+    },
+    {
+      "id": "read-revised",
+      "op": "model.reply",
+      "user": "发送 read-revised",
+      "text": "REPLIED_read-revised"
+    },
+    {
+      "id": "revised-context",
+      "op": "model.messages",
+      "contains": "Current runtime context",
+      "bind": "revised-context",
+      "selection": "last"
+    },
+    {
+      "id": "revised-context-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "revised-context.text"
+      },
+      "operator": "contains",
+      "expected": "TASK_REVISED_2718"
+    },
+    {
+      "id": "old-context-replaced",
+      "op": "assert",
+      "actual": {
+        "$ref": "revised-context.text"
+      },
+      "operator": "not_contains",
+      "expected": "TASK_EXTRA_314159"
+    },
+    {
+      "id": "compact",
+      "op": "session.command",
+      "command": "/compact",
+      "expected_text": "Compacted \\d+ history items",
+      "timeout": 90,
+      "bind": "compacted"
+    },
+    {
+      "id": "after-compaction",
+      "op": "model.reply",
+      "user": "发送 after-compaction",
+      "text": "REPLIED_after-compaction"
+    },
+    {
+      "id": "compacted-context",
+      "op": "model.messages",
+      "contains": "Current runtime context",
+      "bind": "compacted-context",
+      "selection": "last"
+    },
+    {
+      "id": "compacted-context-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "compacted-context.text"
+      },
+      "operator": "contains",
+      "expected": "TASK_REVISED_2718"
+    },
+    {
+      "id": "restart-dsh",
+      "op": "ui.restart_dsh",
+      "bind": "restart"
+    },
+    {
+      "id": "after-restart",
+      "op": "model.reply",
+      "user": "发送 after-restart",
+      "text": "REPLIED_after-restart"
+    },
+    {
+      "id": "resumed-context",
+      "op": "model.messages",
+      "contains": "Current runtime context",
+      "bind": "resumed-context",
+      "selection": "last"
+    },
+    {
+      "id": "resumed-context-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "resumed-context.text"
+      },
+      "operator": "contains",
+      "expected": "TASK_REVISED_2718"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "测试 finish",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "结束上下文测试"
+      }
+    },
+    {
+      "id": "after-finish",
+      "op": "model.reply",
+      "user": "发送 after-finish",
+      "text": "REPLIED_after-finish"
+    },
+    {
+      "id": "finished-context",
+      "op": "model.messages",
+      "contains": "Current runtime context",
+      "bind": "finished-context",
+      "selection": "last"
+    },
+    {
+      "id": "finished-context-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "finished-context.text"
+      },
+      "operator": "not_contains",
+      "expected": "TASK_REVISED_2718"
+    },
+    {
+      "id": "other-session",
+      "op": "ui.new_session"
+    },
+    {
+      "id": "other-session-read",
+      "op": "model.reply",
+      "user": "发送 other-session-read",
+      "text": "REPLIED_other-session-read"
+    },
+    {
+      "id": "isolated-context",
+      "op": "model.messages",
+      "contains": "Current runtime context",
+      "bind": "isolated-context",
+      "selection": "last"
+    },
+    {
+      "id": "isolated-context-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "isolated-context.text"
+      },
+      "operator": "not_contains",
+      "expected": "TASK_REVISED_2718"
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "timeout": 360,
+  "browser_skill": false,
+  "note": "按 DSH 正式动态上下文规则核对最后一个有效快照；修订前快照可能留在历史中，不把历史删除冒充插件能力。"
+}

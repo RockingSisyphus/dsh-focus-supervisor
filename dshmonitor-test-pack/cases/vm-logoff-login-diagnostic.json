@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "vm-logoff-login-diagnostic",
+  "title": "真实 Linux Wayland 基线注销与登录驱动诊断",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "desktop-contract",
+  "verification_layer": "desktop",
+  "group": "manual",
+  "platforms": [
+    "linux"
+  ],
+  "features": [
+    "test-reporting"
+  ],
+  "installation": "fresh",
+  "timeout": 240,
+  "steps": [
+    {
+      "id": "logout",
+      "op": "vm.desktop_session",
+      "action": "logout"
+    },
+    {
+      "id": "login",
+      "op": "vm.desktop_session",
+      "action": "login"
+    }
+  ]
+}

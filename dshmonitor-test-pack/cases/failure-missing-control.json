@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "manual",
+  "verification": "desktop-contract",
+  "timeout": 90,
+  "features": [
+    "test-reporting"
+  ],
+  "intentional_failure": true,
+  "id": "failure-missing-control",
+  "title": "预期失败注入：failure-missing-control",
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "missing-control",
+      "op": "ui.click",
+      "selector": "button[data-nonexistent-test-control]",
+      "timeout": 2
+    }
+  ],
+  "verification_layer": "desktop"
+}

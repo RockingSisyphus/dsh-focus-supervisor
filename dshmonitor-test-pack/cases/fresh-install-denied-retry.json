@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "id": "fresh-install-denied-retry",
+  "title": "新机安装真实取消授权后重试安装",
+  "engine": "dsh",
+  "features": [
+    "settings-ui",
+    "desktop-setup"
+  ],
+  "preview": true,
+  "npm_install": true,
+  "timeout": 1200,
+  "note": "仅在干净来宾执行；真实 DSH、实际安装按钮和系统授权。系统重新登录由外层 JSON 编排。",
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "panel",
+      "op": "ui.open",
+      "bind": "panel"
+    },
+    {
+      "id": "card-needs-install",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.setup_card.state"
+      },
+      "operator": "equals",
+      "expected": "required"
+    },
+    {
+      "id": "cancel-install-click",
+      "op": "ui.click",
+      "selector": "button[data-dafeiyu-setup-install]"
+    },
+    {
+      "id": "cancel-real-authorization",
+      "op": "native.authorize",
+      "accept": false
+    },
+    {
+      "id": "cancel-result",
+      "op": "ui.wait_plugin_state",
+      "path": "setup_install.state",
+      "one_of": [
+        "cancelled",
+        "failed"
+      ],
+      "timeout": 30,
+      "bind": "cancelled"
+    },
+    {
+      "id": "cancel-still-uninstalled",
+      "op": "assert",
+      "actual": {
+        "$ref": "cancelled.setup.required"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "click-install",
+      "op": "ui.click",
+      "selector": "button[data-dafeiyu-setup-install]"
+    },
+    {
+      "id": "authorize-real-dialog",
+      "op": "native.authorize"
+    },
+    {
+      "id": "installed-via-click",
+      "op": "ui.wait_plugin_state",
+      "path": "setup_install.state",
+      "equals": "ok",
+      "timeout": 600
+    },
+    {
+      "id": "plugin-install-state",
+      "op": "ui.plugin_state",
+      "bind": "plugin"
+    },
+    {
+      "id": "install-state-is-ok",
+      "op": "assert",
+      "actual": {
+        "$ref": "plugin.setup_install.state"
+      },
+      "operator": "equals",
+      "expected": "ok"
+    },
+    {
+      "id": "installed-chat",
+      "op": "model.reply",
+      "user": "安装后验证聊天",
+      "text": "安装后真实模型通道可用。",
+      "bind": "reply"
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "installation": "fresh",
+  "verification_layer": "dsh"
+}

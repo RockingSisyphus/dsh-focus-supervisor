@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "id": "ui-setup-card",
+  "title": "市场安装后的一键补齐后台卡片",
+  "engine": "dsh",
+  "features": [
+    "settings-ui",
+    "desktop-setup"
+  ],
+  "preview": true,
+  "timeout": 180,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "panel",
+      "op": "ui.open",
+      "bind": "panel"
+    },
+    {
+      "id": "card-shown",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.setup_card.state"
+      },
+      "operator": "equals",
+      "expected": "required"
+    },
+    {
+      "id": "card-has-install-button",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.setup_card.button"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "card-explains-the-gap",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.setup_card.text"
+      },
+      "operator": "contains",
+      "expected": "还差一步"
+    },
+    {
+      "id": "card-shows-verified-payload",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.setup_card.text"
+      },
+      "operator": "contains",
+      "expected": "校验通过"
+    },
+    {
+      "id": "card-shows-platform-installer",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.setup_card.text"
+      },
+      "operator": "contains",
+      "expected": {
+        "$ref": "platform_installer"
+      }
+    },
+    {
+      "id": "shot-setup-card",
+      "op": "ui.screenshot",
+      "name": "10-setup-card"
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux"
+  ],
+  "verification": "product",
+  "installation": "fresh"
+}

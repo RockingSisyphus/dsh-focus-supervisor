@@ -1,0 +1,65 @@
+{
+  "name": "dsh-focus-supervisor",
+  "version": "0.4.0",
+  "type": "module",
+  "main": "plugin.mjs",
+  "description": "DSH chat-native task supervision with an independent system service",
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.2",
+    "@deepseek-ai/schemastery": "^3.18.2"
+  },
+  "exports": {
+    ".": "./plugin.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./bundle.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-workspace"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "test": "node --test chat-test.mjs model-output-test.mjs visibility-test.mjs mascot-test.mjs setup-test.mjs",
+    "prepack": "node ../scripts/build-backend-package.mjs"
+  },
+  "files": [
+    "plugin.mjs",
+    "chat-host.mjs",
+    "model-output.mjs",
+    "mascot-state.mjs",
+    "client.js",
+    "assets/",
+    "default-prompts.json",
+    "setup.mjs",
+    "bundle.patch.yml",
+    "backend/",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "license": "AGPL-3.0-only",
+  "author": "RockingSisyphus",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RockingSisyphus/dsh-focus-supervisor.git",
+    "directory": "dsh-plugin"
+  },
+  "homepage": "https://github.com/RockingSisyphus/dsh-focus-supervisor",
+  "bugs": {
+    "url": "https://github.com/RockingSisyphus/dsh-focus-supervisor/issues"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "productivity",
+    "desktop",
+    "supervisor"
+  ]
+}

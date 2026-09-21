@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "windows-install-upgrade",
+  "title": "现有 Windows 系统真实授权安装或升级，随后通过 DSH 验证",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "extended",
+  "platforms": [
+    "windows"
+  ],
+  "installation": "existing-system",
+  "features": [
+    "desktop-setup"
+  ],
+  "timeout": 1500,
+  "steps": [
+    {
+      "id": "installer",
+      "op": "vm.command.start",
+      "argv": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "deploy/install-windows.ps1"
+      ]
+    },
+    {
+      "id": "authorize",
+      "op": "vm.authorize"
+    },
+    {
+      "id": "installed",
+      "op": "vm.command.wait",
+      "command": "installer",
+      "timeout": 1200,
+      "bind": "installer"
+    },
+    {
+      "id": "installer-exit",
+      "op": "assert",
+      "actual": {
+        "$ref": "installer.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "use-installed-plugin",
+      "op": "case.run",
+      "cases": [
+        "chat-replies",
+        "task-api"
+      ],
+      "bind": "use"
+    },
+    {
+      "id": "normal-use-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "use.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

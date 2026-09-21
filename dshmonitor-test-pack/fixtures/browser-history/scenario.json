@@ -1,0 +1,11 @@
+{
+ "task":"阅读事务教程，理解提交、回滚和原子性。",
+ "real_stage_seconds":5,
+ "stages":[
+  {"action":"article","page":"事务笔记","kind":"work","seconds":120,"fact":"青松"},
+  {"action":"scroll","page":"事务笔记","kind":"work","seconds":120,"fact":"白鹭"},
+  {"action":"game","page":"方块乐园","kind":"entertainment","seconds":100,"fact":"四十二"},
+  {"action":"reference","page":"数据库术语速查","kind":"work","seconds":140,"fact":"银杏","background":"方块乐园"},
+  {"action":"return","page":"事务笔记","kind":"work","seconds":120,"fact":"白鹭","background":"方块乐园"}
+ ]
+}

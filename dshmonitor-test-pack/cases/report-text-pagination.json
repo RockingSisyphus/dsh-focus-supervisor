@@ -1,0 +1,435 @@
+{
+  "schemaVersion": 1,
+  "id": "report-text-pagination",
+  "title": "真实 DSH 冻结正文分页、重复读取及任务清理",
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "verification": "product",
+  "timeout": 240,
+  "features": [
+    "evidence",
+    "cleanup",
+    "report-pagination"
+  ],
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "fixture",
+      "op": "fixture.app",
+      "entity": "editor",
+      "windows": [
+        {
+          "id": "target",
+          "title": "DSH pagination fixture",
+          "rect": [
+            30,
+            40,
+            850,
+            650
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "PAGE_PART_0_abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij"
+            },
+            {
+              "type": "edit",
+              "text": "PAGE_PART_1_abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij"
+            },
+            {
+              "type": "edit",
+              "text": "PAGE_PART_2_abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij"
+            }
+          ]
+        }
+      ],
+      "bind": "fixture"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "建立真实桌面闭环任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "阅读测试文字，分心时提醒",
+        "task_prompt": "只验证测试夹具",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "check_interval_seconds": 6,
+        "allow_early_finish": true,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "task-created",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.id"
+      },
+      "operator": "exists",
+      "expected": true
+    },
+    {
+      "id": "activate",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "activate"
+    },
+    {
+      "id": "report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "timeout": 70,
+      "bind": "report",
+      "window_id": {
+        "$ref": "fixture.target.window_id"
+      },
+      "detail_after": {
+        "$ref": "scenario_started_at"
+      },
+      "minimum_samples": 2
+    },
+    {
+      "id": "target",
+      "op": "report.target",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "entity": "target",
+      "bind": "target"
+    },
+    {
+      "id": "page-one",
+      "op": "model.call",
+      "user": "读取正式冻结报告：page-one",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "operation": "read_evidence_text",
+        "arguments_json": {
+          "$json": {
+            "reference": {
+              "$ref": "target.ref"
+            },
+            "offset": 0
+          }
+        }
+      },
+      "bind": "page1"
+    },
+    {
+      "id": "has-second-page",
+      "op": "assert",
+      "actual": {
+        "$ref": "page1.value.next_offset"
+      },
+      "operator": "equals",
+      "expected": 4000
+    },
+    {
+      "id": "page-two",
+      "op": "model.call",
+      "user": "读取正式冻结报告：page-two",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "operation": "read_evidence_text",
+        "arguments_json": {
+          "$json": {
+            "reference": {
+              "$ref": "target.ref"
+            },
+            "offset": {
+              "$ref": "page1.value.next_offset"
+            }
+          }
+        }
+      },
+      "bind": "page2"
+    },
+    {
+      "id": "last-page",
+      "op": "assert",
+      "actual": {
+        "$ref": "page2.value.next_offset"
+      },
+      "operator": "equals",
+      "expected": null
+    },
+    {
+      "id": "complete-no-omission-or-repeat",
+      "op": "assert",
+      "actual": {
+        "$concat": [
+          {
+            "$ref": "page1.value.text"
+          },
+          {
+            "$ref": "page2.value.text"
+          }
+        ]
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "target.evidence.text"
+      }
+    },
+    {
+      "id": "same-page-repeat",
+      "op": "model.call",
+      "user": "读取正式冻结报告：same-page-repeat",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "operation": "read_evidence_text",
+        "arguments_json": {
+          "$json": {
+            "reference": {
+              "$ref": "target.ref"
+            },
+            "offset": 0
+          }
+        }
+      },
+      "bind": "repeat"
+    },
+    {
+      "id": "frozen-repeat",
+      "op": "assert",
+      "actual": {
+        "$ref": "repeat.value"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "page1.value"
+      }
+    },
+    {
+      "id": "program-directory",
+      "op": "model.call",
+      "user": "读取正式冻结报告：program-directory",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "operation": "list_programs",
+        "arguments_json": {
+          "$json": {
+            "offset": 0
+          }
+        }
+      },
+      "bind": "programs"
+    },
+    {
+      "id": "programs-exist",
+      "op": "assert",
+      "actual": {
+        "$ref": "programs.value.total"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "branch",
+      "op": "model.call",
+      "user": "通过正式工具读取证据 branch",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "operation": "read_program_report",
+        "arguments_json": {
+          "$json": {
+            "program_id": {
+              "$ref": "programs.value.programs.0.id"
+            },
+            "offset": 0
+          }
+        }
+      },
+      "bind": "branch"
+    },
+    {
+      "id": "branch-matches-directory",
+      "op": "assert",
+      "actual": {
+        "$ref": "branch.value.program"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "programs.value.programs.0.app"
+      }
+    },
+    {
+      "id": "inspect-target",
+      "op": "model.call",
+      "user": "通过正式工具读取证据 inspect-target",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "operation": "inspect_evidence",
+        "arguments_json": {
+          "$json": {
+            "references": [
+              {
+                "$ref": "target.ref"
+              }
+            ]
+          }
+        }
+      },
+      "bind": "inspected"
+    },
+    {
+      "id": "inspect-right-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "inspected.raw"
+      },
+      "operator": "contains",
+      "expected": "DSH pagination fixture"
+    },
+    {
+      "id": "window-screenshot",
+      "op": "model.call",
+      "user": "通过正式工具读取证据 window-screenshot",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "operation": "view_screenshot",
+        "arguments_json": {
+          "$json": {
+            "reference": {
+              "$ref": "target.ref"
+            }
+          }
+        }
+      },
+      "bind": "image"
+    },
+    {
+      "id": "screenshot-result",
+      "op": "assert",
+      "actual": {
+        "$ref": "image.value.error"
+      },
+      "operator": "exists",
+      "expected": false
+    },
+    {
+      "id": "reexport",
+      "op": "model.call",
+      "user": "通过正式工具读取证据 reexport",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "operation": "get_overview",
+        "arguments_json": {
+          "$json": {}
+        }
+      },
+      "bind": "overview"
+    },
+    {
+      "id": "same-report-reexport",
+      "op": "assert",
+      "actual": {
+        "$ref": "overview.value.report_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "report.id"
+      }
+    },
+    {
+      "id": "reexport-no-permission-error",
+      "op": "assert",
+      "actual": {
+        "$ref": "overview.value.evidence_export.error"
+      },
+      "operator": "exists",
+      "expected": false
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "结束测试任务",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "结束本轮测试"
+      }
+    },
+    {
+      "id": "read-after-finish",
+      "op": "model.call",
+      "user": "读取正式冻结报告：read-after-finish",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "operation": "read_evidence_text",
+        "arguments_json": {
+          "$json": {
+            "reference": {
+              "$ref": "target.ref"
+            },
+            "offset": 0
+          }
+        }
+      },
+      "bind": "gone"
+    },
+    {
+      "id": "report-cleaned",
+      "op": "assert",
+      "actual": {
+        "$ref": "gone.raw"
+      },
+      "operator": "contains",
+      "expected": "报告不存在或已随任务结束清理"
+    }
+  ],
+  "present_user": true
+}

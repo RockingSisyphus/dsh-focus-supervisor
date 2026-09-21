@@ -1,0 +1,569 @@
+{
+  "schemaVersion": 1,
+  "id": "reminder-focus-many-tabs",
+  "title": "30 个真实标签中的后台 DSH 唤回",
+  "engine": "dsh",
+  "features": [
+    "live-reminder-delivery",
+    "ui-navigation"
+  ],
+  "preview": true,
+  "present_user": false,
+  "timeout": 600,
+  "live_desktop": true,
+  "note": "生产唤回动作后先独立观察原生窗口，测试器不恢复或反复激活 DSH。",
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "脚本模拟：结合真实采集核对任务，不要求提交文件。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 86400
+      },
+      "end_at": {
+        "$iso_after": 90000
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss",
+      "check_interval_seconds": 6
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "我想预约阅读事务论文，允许提前完成；遇到问题可以商量延期。",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "reminder",
+      "op": "model.call",
+      "user": "请提醒我回到监工聊天。switch-existing-tab",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "start",
+        "message": "任务已建好，点下面的按钮回到监工会话。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "reminder-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "session-b",
+      "op": "ui.new_session"
+    },
+    {
+      "id": "message-b",
+      "op": "model.reply",
+      "user": "焦点回归会话 B",
+      "text": "这是另一个真实会话。"
+    },
+    {
+      "id": "bind-dsh",
+      "op": "fixture.page",
+      "entity": "dsh"
+    },
+    {
+      "id": "editor",
+      "op": "fixture.app",
+      "entity": "editor-app",
+      "windows": [
+        {
+          "id": "editor",
+          "title": "DSH focus regression input",
+          "controls": [
+            {
+              "type": "edit",
+              "text": ""
+            }
+          ],
+          "rect": [
+            80,
+            120,
+            500,
+            350
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cover-tab",
+      "op": "fixture.browser",
+      "entity": "cover",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Background cover</title><input>"
+    },
+    {
+      "id": "extra-tab-0",
+      "op": "fixture.browser",
+      "entity": "extra-0",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 0</title><input>"
+    },
+    {
+      "id": "extra-tab-1",
+      "op": "fixture.browser",
+      "entity": "extra-1",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 1</title><input>"
+    },
+    {
+      "id": "extra-tab-2",
+      "op": "fixture.browser",
+      "entity": "extra-2",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 2</title><input>"
+    },
+    {
+      "id": "extra-tab-3",
+      "op": "fixture.browser",
+      "entity": "extra-3",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 3</title><input>"
+    },
+    {
+      "id": "extra-tab-4",
+      "op": "fixture.browser",
+      "entity": "extra-4",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 4</title><input>"
+    },
+    {
+      "id": "extra-tab-5",
+      "op": "fixture.browser",
+      "entity": "extra-5",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 5</title><input>"
+    },
+    {
+      "id": "extra-tab-6",
+      "op": "fixture.browser",
+      "entity": "extra-6",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 6</title><input>"
+    },
+    {
+      "id": "extra-tab-7",
+      "op": "fixture.browser",
+      "entity": "extra-7",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 7</title><input>"
+    },
+    {
+      "id": "extra-tab-8",
+      "op": "fixture.browser",
+      "entity": "extra-8",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 8</title><input>"
+    },
+    {
+      "id": "extra-tab-9",
+      "op": "fixture.browser",
+      "entity": "extra-9",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 9</title><input>"
+    },
+    {
+      "id": "extra-tab-10",
+      "op": "fixture.browser",
+      "entity": "extra-10",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 10</title><input>"
+    },
+    {
+      "id": "extra-tab-11",
+      "op": "fixture.browser",
+      "entity": "extra-11",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 11</title><input>"
+    },
+    {
+      "id": "extra-tab-12",
+      "op": "fixture.browser",
+      "entity": "extra-12",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 12</title><input>"
+    },
+    {
+      "id": "extra-tab-13",
+      "op": "fixture.browser",
+      "entity": "extra-13",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 13</title><input>"
+    },
+    {
+      "id": "extra-tab-14",
+      "op": "fixture.browser",
+      "entity": "extra-14",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 14</title><input>"
+    },
+    {
+      "id": "extra-tab-15",
+      "op": "fixture.browser",
+      "entity": "extra-15",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 15</title><input>"
+    },
+    {
+      "id": "extra-tab-16",
+      "op": "fixture.browser",
+      "entity": "extra-16",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 16</title><input>"
+    },
+    {
+      "id": "extra-tab-17",
+      "op": "fixture.browser",
+      "entity": "extra-17",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 17</title><input>"
+    },
+    {
+      "id": "extra-tab-18",
+      "op": "fixture.browser",
+      "entity": "extra-18",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 18</title><input>"
+    },
+    {
+      "id": "extra-tab-19",
+      "op": "fixture.browser",
+      "entity": "extra-19",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 19</title><input>"
+    },
+    {
+      "id": "extra-tab-20",
+      "op": "fixture.browser",
+      "entity": "extra-20",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 20</title><input>"
+    },
+    {
+      "id": "extra-tab-21",
+      "op": "fixture.browser",
+      "entity": "extra-21",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 21</title><input>"
+    },
+    {
+      "id": "extra-tab-22",
+      "op": "fixture.browser",
+      "entity": "extra-22",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 22</title><input>"
+    },
+    {
+      "id": "extra-tab-23",
+      "op": "fixture.browser",
+      "entity": "extra-23",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 23</title><input>"
+    },
+    {
+      "id": "extra-tab-24",
+      "op": "fixture.browser",
+      "entity": "extra-24",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 24</title><input>"
+    },
+    {
+      "id": "extra-tab-25",
+      "op": "fixture.browser",
+      "entity": "extra-25",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 25</title><input>"
+    },
+    {
+      "id": "extra-tab-26",
+      "op": "fixture.browser",
+      "entity": "extra-26",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 26</title><input>"
+    },
+    {
+      "id": "extra-tab-27",
+      "op": "fixture.browser",
+      "entity": "extra-27",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Focus load tab 27</title><input>"
+    },
+    {
+      "id": "tab-count",
+      "op": "fixture.browser_state",
+      "entity": "dsh",
+      "bind": "tabs"
+    },
+    {
+      "id": "thirty-tabs",
+      "op": "assert",
+      "actual": {
+        "$ref": "tabs.count"
+      },
+      "operator": "equals",
+      "expected": 30
+    },
+    {
+      "id": "other-window",
+      "op": "fixture.browser",
+      "entity": "other",
+      "html": "<title>Other browser window</title><input>"
+    },
+    {
+      "id": "minimize-dsh",
+      "op": "fixture.window",
+      "entity": "dsh",
+      "action": "minimize"
+    },
+    {
+      "id": "minimized-tab-selection",
+      "op": "fixture.browser_state",
+      "entity": "dsh",
+      "bind": "minimized_tabs"
+    },
+    {
+      "id": "before",
+      "op": "fixture.observe",
+      "entity": "dsh",
+      "bind": "before"
+    },
+    {
+      "id": "pre-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.window.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "pre-background",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.visibility"
+      },
+      "operator": "equals",
+      "expected": "hidden"
+    },
+    {
+      "id": "tabs-before",
+      "op": "fixture.browser_inventory",
+      "bind": "tabs_before"
+    },
+    {
+      "id": "click-reminder",
+      "op": "desktop.popup_click",
+      "wait_closed": false
+    },
+    {
+      "id": "request-finished",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "completion"
+    },
+    {
+      "id": "completion-within-budget",
+      "op": "assert",
+      "actual": {
+        "$ref": "completion.elapsed_seconds"
+      },
+      "operator": "lt",
+      "expected": 10,
+      "continue_on_failure": true
+    },
+    {
+      "id": "request-succeeded",
+      "op": "assert",
+      "actual": {
+        "$ref": "completion.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed",
+      "continue_on_failure": true
+    },
+    {
+      "id": "native-state",
+      "op": "fixture.wait",
+      "entity": "dsh",
+      "bind": "native",
+      "expected": {
+        "window.minimized": false,
+        "window.focused": true,
+        "visibility": "visible"
+      },
+      "timeout": 10
+    },
+    {
+      "id": "focus-diagnostics",
+      "op": "ui.focus_diagnostics"
+    },
+    {
+      "id": "actually-restored",
+      "op": "assert",
+      "actual": {
+        "$ref": "native.window.minimized"
+      },
+      "operator": "equals",
+      "expected": false,
+      "continue_on_failure": true
+    },
+    {
+      "id": "actually-focused",
+      "op": "assert",
+      "actual": {
+        "$ref": "native.window.focused"
+      },
+      "operator": "equals",
+      "expected": true,
+      "continue_on_failure": true
+    },
+    {
+      "id": "right-session",
+      "op": "ui.wait_focused_session",
+      "session_id": {
+        "$ref": "result.value.session_id"
+      }
+    },
+    {
+      "id": "selected-tab",
+      "op": "assert",
+      "actual": {
+        "$ref": "native.visibility"
+      },
+      "operator": "equals",
+      "expected": "visible"
+    },
+    {
+      "id": "tabs-after",
+      "op": "fixture.browser_inventory",
+      "bind": "tabs_after"
+    },
+    {
+      "id": "no-duplicate-tab",
+      "op": "assert",
+      "actual": {
+        "$ref": "tabs_after.total"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "tabs_before.total"
+      }
+    },
+    {
+      "id": "focus-editor",
+      "op": "fixture.interact",
+      "entity": "editor",
+      "action": "focus"
+    },
+    {
+      "id": "no-focus-steal",
+      "op": "fixture.watch_input",
+      "entity": "editor",
+      "seconds": 30,
+      "chunks": [
+        "alpha",
+        "beta",
+        "gamma"
+      ],
+      "bind": "watch"
+    },
+    {
+      "id": "focus-retained",
+      "op": "assert",
+      "actual": {
+        "$ref": "watch.focus_retained"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "typed-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "watch.input_text"
+      },
+      "operator": "contains",
+      "expected": "alphabetagamma"
+    },
+    {
+      "id": "return-user",
+      "op": "fixture.window",
+      "entity": "dsh",
+      "action": "activate"
+    },
+    {
+      "id": "responding",
+      "op": "model.reply",
+      "user": "恢复后界面响应验证",
+      "text": "消息通道仍正常。"
+    }
+  ],
+  "visible_browser": true,
+  "real_tab_visibility": true,
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

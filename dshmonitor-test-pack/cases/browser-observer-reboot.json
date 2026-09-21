@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "id": "browser-observer-reboot",
+  "title": "现有系统：同一浏览器profile与原任务跨重启保留只读采集",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "persistent_session": true,
+  "verification": "product",
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "persistence",
+    "heartbeat",
+    "desktop-setup",
+    "evidence",
+    "actions",
+    "live-reminder-delivery",
+    "system-startup"
+  ],
+  "timeout": 2400,
+  "steps": [
+    {
+      "id": "prepare",
+      "op": "case.run",
+      "cases": [
+        "fresh-install-task"
+      ],
+      "bind": "before"
+    },
+    {
+      "id": "prepare-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "saved-task",
+      "op": "vm.checkpoint",
+      "bind": "saved"
+    },
+    {
+      "id": "reboot",
+      "op": "vm.reboot",
+      "bind": "boot"
+    },
+    {
+      "id": "different-boot",
+      "op": "assert",
+      "actual": {
+        "$ref": "boot.after"
+      },
+      "operator": "not_equals",
+      "expected": {
+        "$ref": "boot.before"
+      }
+    },
+    {
+      "id": "service-sampled-before-dsh",
+      "op": "vm.observe_service",
+      "task_id": {
+        "$ref": "saved.task.value.id"
+      },
+      "sampled_after": {
+        "$ref": "boot.completed_at"
+      },
+      "timeout": 90,
+      "bind": "recovered_service",
+      "capture_error": null
+    },
+    {
+      "id": "same-task-before-dsh",
+      "op": "assert",
+      "actual": {
+        "$ref": "recovered_service.task.id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "saved.task.value.id"
+      }
+    },
+    {
+      "id": "sampling-without-error",
+      "op": "assert",
+      "actual": {
+        "$ref": "recovered_service.state.capture_error"
+      },
+      "operator": "equals",
+      "expected": null
+    },
+    {
+      "id": "resume",
+      "op": "case.run",
+      "cases": [
+        "fresh-install-resume"
+      ],
+      "bind": "after"
+    },
+    {
+      "id": "resume-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ],
+  "verification_layer": "dsh",
+  "note": "沿用历史用例 ID 以对应旧报告；本轮改为系统无障碍采集，不加载自有浏览器扩展。"
+}

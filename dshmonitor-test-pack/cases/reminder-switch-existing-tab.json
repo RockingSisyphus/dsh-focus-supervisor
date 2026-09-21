@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 1,
+  "id": "reminder-switch-existing-tab",
+  "title": "提醒按钮切到已开着的 DSH 页面并把窗口带到前台，不再多开标签页",
+  "engine": "dsh",
+  "features": [
+    "live-reminder-delivery",
+    "ui-navigation"
+  ],
+  "preview": true,
+  "present_user": true,
+  "timeout": 360,
+  "live_desktop": true,
+  "note": "真实普通浏览器（关闭 Playwright 焦点模拟）：切走监工会话、把 DSH 放在后台标签页，点击原生弹窗后验证正确会话、原窗口前台及三次点击不新增标签页。",
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "脚本模拟：结合真实采集核对任务，不要求提交文件。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 86400
+      },
+      "end_at": {
+        "$iso_after": 90000
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss",
+      "check_interval_seconds": 6
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "我想预约阅读事务论文，允许提前完成；遇到问题可以商量延期。",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "reminder",
+      "op": "model.call",
+      "user": "请提醒我回到监工聊天。switch-existing-tab",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "start",
+        "message": "任务已建好，点下面的按钮回到监工会话。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "reminder-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "reminder-capture",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "page-just-polled",
+      "op": "ui.plugin_state",
+      "bind": "polled"
+    },
+    {
+      "id": "switch-away-from-target",
+      "op": "ui.new_session"
+    },
+    {
+      "id": "dsh-window",
+      "op": "desktop.find_window",
+      "title": "DeepSeek Harness",
+      "bind": "dsh_window"
+    },
+    {
+      "id": "hide-dsh-behind-another-tab",
+      "op": "ui.background_page"
+    },
+    {
+      "id": "pages-before",
+      "op": "ui.page_count",
+      "bind": "before"
+    },
+    {
+      "id": "click-reminder",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "click-reminder-completed",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "focus_result"
+    },
+    {
+      "id": "click-reminder-success",
+      "op": "assert",
+      "actual": {
+        "$ref": "focus_result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "plugin-after-click",
+      "op": "ui.plugin_state",
+      "bind": "after_click"
+    },
+    {
+      "id": "page-took-the-switch",
+      "op": "assert",
+      "actual": {
+        "$ref": "after_click.focus_request.claimed_at"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "requested-the-right-session",
+      "op": "assert",
+      "actual": {
+        "$ref": "after_click.focus_request.session"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "result.value.session_id"
+      }
+    },
+    {
+      "id": "switched-to-session",
+      "op": "ui.wait_focused_session",
+      "session_id": {
+        "$ref": "result.value.session_id"
+      }
+    },
+    {
+      "id": "pages-after",
+      "op": "ui.page_count",
+      "bind": "after"
+    },
+    {
+      "id": "no-extra-browser-tab",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.pages"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "before.pages"
+      }
+    },
+    {
+      "id": "windows-now",
+      "op": "desktop.capture",
+      "bind": "windows"
+    },
+    {
+      "id": "focused-window",
+      "op": "desktop.focused_title",
+      "bind": "focused"
+    },
+    {
+      "id": "existing-window-came-forward",
+      "op": "assert",
+      "actual": {
+        "$ref": "focused.id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "dsh_window.id"
+      }
+    },
+    {
+      "id": "focused-window-is-the-dsh-page",
+      "op": "assert",
+      "actual": {
+        "$ref": "focused.title"
+      },
+      "operator": "contains",
+      "expected": "DeepSeek Harness"
+    },
+    {
+      "id": "reminder-2",
+      "op": "model.call",
+      "user": "请提醒我回到监工聊天。switch-existing-tab",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "start",
+        "message": "任务已建好，点下面的按钮回到监工会话。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "reminder-delivered-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "reminder-capture-2",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "pages-before-2",
+      "op": "ui.page_count",
+      "bind": "before"
+    },
+    {
+      "id": "click-reminder-2",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "click-reminder-2-completed",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "focus_result"
+    },
+    {
+      "id": "click-reminder-2-success",
+      "op": "assert",
+      "actual": {
+        "$ref": "focus_result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "switched-to-session-2",
+      "op": "ui.wait_focused_session",
+      "session_id": {
+        "$ref": "result.value.session_id"
+      }
+    },
+    {
+      "id": "pages-after-2",
+      "op": "ui.page_count",
+      "bind": "after"
+    },
+    {
+      "id": "no-extra-browser-tab-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.pages"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "before.pages"
+      }
+    },
+    {
+      "id": "focused-window-2",
+      "op": "desktop.focused_title",
+      "bind": "focused"
+    },
+    {
+      "id": "focused-window-is-the-dsh-page-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "focused.title"
+      },
+      "operator": "contains",
+      "expected": "DeepSeek Harness"
+    },
+    {
+      "id": "reminder-3",
+      "op": "model.call",
+      "user": "请提醒我回到监工聊天。switch-existing-tab",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "start",
+        "message": "任务已建好，点下面的按钮回到监工会话。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "reminder-delivered-3",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "reminder-capture-3",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "pages-before-3",
+      "op": "ui.page_count",
+      "bind": "before"
+    },
+    {
+      "id": "click-reminder-3",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "click-reminder-3-completed",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "focus_result"
+    },
+    {
+      "id": "click-reminder-3-success",
+      "op": "assert",
+      "actual": {
+        "$ref": "focus_result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "switched-to-session-3",
+      "op": "ui.wait_focused_session",
+      "session_id": {
+        "$ref": "result.value.session_id"
+      }
+    },
+    {
+      "id": "pages-after-3",
+      "op": "ui.page_count",
+      "bind": "after"
+    },
+    {
+      "id": "no-extra-browser-tab-3",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.pages"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "before.pages"
+      }
+    },
+    {
+      "id": "focused-window-3",
+      "op": "desktop.focused_title",
+      "bind": "focused"
+    },
+    {
+      "id": "focused-window-is-the-dsh-page-3",
+      "op": "assert",
+      "actual": {
+        "$ref": "focused.title"
+      },
+      "operator": "contains",
+      "expected": "DeepSeek Harness"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "联调完成，取消这条预约任务。",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "提醒切换已有页面测试完成"
+      }
+    }
+  ],
+  "visible_browser": true,
+  "real_tab_visibility": true,
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

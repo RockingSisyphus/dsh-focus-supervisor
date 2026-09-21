@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "ui-setup-click",
+  "title": "npm 安装后点击按钮走完第二半安装（真实 pkexec 提权 + 真实安装器，仅限一次性虚拟机）",
+  "engine": "dsh",
+  "features": [
+    "settings-ui",
+    "desktop-setup"
+  ],
+  "preview": true,
+  "npm_install": true,
+  "timeout": 1200,
+  "note": "真实 npm 插件安装、普通用户 DSH、点击正式安装按钮并处理系统权限界面。测试器不删除已有安装、不替换 pkexec、不配置免密规则；Windows 使用现有系统。",
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "panel",
+      "op": "ui.open",
+      "bind": "panel"
+    },
+    {
+      "id": "card-needs-install",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.setup_card.state"
+      },
+      "operator": "equals",
+      "expected": "required"
+    },
+    {
+      "id": "click-install",
+      "op": "ui.click",
+      "selector": "button[data-dafeiyu-setup-install]"
+    },
+    {
+      "id": "authorize-real-dialog",
+      "op": "native.authorize"
+    },
+    {
+      "id": "installed-via-click",
+      "op": "ui.wait_plugin_state",
+      "path": "setup_install.state",
+      "equals": "ok",
+      "timeout": 600
+    },
+    {
+      "id": "plugin-install-state",
+      "op": "ui.plugin_state",
+      "bind": "plugin"
+    },
+    {
+      "id": "install-state-is-ok",
+      "op": "assert",
+      "actual": {
+        "$ref": "plugin.setup_install.state"
+      },
+      "operator": "equals",
+      "expected": "ok"
+    },
+    {
+      "id": "elevation-was-pkexec",
+      "op": "assert",
+      "actual": {
+        "$ref": "plugin.setup_install.mode"
+      },
+      "operator": "equals",
+      "expected": "pkexec"
+    },
+    {
+      "id": "installed-chat",
+      "op": "model.reply",
+      "user": "安装后验证聊天",
+      "text": "安装后真实模型通道可用。",
+      "bind": "reply"
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux"
+  ],
+  "verification": "product",
+  "installation": "fresh"
+}

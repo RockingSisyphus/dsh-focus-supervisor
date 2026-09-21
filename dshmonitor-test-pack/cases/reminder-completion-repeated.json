@@ -1,0 +1,484 @@
+{
+  "schemaVersion": 1,
+  "id": "reminder-completion-repeated",
+  "title": "最小复现：任务验收后的单次完成提醒唤回（同任务连续3次）",
+  "engine": "dsh",
+  "features": [
+    "live-reminder-delivery"
+  ],
+  "preview": true,
+  "present_user": true,
+  "timeout": 360,
+  "variables": {
+    "active_start": {
+      "$iso_after": 0
+    },
+    "contract": {
+      "agreement": "阅读事务论文，能解释提交与回滚；通过聊天讨论验收。",
+      "task_prompt": "此为脚本模拟人工审核场景。结合真实采集和用户解释检查任务，不要求提交文件。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 86400
+      },
+      "end_at": {
+        "$iso_after": 90000
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss",
+      "check_interval_seconds": 6
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "create-native-fixture",
+      "op": "fixture.app",
+      "entity": "legacy-app",
+      "windows": [
+        {
+          "title": "论文阅读 · 人工审核测试",
+          "rect": [
+            30,
+            40,
+            720,
+            430
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "正在阅读论文：事务提交与回滚。\n这是专用测试窗口。"
+            }
+          ],
+          "id": "legacy-0"
+        }
+      ]
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "我想预约阅读事务论文，允许提前完成；遇到问题可以商量延期。",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "start",
+      "op": "model.call",
+      "user": "我准备好了，把预约提前到现在开始，先给我一小时。",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "task.value.id"
+            },
+            "start_at": {
+              "$ref": "active_start"
+            },
+            "end_at": {
+              "$iso_after": 3600
+            },
+            "reason": "人工审核场景：用户协商提前开工"
+          }
+        ]
+      },
+      "bind": "active"
+    },
+    {
+      "id": "wait-active",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "status": "active"
+    },
+    {
+      "id": "start-check-model",
+      "op": "heartbeat.enable",
+      "decision": "on_task",
+      "reason": "固定测试判断：任务开始，真实窗口显示论文阅读。"
+    },
+    {
+      "id": "start-check-preview",
+      "op": "report.next",
+      "bind": "report",
+      "timeout": 30
+    },
+    {
+      "id": "start-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "start-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "on_task"
+    },
+    {
+      "id": "bind-dsh",
+      "op": "fixture.page",
+      "entity": "dsh",
+      "bind": "dsh_before"
+    },
+    {
+      "id": "cycle-1-resume-reading",
+      "op": "desktop.activity",
+      "title": "论文阅读 · 人工审核测试",
+      "text": "继续阅读论文：事务隔离与一致性。\n准备解释提交与回滚的区别。",
+      "entity": "legacy-0"
+    },
+    {
+      "id": "cycle-1-verification-question",
+      "op": "model.reply",
+      "user": "我已经读完了，可以提前验收吗？（第1轮小测试）",
+      "text": "可以。请解释事务提交和回滚的区别，以及什么时候需要回滚。（第1轮小测试）"
+    },
+    {
+      "id": "cycle-1-verification-answer",
+      "op": "model.reply",
+      "user": "提交会使修改正式生效；回滚会撤销未提交的修改。遇到错误或无法满足一致性条件时应回滚。（第1轮小测试）",
+      "text": "演示验收结论：回答符合这次约定，可以提前结束。这是固定测试结论，不代表真实模型评审质量。（第1轮小测试）"
+    },
+    {
+      "id": "cycle-1-congratulations",
+      "op": "model.call",
+      "user": "请按刚才的判断提醒我。congratulations（第1轮小测试）",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "celebrate",
+        "message": "恭喜完成！你在延期一次后提前通过了本次演示验收。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "cycle-1-congratulations-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "cycle-1-congratulations-capture",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "cycle-1-congratulations-capture-user-click",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "cycle-1-congratulations-capture-user-click-native-result",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "congratulations-capture-user-click-native-result"
+    },
+    {
+      "id": "cycle-1-congratulations-capture-user-click-native-completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "congratulations-capture-user-click-native-result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "cycle-1-right-session",
+      "op": "ui.wait_focused_session",
+      "session_id": {
+        "$ref": "result.value.session_id"
+      }
+    },
+    {
+      "id": "cycle-1-native-after-click",
+      "op": "fixture.observe",
+      "entity": "dsh",
+      "bind": "dsh_after"
+    },
+    {
+      "id": "cycle-1-same-native-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "dsh_after.window_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "dsh_before.window_id"
+      }
+    },
+    {
+      "id": "cycle-1-native-foreground",
+      "op": "assert",
+      "actual": {
+        "$ref": "dsh_after.window.focused"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "cycle-2-resume-reading",
+      "op": "desktop.activity",
+      "title": "论文阅读 · 人工审核测试",
+      "text": "继续阅读论文：事务隔离与一致性。\n准备解释提交与回滚的区别。",
+      "entity": "legacy-0"
+    },
+    {
+      "id": "cycle-2-verification-question",
+      "op": "model.reply",
+      "user": "我已经读完了，可以提前验收吗？（第2轮小测试）",
+      "text": "可以。请解释事务提交和回滚的区别，以及什么时候需要回滚。（第2轮小测试）"
+    },
+    {
+      "id": "cycle-2-verification-answer",
+      "op": "model.reply",
+      "user": "提交会使修改正式生效；回滚会撤销未提交的修改。遇到错误或无法满足一致性条件时应回滚。（第2轮小测试）",
+      "text": "演示验收结论：回答符合这次约定，可以提前结束。这是固定测试结论，不代表真实模型评审质量。（第2轮小测试）"
+    },
+    {
+      "id": "cycle-2-congratulations",
+      "op": "model.call",
+      "user": "请按刚才的判断提醒我。congratulations（第2轮小测试）",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "celebrate",
+        "message": "恭喜完成！你在延期一次后提前通过了本次演示验收。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "cycle-2-congratulations-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "cycle-2-congratulations-capture",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "cycle-2-congratulations-capture-user-click",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "cycle-2-congratulations-capture-user-click-native-result",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "congratulations-capture-user-click-native-result"
+    },
+    {
+      "id": "cycle-2-congratulations-capture-user-click-native-completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "congratulations-capture-user-click-native-result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "cycle-2-right-session",
+      "op": "ui.wait_focused_session",
+      "session_id": {
+        "$ref": "result.value.session_id"
+      }
+    },
+    {
+      "id": "cycle-2-native-after-click",
+      "op": "fixture.observe",
+      "entity": "dsh",
+      "bind": "dsh_after"
+    },
+    {
+      "id": "cycle-2-same-native-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "dsh_after.window_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "dsh_before.window_id"
+      }
+    },
+    {
+      "id": "cycle-2-native-foreground",
+      "op": "assert",
+      "actual": {
+        "$ref": "dsh_after.window.focused"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "cycle-3-resume-reading",
+      "op": "desktop.activity",
+      "title": "论文阅读 · 人工审核测试",
+      "text": "继续阅读论文：事务隔离与一致性。\n准备解释提交与回滚的区别。",
+      "entity": "legacy-0"
+    },
+    {
+      "id": "cycle-3-verification-question",
+      "op": "model.reply",
+      "user": "我已经读完了，可以提前验收吗？（第3轮小测试）",
+      "text": "可以。请解释事务提交和回滚的区别，以及什么时候需要回滚。（第3轮小测试）"
+    },
+    {
+      "id": "cycle-3-verification-answer",
+      "op": "model.reply",
+      "user": "提交会使修改正式生效；回滚会撤销未提交的修改。遇到错误或无法满足一致性条件时应回滚。（第3轮小测试）",
+      "text": "演示验收结论：回答符合这次约定，可以提前结束。这是固定测试结论，不代表真实模型评审质量。（第3轮小测试）"
+    },
+    {
+      "id": "cycle-3-congratulations",
+      "op": "model.call",
+      "user": "请按刚才的判断提醒我。congratulations（第3轮小测试）",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "celebrate",
+        "message": "恭喜完成！你在延期一次后提前通过了本次演示验收。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "cycle-3-congratulations-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "cycle-3-congratulations-capture",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "cycle-3-congratulations-capture-user-click",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "cycle-3-congratulations-capture-user-click-native-result",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "congratulations-capture-user-click-native-result"
+    },
+    {
+      "id": "cycle-3-congratulations-capture-user-click-native-completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "congratulations-capture-user-click-native-result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "cycle-3-right-session",
+      "op": "ui.wait_focused_session",
+      "session_id": {
+        "$ref": "result.value.session_id"
+      }
+    },
+    {
+      "id": "cycle-3-native-after-click",
+      "op": "fixture.observe",
+      "entity": "dsh",
+      "bind": "dsh_after"
+    },
+    {
+      "id": "cycle-3-same-native-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "dsh_after.window_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "dsh_before.window_id"
+      }
+    },
+    {
+      "id": "cycle-3-native-foreground",
+      "op": "assert",
+      "actual": {
+        "$ref": "dsh_after.window.focused"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "finish-early",
+      "op": "model.call",
+      "user": "请按刚才的验收结论结束任务。",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "固定演示：通过口头讨论确认理解，无成果文件要求；延期一次后提前完成。"
+      },
+      "bind": "finished"
+    },
+    {
+      "id": "completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "finished.value.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    }
+  ],
+  "live_desktop": true,
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "note": "从 review-lifecycle-live 缩减；仅一个原生夹具和一条完成提醒，保留原10秒原生唤回断言。生产动作后独立确认原DSH窗口前台和会话，不用测试器激活。 唯一新增条件：同一任务、同一页面连续执行3次；每次维持原超时。"
+}

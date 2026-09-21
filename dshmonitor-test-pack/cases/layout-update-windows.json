@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "id": "layout-update-windows",
+  "title": "目录整理后的正式更新与真实产品回归（windows）",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "windows"
+  ],
+  "installation": "existing-system",
+  "features": [
+    "desktop-setup",
+    "evidence"
+  ],
+  "timeout": 3600,
+  "steps": [
+    {
+      "id": "installer",
+      "op": "vm.command.start",
+      "argv": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "deploy/install-windows.ps1"
+      ]
+    },
+    {
+      "id": "authorize",
+      "op": "vm.authorize"
+    },
+    {
+      "id": "installed",
+      "op": "vm.command.wait",
+      "command": "installer",
+      "timeout": 1200,
+      "bind": "installer"
+    },
+    {
+      "id": "installer-exit",
+      "op": "assert",
+      "actual": {
+        "$ref": "installer.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "use-installed-plugin",
+      "op": "case.run",
+      "cases": [
+        "native-browser-unfocused",
+        "compact-model-input",
+        "task-change-protection",
+        "native-document-close",
+        "reminder-focus-regression"
+      ],
+      "bind": "use"
+    },
+    {
+      "id": "normal-use-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "use.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

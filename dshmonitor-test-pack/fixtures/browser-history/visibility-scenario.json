@@ -1,0 +1,63 @@
+{
+  "task": "阅读事务教程，理解提交与回滚。",
+  "real_stage_seconds": 5,
+  "stages": [
+    {
+      "action": "article",
+      "page": "事务笔记",
+      "kind": "work",
+      "seconds": 90,
+      "fact": "青松"
+    },
+    {
+      "action": "scroll",
+      "page": "事务笔记",
+      "kind": "work",
+      "seconds": 90,
+      "fact": "白鹭"
+    },
+    {
+      "action": "game",
+      "page": "方块乐园",
+      "kind": "entertainment",
+      "seconds": 90,
+      "fact": "四十二"
+    },
+    {
+      "action": "side",
+      "page": "事务笔记",
+      "kind": "work",
+      "seconds": 90,
+      "fact": "白鹭",
+      "background": "方块乐园",
+      "background_visibility": "visible_unfocused"
+    },
+    {
+      "action": "reference",
+      "page": "数据库术语速查",
+      "kind": "work",
+      "seconds": 80,
+      "fact": "银杏",
+      "background": "方块乐园",
+      "background_visibility": "hidden"
+    },
+    {
+      "action": "minimize",
+      "page": "数据库术语速查",
+      "kind": "work",
+      "seconds": 80,
+      "fact": "银杏",
+      "background": "方块乐园",
+      "background_visibility": "minimized"
+    },
+    {
+      "action": "return",
+      "page": "事务笔记",
+      "kind": "work",
+      "seconds": 80,
+      "fact": "白鹭",
+      "background": "方块乐园",
+      "background_visibility": "minimized"
+    }
+  ]
+}

@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 1,
+  "id": "scheduled-deadline-lifecycle",
+  "title": "真实预约启动、提前验收等待及三种截止策略",
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "verification": "product",
+  "verification_layer": "dsh",
+  "features": [
+    "scheduling",
+    "deadlines",
+    "cleanup"
+  ],
+  "timeout": 480,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "scheduled-plan",
+      "op": "model.call",
+      "user": "真实生命周期验证：scheduled-plan",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "测试真实预约及截止状态",
+        "task_prompt": "仅观察本测试任务，不处理任何日常窗口。",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 30
+        },
+        "end_at": {
+          "$iso_after": 100
+        },
+        "allow_early_finish": false,
+        "deadline_policy": "stop",
+        "check_interval_seconds": 10
+      },
+      "bind": "scheduled"
+    },
+    {
+      "id": "initially-scheduled",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "scheduled.value.id"
+      },
+      "status": "scheduled",
+      "timeout": 10
+    },
+    {
+      "id": "becomes-active",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "scheduled.value.id"
+      },
+      "status": "active",
+      "timeout": 60
+    },
+    {
+      "id": "verified-before-deadline",
+      "op": "model.call",
+      "user": "真实生命周期验证：verified-before-deadline",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "scheduled.value.id"
+        },
+        "verdict": "completed",
+        "reason": "真实提前验收，但约定不提前退出"
+      }
+    },
+    {
+      "id": "waits-for-deadline",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "scheduled.value.id"
+      },
+      "status": "verified_waiting",
+      "timeout": 10
+    },
+    {
+      "id": "completes-at-deadline",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "scheduled.value.id"
+      },
+      "status": "completed",
+      "timeout": 100
+    },
+    {
+      "id": "stop-plan",
+      "op": "model.call",
+      "user": "真实生命周期验证：stop-plan",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "测试真实预约及截止状态",
+        "task_prompt": "仅观察本测试任务，不处理任何日常窗口。",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 45
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "stop",
+        "check_interval_seconds": 10
+      },
+      "bind": "stop"
+    },
+    {
+      "id": "stops-at-deadline",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "stop.value.id"
+      },
+      "status": "not_completed",
+      "timeout": 90
+    },
+    {
+      "id": "discuss-plan",
+      "op": "model.call",
+      "user": "真实生命周期验证：discuss-plan",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "测试真实预约及截止状态",
+        "task_prompt": "仅观察本测试任务，不处理任何日常窗口。",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 45
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "discuss",
+        "check_interval_seconds": 10
+      },
+      "bind": "discuss"
+    },
+    {
+      "id": "discuss-awaits-extension",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "discuss.value.id"
+      },
+      "status": "awaiting_extension",
+      "timeout": 90
+    },
+    {
+      "id": "discuss-finish",
+      "op": "model.call",
+      "user": "真实生命周期验证：discuss-finish",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "discuss.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "截止分支验证完毕"
+      }
+    },
+    {
+      "id": "discuss-ended",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "discuss.value.id"
+      },
+      "status": "cancelled",
+      "timeout": 10
+    },
+    {
+      "id": "continue-plan",
+      "op": "model.call",
+      "user": "真实生命周期验证：continue-plan",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "测试真实预约及截止状态",
+        "task_prompt": "仅观察本测试任务，不处理任何日常窗口。",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 45
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "continue",
+        "check_interval_seconds": 10
+      },
+      "bind": "continue"
+    },
+    {
+      "id": "continue-awaits-extension",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "continue.value.id"
+      },
+      "status": "awaiting_extension",
+      "timeout": 90
+    },
+    {
+      "id": "continue-finish",
+      "op": "model.call",
+      "user": "真实生命周期验证：continue-finish",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "continue.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "截止分支验证完毕"
+      }
+    },
+    {
+      "id": "continue-ended",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "continue.value.id"
+      },
+      "status": "cancelled",
+      "timeout": 10
+    }
+  ],
+  "present_user": true
+}

@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "id": "product-desktop-loop",
+  "title": "正式服务心跳采样、DSH 工具、最小化强杀和原生提醒",
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "regular",
+  "verification": "product",
+  "timeout": 240,
+  "features": [
+    "heartbeat",
+    "actions",
+    "test-reporting"
+  ],
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "fixture",
+      "op": "fixture.app",
+      "entity": "editor",
+      "windows": [
+        {
+          "id": "target",
+          "title": "真实监工动作测试",
+          "rect": [
+            50,
+            100,
+            480,
+            320
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "REAL_WAYLAND_OR_WINDOWS_CAPTURE_20260919"
+            }
+          ]
+        }
+      ],
+      "bind": "fixture"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "建立真实桌面闭环任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "阅读测试文字，分心时提醒",
+        "task_prompt": "只验证测试夹具",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "check_interval_seconds": 6,
+        "allow_early_finish": true,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "activate",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "activate",
+      "bind": "activated"
+    },
+    {
+      "id": "report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "timeout": 70,
+      "bind": "report",
+      "minimum_samples": 1,
+      "window_id": {
+        "$ref": "activated.window_id"
+      },
+      "metadata_after": {
+        "$ref": "activated.observed_at"
+      },
+      "detail_after": {
+        "$ref": "activated.observed_at"
+      }
+    },
+    {
+      "id": "target",
+      "op": "report.target",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "entity": "target",
+      "bind": "target"
+    },
+    {
+      "id": "sample-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "report.raw.evidence"
+      },
+      "operator": "contains",
+      "expected": "REAL_WAYLAND_OR_WINDOWS_CAPTURE_20260919",
+      "continue_on_failure": true
+    },
+    {
+      "id": "minimize_window",
+      "op": "model.call",
+      "user": "执行生产动作 minimize_window",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "minimize_window",
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "target_ref": {
+          "$ref": "target.ref"
+        }
+      },
+      "bind": "action"
+    },
+    {
+      "id": "minimize_window-observe",
+      "op": "fixture.observe",
+      "entity": "target",
+      "bind": "observed"
+    },
+    {
+      "id": "minimize_window-effect",
+      "op": "assert",
+      "actual": {
+        "$ref": "observed.window.minimized"
+      },
+      "operator": "equals",
+      "expected": true,
+      "continue_on_failure": true
+    },
+    {
+      "id": "restore",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "restore"
+    },
+    {
+      "id": "force_close",
+      "op": "model.call",
+      "user": "执行生产动作 force_close",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "force_close",
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "target_ref": {
+          "$ref": "target.ref"
+        }
+      },
+      "bind": "action"
+    },
+    {
+      "id": "force_close-observe",
+      "op": "fixture.observe",
+      "entity": "target",
+      "bind": "observed"
+    },
+    {
+      "id": "force_close-effect",
+      "op": "assert",
+      "actual": {
+        "$ref": "observed.present"
+      },
+      "operator": "equals",
+      "expected": false,
+      "continue_on_failure": true
+    },
+    {
+      "id": "remind",
+      "op": "model.call",
+      "user": "弹出真实提醒",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "question",
+        "message": "真实闭环，请点击返回监工会话。"
+      },
+      "bind": "reminder"
+    },
+    {
+      "id": "popup",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒"
+    },
+    {
+      "id": "click",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "click-native-result",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "click-native-result"
+    },
+    {
+      "id": "click-native-completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "click-native-result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "结束测试任务",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "结束本轮测试"
+      }
+    }
+  ],
+  "present_user": true
+}

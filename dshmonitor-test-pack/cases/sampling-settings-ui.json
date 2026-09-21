@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "engine": "dsh",
+  "verification": "product",
+  "verification_layer": "dsh",
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "settings-ui",
+    "evidence",
+    "heartbeat"
+  ],
+  "timeout": 300,
+  "id": "sampling-settings-ui",
+  "title": "真实UI保存、重开与恢复采集默认设置",
+  "steps": [
+    {
+      "id": "save",
+      "op": "ui.settings",
+      "values": {
+        "sampling": {
+          "interval_seconds": 3,
+          "screenshot_interval_seconds": 4,
+          "native_screenshot_interval_seconds": 2,
+          "image_width": 640,
+          "image_height": 480,
+          "screen_width": 960,
+          "screen_height": 600,
+          "text_interval_seconds": 5,
+          "text_chars": 700,
+          "text_nodes": 70,
+          "browser_interval_seconds": 6,
+          "browser_chars": 600,
+          "browser_pages": 2,
+          "log_interval_seconds": 7,
+          "log_bytes": 500
+        },
+        "reporting": {
+          "preview_chars": 90,
+          "text_page_chars": 100,
+          "overview_chars": 120
+        }
+      },
+      "save": true
+    },
+    {
+      "id": "reload",
+      "op": "ui.reload"
+    },
+    {
+      "id": "read",
+      "op": "ui.settings",
+      "bind": "ui"
+    },
+    {
+      "id": "persist-interval_seconds",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 3
+    },
+    {
+      "id": "persist-screenshot_interval_seconds",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.screenshot_interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 4
+    },
+    {
+      "id": "persist-native_screenshot_interval_seconds",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.native_screenshot_interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 2
+    },
+    {
+      "id": "persist-image_width",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.image_width"
+      },
+      "operator": "equals",
+      "expected": 640
+    },
+    {
+      "id": "persist-image_height",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.image_height"
+      },
+      "operator": "equals",
+      "expected": 480
+    },
+    {
+      "id": "persist-screen_width",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.screen_width"
+      },
+      "operator": "equals",
+      "expected": 960
+    },
+    {
+      "id": "persist-screen_height",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.screen_height"
+      },
+      "operator": "equals",
+      "expected": 600
+    },
+    {
+      "id": "persist-text_interval_seconds",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.text_interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 5
+    },
+    {
+      "id": "persist-text_chars",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.text_chars"
+      },
+      "operator": "equals",
+      "expected": 700
+    },
+    {
+      "id": "persist-text_nodes",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.text_nodes"
+      },
+      "operator": "equals",
+      "expected": 70
+    },
+    {
+      "id": "persist-browser_interval_seconds",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.browser_interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 6
+    },
+    {
+      "id": "persist-browser_chars",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.browser_chars"
+      },
+      "operator": "equals",
+      "expected": 600
+    },
+    {
+      "id": "persist-browser_pages",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.browser_pages"
+      },
+      "operator": "equals",
+      "expected": 2
+    },
+    {
+      "id": "persist-log_interval_seconds",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.log_interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 7
+    },
+    {
+      "id": "persist-log_bytes",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.sampling.log_bytes"
+      },
+      "operator": "equals",
+      "expected": 500
+    },
+    {
+      "id": "persist-preview_chars",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.reporting.preview_chars"
+      },
+      "operator": "equals",
+      "expected": 90
+    },
+    {
+      "id": "persist-text_page_chars",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.reporting.text_page_chars"
+      },
+      "operator": "equals",
+      "expected": 100
+    },
+    {
+      "id": "persist-overview_chars",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.reporting.overview_chars"
+      },
+      "operator": "equals",
+      "expected": 120
+    },
+    {
+      "id": "reset",
+      "op": "ui.settings",
+      "reset_groups": [
+        "sampling",
+        "reporting"
+      ],
+      "save": true
+    },
+    {
+      "id": "reload-default",
+      "op": "ui.reload"
+    },
+    {
+      "id": "read-default",
+      "op": "ui.settings",
+      "bind": "defaults"
+    },
+    {
+      "id": "interval-default",
+      "op": "assert",
+      "actual": {
+        "$ref": "defaults.sampling.interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 2
+    },
+    {
+      "id": "page-default",
+      "op": "assert",
+      "actual": {
+        "$ref": "defaults.reporting.text_page_chars"
+      },
+      "operator": "equals",
+      "expected": 4000
+    },
+    {
+      "id": "browser-unlimited",
+      "op": "assert",
+      "actual": {
+        "$ref": "defaults.sampling.browser_pages"
+      },
+      "operator": "equals",
+      "expected": null
+    }
+  ]
+}

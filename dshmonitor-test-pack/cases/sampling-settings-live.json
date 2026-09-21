@@ -1,0 +1,456 @@
+{
+  "schemaVersion": 1,
+  "engine": "dsh",
+  "verification": "product",
+  "verification_layer": "dsh",
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "settings-ui",
+    "evidence",
+    "heartbeat"
+  ],
+  "timeout": 300,
+  "id": "sampling-settings-live",
+  "title": "采集参数真实生效与原任务AI热更新",
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "present_user": true,
+  "steps": [
+    {
+      "id": "save",
+      "op": "ui.settings",
+      "values": {
+        "sampling": {
+          "interval_seconds": 3,
+          "screenshot_interval_seconds": 4,
+          "native_screenshot_interval_seconds": 2,
+          "image_width": 240,
+          "image_height": 200,
+          "screen_width": 960,
+          "screen_height": 600,
+          "text_interval_seconds": 5,
+          "text_chars": 700,
+          "text_nodes": 70,
+          "browser_interval_seconds": 6,
+          "browser_chars": 600,
+          "browser_pages": 2,
+          "log_interval_seconds": 7,
+          "log_bytes": 500
+        },
+        "reporting": {
+          "preview_chars": 90,
+          "text_page_chars": 100,
+          "overview_chars": 120
+        },
+        "protect_task_changes": true
+      },
+      "save": true
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan-active",
+      "op": "model.call",
+      "user": "测试：plan-active",
+      "tool": "focus_plan",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "start_at": {
+              "$iso_after": -1
+            },
+            "check_interval_seconds": 18
+          }
+        ]
+      },
+      "bind": "task"
+    },
+    {
+      "id": "create-native-fixture",
+      "op": "fixture.app",
+      "entity": "legacy-app",
+      "windows": [
+        {
+          "title": "FocusTest GTK same title",
+          "rect": [
+            30,
+            40,
+            440,
+            320
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "ALPHA_REAL_ATSPI_314159\n真实界面文字：正在核验通用无障碍采集。"
+            },
+            {
+              "type": "edit",
+              "text": "VISIBLE_EDITED_VALUE_0"
+            },
+            {
+              "type": "password",
+              "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+            }
+          ],
+          "id": "legacy-0"
+        },
+        {
+          "title": "FocusTest GTK same title",
+          "rect": [
+            510,
+            40,
+            440,
+            320
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "BETA_REAL_ATSPI_271828\n真实界面文字：正在核验通用无障碍采集。"
+            },
+            {
+              "type": "edit",
+              "text": "VISIBLE_EDITED_VALUE_1"
+            },
+            {
+              "type": "password",
+              "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+            }
+          ],
+          "id": "legacy-1"
+        }
+      ],
+      "log_text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxLOG_TAIL_SETTINGS_314159"
+    },
+    {
+      "id": "show",
+      "op": "fixture.window",
+      "entity": "legacy-1",
+      "action": "activate"
+    },
+    {
+      "id": "observe",
+      "op": "fixture.watch_input",
+      "entity": "legacy-1",
+      "seconds": 22,
+      "chunks": []
+    },
+    {
+      "id": "samples",
+      "op": "sample.inspect",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "bind": "samples",
+      "entity": "legacy-1"
+    },
+    {
+      "id": "enough-samples",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.count"
+      },
+      "operator": "gt",
+      "expected": 3
+    },
+    {
+      "id": "configured-sampling",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.frames.0.settings.sampling.interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 3
+    },
+    {
+      "id": "actual-images",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.image_count"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "image-width",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.max_width"
+      },
+      "operator": "lt",
+      "expected": 241
+    },
+    {
+      "id": "image-height",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.max_height"
+      },
+      "operator": "lt",
+      "expected": 201
+    },
+    {
+      "id": "actual-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.text_count"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "text-limit",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.max_text_chars"
+      },
+      "operator": "lt",
+      "expected": 701
+    },
+    {
+      "id": "node-limit",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.max_nodes"
+      },
+      "operator": "lt",
+      "expected": 71
+    },
+    {
+      "id": "actual-log",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.log_count"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "log-limit",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.max_log_chars"
+      },
+      "operator": "lt",
+      "expected": 501
+    },
+    {
+      "id": "log-tail",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.log_text"
+      },
+      "operator": "contains",
+      "expected": "LOG_TAIL_SETTINGS_314159"
+    },
+    {
+      "id": "locked",
+      "op": "ui.settings",
+      "bind": "ui"
+    },
+    {
+      "id": "ui-locked",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.locked"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "close-settings",
+      "op": "ui.close"
+    },
+    {
+      "id": "change",
+      "op": "model.call",
+      "user": "将当前任务采集间隔改为6秒，正文上限200字符、日志尾部100字节，图片参数保持。",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "update",
+        "patch_json": "{\"sampling\": {\"interval_seconds\": 6, \"text_chars\": 200, \"log_bytes\": 100}, \"reporting\": {\"text_page_chars\": 73}}"
+      },
+      "bind": "changed"
+    },
+    {
+      "id": "read-retained-settings",
+      "op": "model.call",
+      "user": "读取局部更新后完整设置",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "get"
+      },
+      "bind": "retained"
+    },
+    {
+      "id": "partial-keeps-image",
+      "op": "assert",
+      "actual": {
+        "$ref": "retained.value.sampling.image_width"
+      },
+      "operator": "equals",
+      "expected": 240
+    },
+    {
+      "id": "resume-native",
+      "op": "fixture.window",
+      "entity": "legacy-1",
+      "action": "activate"
+    },
+    {
+      "id": "after-change",
+      "op": "fixture.watch_input",
+      "entity": "legacy-1",
+      "seconds": 26,
+      "chunks": []
+    },
+    {
+      "id": "hot-facts",
+      "op": "sample.inspect",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "entity": "legacy-1",
+      "after": {
+        "$time_after": -14
+      },
+      "bind": "hot"
+    },
+    {
+      "id": "hot-image_count",
+      "op": "assert",
+      "actual": {
+        "$ref": "hot.metrics.image_count"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "hot-max_width",
+      "op": "assert",
+      "actual": {
+        "$ref": "hot.metrics.max_width"
+      },
+      "operator": "lt",
+      "expected": 241
+    },
+    {
+      "id": "hot-text_count",
+      "op": "assert",
+      "actual": {
+        "$ref": "hot.metrics.text_count"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "hot-max_text_chars",
+      "op": "assert",
+      "actual": {
+        "$ref": "hot.metrics.max_text_chars"
+      },
+      "operator": "lt",
+      "expected": 201
+    },
+    {
+      "id": "hot-log_count",
+      "op": "assert",
+      "actual": {
+        "$ref": "hot.metrics.log_count"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "hot-max_log_chars",
+      "op": "assert",
+      "actual": {
+        "$ref": "hot.metrics.max_log_chars"
+      },
+      "operator": "lt",
+      "expected": 101
+    },
+    {
+      "id": "read-state",
+      "op": "state.read",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "bind": "state"
+    },
+    {
+      "id": "same-task",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live.0.id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "task.value.id"
+      }
+    },
+    {
+      "id": "effective-interval",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.effective_sampling.sampling.interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 6
+    },
+    {
+      "id": "report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "minimum_samples": 2,
+      "bind": "report",
+      "sampled_from_after": {
+        "$time_after": 0
+      }
+    },
+    {
+      "id": "low-frequency-no-gap",
+      "op": "assert",
+      "actual": {
+        "$ref": "report.raw.unobserved_gap_seconds"
+      },
+      "operator": "equals",
+      "expected": 0
+    }
+  ],
+  "note": "报告周期18秒，覆盖热更新后的至少两个6秒采样间隔；不等待偶发调度抖动才凑够两条样本。"
+}

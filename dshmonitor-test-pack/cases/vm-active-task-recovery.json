@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "vm-active-task-recovery",
+  "title": "进行中任务跨完整 OS 重启与原会话心跳恢复",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "persistent_session": true,
+  "verification": "product",
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "persistence",
+    "heartbeat"
+  ],
+  "timeout": 1200,
+  "steps": [
+    {
+      "id": "prepare",
+      "op": "case.run",
+      "cases": [
+        "active-reboot-prepare"
+      ],
+      "bind": "before"
+    },
+    {
+      "id": "prepare-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "reboot",
+      "op": "vm.reboot",
+      "bind": "boot"
+    },
+    {
+      "id": "different-boot",
+      "op": "assert",
+      "actual": {
+        "$ref": "boot.after"
+      },
+      "operator": "not_equals",
+      "expected": {
+        "$ref": "boot.before"
+      }
+    },
+    {
+      "id": "resume",
+      "op": "case.run",
+      "cases": [
+        "active-reboot-resume"
+      ],
+      "bind": "after"
+    },
+    {
+      "id": "resume-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+# Local environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+node_modules
+
+# Runtime state, captures, test output and build packages
+runtime*/
+artifacts/
+evidence-windows/          # 来宾部署用的临时打包目录，证据在 evidence/ 下
+deployment-plan/
+*.log
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.tgz
+
+# Local credentials (keep shareable templates)
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Machine-local DSH profile and temporary hot-reload entries
+dsh-plugin/cordis.patch.yml
+dsh-plugin/entry.mjs
+dsh-plugin/*-entry.mjs
+dsh-plugin/upgrade-*.mjs
+
+# Test runtime is source code, not generated state
+!dshmonitor-test-pack/runtime/
+dsh-plugin/backend/
+
+# Task evidence stays local, including active project evidence.
+.dafeiyu/
+evidence/
+pic/

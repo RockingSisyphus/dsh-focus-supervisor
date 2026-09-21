@@ -1,0 +1,400 @@
+{
+  "schemaVersion": 1,
+  "id": "sampling-settings-browser",
+  "title": "浏览器设置：真实正文长度、每轮配额与窗口轮换",
+  "engine": "dsh",
+  "features": [
+    "heartbeat",
+    "desktop-gnome",
+    "evidence",
+    "native-tools",
+    "actions",
+    "cleanup"
+  ],
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "custom-prompts",
+      "op": "ui.settings",
+      "values": {
+        "sampling": {
+          "interval_seconds": 2,
+          "browser_interval_seconds": 4,
+          "browser_chars": 300,
+          "browser_pages": 2
+        }
+      },
+      "save": true
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat-model",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "bind-dsh-browser",
+      "op": "fixture.page",
+      "entity": "dsh-browser"
+    },
+    {
+      "id": "browser-before",
+      "op": "desktop.snapshot",
+      "entity": "dsh-browser",
+      "bind": "before_browser"
+    },
+    {
+      "id": "plan-active",
+      "op": "model.call",
+      "user": "测试：plan-active",
+      "tool": "focus_plan",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "start_at": {
+              "$iso_after": -1
+            },
+            "check_interval_seconds": 6
+          }
+        ]
+      },
+      "bind": "task"
+    },
+    {
+      "id": "page-0",
+      "op": "fixture.browser",
+      "entity": "article-0",
+      "html": "<title>Sampling page 0</title><h1>BROWSER_SETTING_0</h1><p>Visible paragraph 0 for page 0.</p><p>Visible paragraph 1 for page 0.</p><p>Visible paragraph 2 for page 0.</p><p>Visible paragraph 3 for page 0.</p><p>Visible paragraph 4 for page 0.</p><p>Visible paragraph 5 for page 0.</p><p>Visible paragraph 6 for page 0.</p><p>Visible paragraph 7 for page 0.</p><p>Visible paragraph 8 for page 0.</p><p>Visible paragraph 9 for page 0.</p><p>Visible paragraph 10 for page 0.</p><p>Visible paragraph 11 for page 0.</p><p>Visible paragraph 12 for page 0.</p><p>Visible paragraph 13 for page 0.</p><p>Visible paragraph 14 for page 0.</p><p>Visible paragraph 15 for page 0.</p><p>Visible paragraph 16 for page 0.</p><p>Visible paragraph 17 for page 0.</p><p>Visible paragraph 18 for page 0.</p><p>Visible paragraph 19 for page 0.</p><p>Visible paragraph 20 for page 0.</p><p>Visible paragraph 21 for page 0.</p><p>Visible paragraph 22 for page 0.</p><p>Visible paragraph 23 for page 0.</p><p>Visible paragraph 24 for page 0.</p><p>Visible paragraph 25 for page 0.</p><p>Visible paragraph 26 for page 0.</p><p>Visible paragraph 27 for page 0.</p><p>Visible paragraph 28 for page 0.</p><p>Visible paragraph 29 for page 0.</p>"
+    },
+    {
+      "id": "layout-0",
+      "op": "fixture.window",
+      "entity": "article-0",
+      "action": "layout",
+      "rect": [
+        70,
+        40,
+        520,
+        620
+      ]
+    },
+    {
+      "id": "page-1",
+      "op": "fixture.browser",
+      "entity": "article-1",
+      "html": "<title>Sampling page 1</title><h1>BROWSER_SETTING_1</h1><p>Visible paragraph 0 for page 1.</p><p>Visible paragraph 1 for page 1.</p><p>Visible paragraph 2 for page 1.</p><p>Visible paragraph 3 for page 1.</p><p>Visible paragraph 4 for page 1.</p><p>Visible paragraph 5 for page 1.</p><p>Visible paragraph 6 for page 1.</p><p>Visible paragraph 7 for page 1.</p><p>Visible paragraph 8 for page 1.</p><p>Visible paragraph 9 for page 1.</p><p>Visible paragraph 10 for page 1.</p><p>Visible paragraph 11 for page 1.</p><p>Visible paragraph 12 for page 1.</p><p>Visible paragraph 13 for page 1.</p><p>Visible paragraph 14 for page 1.</p><p>Visible paragraph 15 for page 1.</p><p>Visible paragraph 16 for page 1.</p><p>Visible paragraph 17 for page 1.</p><p>Visible paragraph 18 for page 1.</p><p>Visible paragraph 19 for page 1.</p><p>Visible paragraph 20 for page 1.</p><p>Visible paragraph 21 for page 1.</p><p>Visible paragraph 22 for page 1.</p><p>Visible paragraph 23 for page 1.</p><p>Visible paragraph 24 for page 1.</p><p>Visible paragraph 25 for page 1.</p><p>Visible paragraph 26 for page 1.</p><p>Visible paragraph 27 for page 1.</p><p>Visible paragraph 28 for page 1.</p><p>Visible paragraph 29 for page 1.</p>"
+    },
+    {
+      "id": "layout-1",
+      "op": "fixture.window",
+      "entity": "article-1",
+      "action": "layout",
+      "rect": [
+        290,
+        40,
+        520,
+        620
+      ]
+    },
+    {
+      "id": "page-2",
+      "op": "fixture.browser",
+      "entity": "article-2",
+      "html": "<title>Sampling page 2</title><h1>BROWSER_SETTING_2</h1><p>Visible paragraph 0 for page 2.</p><p>Visible paragraph 1 for page 2.</p><p>Visible paragraph 2 for page 2.</p><p>Visible paragraph 3 for page 2.</p><p>Visible paragraph 4 for page 2.</p><p>Visible paragraph 5 for page 2.</p><p>Visible paragraph 6 for page 2.</p><p>Visible paragraph 7 for page 2.</p><p>Visible paragraph 8 for page 2.</p><p>Visible paragraph 9 for page 2.</p><p>Visible paragraph 10 for page 2.</p><p>Visible paragraph 11 for page 2.</p><p>Visible paragraph 12 for page 2.</p><p>Visible paragraph 13 for page 2.</p><p>Visible paragraph 14 for page 2.</p><p>Visible paragraph 15 for page 2.</p><p>Visible paragraph 16 for page 2.</p><p>Visible paragraph 17 for page 2.</p><p>Visible paragraph 18 for page 2.</p><p>Visible paragraph 19 for page 2.</p><p>Visible paragraph 20 for page 2.</p><p>Visible paragraph 21 for page 2.</p><p>Visible paragraph 22 for page 2.</p><p>Visible paragraph 23 for page 2.</p><p>Visible paragraph 24 for page 2.</p><p>Visible paragraph 25 for page 2.</p><p>Visible paragraph 26 for page 2.</p><p>Visible paragraph 27 for page 2.</p><p>Visible paragraph 28 for page 2.</p><p>Visible paragraph 29 for page 2.</p>"
+    },
+    {
+      "id": "layout-2",
+      "op": "fixture.window",
+      "entity": "article-2",
+      "action": "layout",
+      "rect": [
+        510,
+        40,
+        520,
+        620
+      ]
+    },
+    {
+      "id": "await-browser-notice",
+      "op": "fixture.watch_input",
+      "entity": "dsh-browser",
+      "seconds": 12,
+      "chunks": []
+    },
+    {
+      "id": "expose-page-0",
+      "op": "fixture.window",
+      "entity": "article-0",
+      "action": "activate"
+    },
+    {
+      "id": "expose-page-1",
+      "op": "fixture.window",
+      "entity": "article-1",
+      "action": "activate"
+    },
+    {
+      "id": "expose-page-2",
+      "op": "fixture.window",
+      "entity": "article-2",
+      "action": "activate"
+    },
+    {
+      "id": "focus-page",
+      "op": "fixture.window",
+      "entity": "article-2",
+      "action": "activate"
+    },
+    {
+      "id": "settle",
+      "op": "fixture.watch_input",
+      "entity": "dsh-browser",
+      "seconds": 24,
+      "chunks": []
+    },
+    {
+      "id": "sample-facts",
+      "op": "sample.inspect",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "after": {
+        "$time_after": -20
+      },
+      "bind": "samples"
+    },
+    {
+      "id": "body-present",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.browser_max_chars"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "body-limit",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.browser_max_chars"
+      },
+      "operator": "lt",
+      "expected": 301
+    },
+    {
+      "id": "page-budget",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.browser_max_pages"
+      },
+      "operator": "lt",
+      "expected": 3
+    },
+    {
+      "id": "rotated-0",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.browser_titles"
+      },
+      "operator": "contains",
+      "expected": "Sampling page 0"
+    },
+    {
+      "id": "rotated-1",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.browser_titles"
+      },
+      "operator": "contains",
+      "expected": "Sampling page 1"
+    },
+    {
+      "id": "rotated-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.metrics.browser_titles"
+      },
+      "operator": "contains",
+      "expected": "Sampling page 2"
+    },
+    {
+      "id": "hot-browser-settings",
+      "op": "model.call",
+      "user": "把浏览器每轮正文改成一页，最多120字符",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "update",
+        "patch_json": {
+          "$json": {
+            "sampling": {
+              "browser_pages": 1,
+              "browser_chars": 120
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "restore-visible-page-0",
+      "op": "fixture.window",
+      "entity": "article-0",
+      "action": "activate"
+    },
+    {
+      "id": "restore-visible-page-1",
+      "op": "fixture.window",
+      "entity": "article-1",
+      "action": "activate"
+    },
+    {
+      "id": "refocus-browser",
+      "op": "fixture.window",
+      "entity": "article-2",
+      "action": "activate"
+    },
+    {
+      "id": "watch-new-limits",
+      "op": "fixture.watch_input",
+      "entity": "dsh-browser",
+      "seconds": 32,
+      "chunks": []
+    },
+    {
+      "id": "new-browser-facts",
+      "op": "sample.inspect",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "after": {
+        "$time_after": -24
+      },
+      "bind": "limited"
+    },
+    {
+      "id": "hot-page-budget",
+      "op": "assert",
+      "actual": {
+        "$ref": "limited.metrics.browser_max_pages"
+      },
+      "operator": "equals",
+      "expected": 1
+    },
+    {
+      "id": "hot-body-budget",
+      "op": "assert",
+      "actual": {
+        "$ref": "limited.metrics.browser_max_chars"
+      },
+      "operator": "lt",
+      "expected": 121
+    },
+    {
+      "id": "visible-pages-rotate-0",
+      "op": "assert",
+      "actual": {
+        "$ref": "limited.metrics.browser_titles"
+      },
+      "operator": "contains",
+      "expected": "Sampling page 0"
+    },
+    {
+      "id": "visible-pages-rotate-1",
+      "op": "assert",
+      "actual": {
+        "$ref": "limited.metrics.browser_titles"
+      },
+      "operator": "contains",
+      "expected": "Sampling page 1"
+    },
+    {
+      "id": "visible-pages-rotate-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "limited.metrics.browser_titles"
+      },
+      "operator": "contains",
+      "expected": "Sampling page 2"
+    },
+    {
+      "id": "minimize-page",
+      "op": "fixture.window",
+      "entity": "article-2",
+      "action": "minimize"
+    },
+    {
+      "id": "watch-hidden",
+      "op": "fixture.watch_input",
+      "entity": "dsh-browser",
+      "seconds": 14,
+      "chunks": []
+    },
+    {
+      "id": "hidden-browser-facts",
+      "op": "sample.inspect",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "after": {
+        "$time_after": -8
+      },
+      "bind": "hidden"
+    },
+    {
+      "id": "hidden-cache-not-current",
+      "op": "assert",
+      "actual": {
+        "$ref": "hidden.metrics.browser_titles"
+      },
+      "operator": "not_contains",
+      "expected": "Sampling page 2"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "测试：finish",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "固定回复只验证软件验收流程。"
+      },
+      "bind": "result"
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "note": "正式后台按真实时间生成报告；时长覆盖算法仅由契约测试覆盖。",
+  "present_user": true,
+  "timeout": 300
+}

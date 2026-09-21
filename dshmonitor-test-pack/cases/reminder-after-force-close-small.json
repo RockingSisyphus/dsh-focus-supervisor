@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 1,
+  "id": "reminder-after-force-close-small",
+  "title": "缩减复现：强制关闭专用夹具后的完成提醒",
+  "engine": "dsh",
+  "features": [
+    "live-reminder-delivery"
+  ],
+  "preview": true,
+  "present_user": true,
+  "timeout": 300,
+  "variables": {
+    "active_start": {
+      "$iso_after": 0
+    },
+    "contract": {
+      "agreement": "阅读事务论文，能解释提交与回滚；通过聊天讨论验收。",
+      "task_prompt": "此为脚本模拟人工审核场景。结合真实采集和用户解释检查任务，不要求提交文件。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 86400
+      },
+      "end_at": {
+        "$iso_after": 90000
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss",
+      "check_interval_seconds": 6
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "create-native-fixture",
+      "op": "fixture.app",
+      "entity": "legacy-app",
+      "windows": [
+        {
+          "title": "论文阅读 · 人工审核测试",
+          "rect": [
+            30,
+            40,
+            720,
+            430
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "正在阅读论文：事务提交与回滚。\n这是专用测试窗口。"
+            }
+          ],
+          "id": "legacy-0"
+        }
+      ]
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "我想预约阅读事务论文，允许提前完成；遇到问题可以商量延期。",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "start",
+      "op": "model.call",
+      "user": "我准备好了，把预约提前到现在开始，先给我一小时。",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "task.value.id"
+            },
+            "start_at": {
+              "$ref": "active_start"
+            },
+            "end_at": {
+              "$iso_after": 3600
+            },
+            "reason": "人工审核场景：用户协商提前开工"
+          }
+        ]
+      },
+      "bind": "active"
+    },
+    {
+      "id": "wait-active",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "status": "active"
+    },
+    {
+      "id": "start-check-model",
+      "op": "heartbeat.enable",
+      "decision": "on_task",
+      "reason": "固定测试判断：任务开始，真实窗口显示论文阅读。"
+    },
+    {
+      "id": "start-check-preview",
+      "op": "report.next",
+      "bind": "report",
+      "timeout": 30
+    },
+    {
+      "id": "start-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "start-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "on_task"
+    },
+    {
+      "id": "force-open-notepad",
+      "op": "desktop.notepad",
+      "bind": "activity_window",
+      "fixture": "stubborn.json"
+    },
+    {
+      "id": "force-notepad-rule",
+      "op": "heartbeat.enable",
+      "decision": "off_task",
+      "reason": "固定演示：以本次专用记事本模拟提醒后仍持续分心的窗口，随后测试最后手段。"
+    },
+    {
+      "id": "force-notepad-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "force-notepad-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "force-notepad-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "material",
+      "target_title": "持续分心测试 DSH_STUBBORN"
+    },
+    {
+      "id": "force-notepad-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "DSH_STUBBORN_CONTENT"
+    },
+    {
+      "id": "stubborn-minimize",
+      "op": "model.call",
+      "user": "这个窗口持续分心，先把它最小化掉。",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "minimize_window",
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "target_ref": {
+          "$ref": "material.target_ref"
+        }
+      },
+      "bind": "normal_minimize"
+    },
+    {
+      "id": "stubborn-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "normal_minimize.value.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "force-close-test-notepad",
+      "op": "model.call",
+      "user": "用户在多次提醒和解释后继续分心。请以最后手段强制终止这次测试创建的应用进程。",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "force_close",
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "target_ref": {
+          "$ref": "material.target_ref"
+        }
+      },
+      "bind": "close_result"
+    },
+    {
+      "id": "force-notepad-closed",
+      "op": "assert",
+      "actual": {
+        "$ref": "close_result.value.closed"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "force-process-confirmed",
+      "op": "assert",
+      "actual": {
+        "$ref": "close_result.value.forced"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "force-verify-notepad-gone",
+      "op": "desktop.capture",
+      "bind": "desktop_after"
+    },
+    {
+      "id": "force-notepad-no-longer-present",
+      "op": "assert",
+      "actual": {
+        "$ref": "desktop_after.desktop.windows"
+      },
+      "operator": "not_contains",
+      "expected": "持续分心测试 DSH_STUBBORN"
+    },
+    {
+      "id": "other-application-alive",
+      "op": "desktop.fixture_alive",
+      "bind": "fixture_alive",
+      "entity": "legacy-0"
+    },
+    {
+      "id": "force-kill-does-not-kill-other-application",
+      "op": "assert",
+      "actual": {
+        "$ref": "fixture_alive"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "resume-reading",
+      "op": "desktop.activity",
+      "title": "论文阅读 · 人工审核测试",
+      "text": "继续阅读论文：事务隔离与一致性。\n准备解释提交与回滚的区别。",
+      "entity": "legacy-0"
+    },
+    {
+      "id": "verification-question",
+      "op": "model.reply",
+      "user": "我已经读完了，可以提前验收吗？",
+      "text": "可以。请解释事务提交和回滚的区别，以及什么时候需要回滚。"
+    },
+    {
+      "id": "verification-answer",
+      "op": "model.reply",
+      "user": "提交会使修改正式生效；回滚会撤销未提交的修改。遇到错误或无法满足一致性条件时应回滚。",
+      "text": "演示验收结论：回答符合这次约定，可以提前结束。这是固定测试结论，不代表真实模型评审质量。"
+    },
+    {
+      "id": "congratulations",
+      "op": "model.call",
+      "user": "请按刚才的判断提醒我。congratulations",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "celebrate",
+        "message": "恭喜完成！你在延期一次后提前通过了本次演示验收。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "congratulations-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "congratulations-capture",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "congratulations-capture-user-click",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "congratulations-capture-user-click-native-result",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "congratulations-capture-user-click-native-result"
+    },
+    {
+      "id": "congratulations-capture-user-click-native-completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "congratulations-capture-user-click-native-result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "finish-early",
+      "op": "model.call",
+      "user": "请按刚才的验收结论结束任务。",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "固定演示：通过口头讨论确认理解，无成果文件要求；延期一次后提前完成。"
+      },
+      "bind": "finished"
+    },
+    {
+      "id": "completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "finished.value.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    }
+  ],
+  "live_desktop": true,
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "note": "从原综合JSON选取相关步骤；只恢复标题所述前置条件，原生产动作及报告/唤回断言不变。"
+}

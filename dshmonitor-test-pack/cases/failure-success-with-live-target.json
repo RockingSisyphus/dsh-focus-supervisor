@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "manual",
+  "verification": "desktop-contract",
+  "timeout": 90,
+  "features": [
+    "test-reporting"
+  ],
+  "intentional_failure": true,
+  "id": "failure-success-with-live-target",
+  "title": "预期失败注入：failure-success-with-live-target",
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "fixture",
+      "op": "fixture.app",
+      "entity": "editor",
+      "windows": [
+        {
+          "id": "target",
+          "title": "故障注入存活窗口",
+          "rect": [
+            80,
+            100,
+            400,
+            300
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "应当被独立状态断言识别为失败"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fault",
+      "op": "fault.success_without_action"
+    },
+    {
+      "id": "observe",
+      "op": "fixture.observe",
+      "entity": "target",
+      "bind": "observed"
+    },
+    {
+      "id": "not-actually-closed",
+      "op": "assert",
+      "actual": {
+        "$ref": "observed.present"
+      },
+      "operator": "equals",
+      "expected": false
+    }
+  ],
+  "verification_layer": "desktop"
+}

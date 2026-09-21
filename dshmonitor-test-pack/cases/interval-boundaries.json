@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "interval-boundaries",
+  "title": "检查间隔与调度边界",
+  "engine": "command",
+  "features": [
+    "interval",
+    "heartbeat"
+  ],
+  "argv": [
+    "$python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_chat_supervisor.py::test_invalid_interval",
+    "tests/test_chat_supervisor.py::test_default_and_legacy_interval",
+    "tests/test_chat_supervisor.py::test_observation_does_not_change_heartbeat_interval",
+    "tests/test_chat_supervisor.py::test_pending_delivery_not_duplicated_but_delivered_heartbeat_recurs",
+    "tests/test_chat_supervisor.py::test_explicit_admission_refreshes_idle_timer_but_cannot_revive_exit"
+  ],
+  "expect_exit": 0,
+  "timeout": 90,
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "contract",
+  "verification_layer": "unit"
+}

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "group": "manual",
+  "features": [
+    "persistence",
+    "heartbeat"
+  ],
+  "timeout": 300,
+  "present_user": true,
+  "id": "active-reboot-prepare",
+  "title": "跨重启前置：创建真实任务并保留原 DSH 会话",
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "开始跨整机重启测试任务，请继续监工",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "跨整机重启持续进行的真实监工测试任务",
+        "task_prompt": "本任务用于验证插件自动离席：无输入心跳达到设置阈值即进入待机，检测到真实输入后恢复。",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 3600
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "discuss",
+        "check_interval_seconds": 10
+      },
+      "bind": "task"
+    },
+    {
+      "id": "reviewed",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "bind": "before_report",
+      "timeout": 90
+    },
+    {
+      "id": "checkpoint",
+      "op": "session.save",
+      "keys": [
+        "task",
+        "before_report",
+        "initial_settings"
+      ]
+    }
+  ]
+}

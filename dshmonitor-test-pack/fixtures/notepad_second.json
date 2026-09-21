@@ -1,0 +1,19 @@
+{
+  "windows": [
+    {
+      "title": "第二个记事本 DSH_NOTEPAD2",
+      "rect": [
+        60,
+        60,
+        620,
+        360
+      ],
+      "controls": [
+        {
+          "type": "edit",
+          "text": "DSH_NOTEPAD2_CONTENT\n这个窗口专门用来验证 focus_check 会返回重新采集后的数据。"
+        }
+      ]
+    }
+  ]
+}

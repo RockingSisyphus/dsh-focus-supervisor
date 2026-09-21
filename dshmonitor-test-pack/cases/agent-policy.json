@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "agent-policy",
+  "title": "动作独立性、权限矩阵与提示词热更新",
+  "engine": "command",
+  "features": [
+    "actions",
+    "prompt-permissions"
+  ],
+  "argv": [
+    "$python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_agent_control.py::test_settings_permission_matrix",
+    "tests/test_agent_control.py::test_agent_action_has_no_semantic_escalation_gate",
+    "tests/test_agent_control.py::test_heartbeat_continues_after_delivery_and_uses_latest_prompts"
+  ],
+  "expect_exit": 0,
+  "timeout": 90,
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "contract",
+  "verification_layer": "unit"
+}

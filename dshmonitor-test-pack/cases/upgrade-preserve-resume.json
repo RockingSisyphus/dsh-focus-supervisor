@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "engine": "dsh",
+  "platforms": [
+    "windows"
+  ],
+  "verification": "product",
+  "group": "manual",
+  "features": [
+    "persistence",
+    "heartbeat"
+  ],
+  "timeout": 300,
+  "present_user": true,
+  "id": "upgrade-preserve-resume",
+  "title": "升级后真实 DSH 验证原任务、自定义设置与用户文件",
+  "steps": [
+    {
+      "id": "load",
+      "op": "session.load"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "same-task",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "status": "active",
+      "bind": "restored"
+    },
+    {
+      "id": "same-session",
+      "op": "assert",
+      "actual": {
+        "$ref": "restored.session_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "task.value.session_id"
+      }
+    },
+    {
+      "id": "new-report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "exclude": [
+        {
+          "$ref": "before_report.id"
+        }
+      ],
+      "bind": "after_report",
+      "timeout": 120,
+      "created_after": {
+        "$ref": "scenario_started_at"
+      },
+      "phase": "monitor",
+      "sampled_after": {
+        "$ref": "scenario_started_at"
+      }
+    },
+    {
+      "id": "new-real-sampling",
+      "op": "assert",
+      "actual": {
+        "$ref": "after_report.raw.real_end"
+      },
+      "operator": "gt",
+      "expected": {
+        "$ref": "scenario_started_at"
+      }
+    },
+    {
+      "id": "desktop-restored",
+      "op": "assert",
+      "actual": {
+        "$ref": "after_report.raw.current_desktop_available"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "actual-model-input",
+      "op": "model.notice",
+      "text": {
+        "$ref": "after_report.id"
+      }
+    },
+    {
+      "id": "new-report-id",
+      "op": "assert",
+      "actual": {
+        "$ref": "after_report.id"
+      },
+      "operator": "not_equals",
+      "expected": {
+        "$ref": "before_report.id"
+      }
+    },
+    {
+      "id": "actual-tool-return",
+      "op": "model.tool_result",
+      "tool": "focus_observe",
+      "arguments": {
+        "report_id": {
+          "$ref": "after_report.id"
+        }
+      }
+    },
+    {
+      "id": "read-settings",
+      "op": "ui.settings",
+      "bind": "kept_settings"
+    },
+    {
+      "id": "preserved-instructions",
+      "op": "assert",
+      "actual": {
+        "$ref": "kept_settings.instructions"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "upgrade_settings.instructions"
+      }
+    },
+    {
+      "id": "preserved-heartbeat_prompt",
+      "op": "assert",
+      "actual": {
+        "$ref": "kept_settings.heartbeat_prompt"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "upgrade_settings.heartbeat_prompt"
+      }
+    },
+    {
+      "id": "preserved-size",
+      "op": "assert",
+      "actual": {
+        "$ref": "kept_settings.size"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "upgrade_settings.mascot_size"
+      }
+    },
+    {
+      "id": "close-settings",
+      "op": "ui.close"
+    },
+    {
+      "id": "read-user-file",
+      "op": "model.call",
+      "user": "请读取升级前保存的测试文档，确认内容仍在。",
+      "tool": "read",
+      "arguments": {
+        "file_path": {
+          "$ref": "user_file"
+        }
+      },
+      "bind": "kept_file"
+    },
+    {
+      "id": "preserved-user-content",
+      "op": "assert",
+      "actual": {
+        "$ref": "kept_file.raw"
+      },
+      "operator": "contains",
+      "expected": {
+        "$ref": "user_text"
+      }
+    }
+  ],
+  "plugin_update": true
+}

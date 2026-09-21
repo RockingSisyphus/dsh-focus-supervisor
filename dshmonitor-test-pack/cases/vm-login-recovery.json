@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "vm-login-recovery",
+  "title": "系统重启后恢复登录并执行真实 DSH 插件流程",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "persistence",
+    "test-reporting"
+  ],
+  "timeout": 900,
+  "steps": [
+    {
+      "id": "before-reboot",
+      "op": "case.run",
+      "cases": [
+        "chat-replies"
+      ],
+      "bind": "before"
+    },
+    {
+      "id": "before-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "reboot",
+      "op": "vm.reboot",
+      "bind": "boot"
+    },
+    {
+      "id": "real-new-boot",
+      "op": "assert",
+      "actual": {
+        "$ref": "boot.after"
+      },
+      "operator": "not_equals",
+      "expected": {
+        "$ref": "boot.before"
+      }
+    },
+    {
+      "id": "after-reboot",
+      "op": "case.run",
+      "cases": [
+        "chat-replies",
+        "task-api"
+      ],
+      "bind": "after"
+    },
+    {
+      "id": "after-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

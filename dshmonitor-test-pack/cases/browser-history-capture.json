@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "browser-history-capture",
+  "title": "真实浏览器活动历史：采集并生成盲评包，模型评分另行执行",
+  "engine": "command",
+  "features": [
+    "browser-history-capture"
+  ],
+  "argv": [
+    "$python",
+    "dshmonitor-test-pack/runtime/browser_history.py",
+    "capture",
+    "--output",
+    "$output",
+    "--scenario",
+    "dshmonitor-test-pack/fixtures/browser-history/scenario.json"
+  ],
+  "expect_exit": 0,
+  "timeout": 180,
+  "group": "manual",
+  "platforms": [
+    "linux"
+  ],
+  "verification": "desktop-contract",
+  "verification_layer": "desktop"
+}

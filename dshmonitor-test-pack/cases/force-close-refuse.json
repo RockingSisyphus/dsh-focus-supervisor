@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "id": "force-close-refuse",
+  "title": "真实关闭：refuse",
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "regular",
+  "verification": "product",
+  "timeout": 240,
+  "features": [
+    "heartbeat",
+    "actions",
+    "test-reporting"
+  ],
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "fixture",
+      "op": "fixture.app",
+      "entity": "editor",
+      "windows": [
+        {
+          "id": "target",
+          "title": "DSH close same title",
+          "rect": [
+            50,
+            100,
+            480,
+            320
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "REAL_WAYLAND_OR_WINDOWS_CAPTURE_20260919"
+            }
+          ]
+        },
+        {
+          "id": "sibling",
+          "title": "DSH close same title",
+          "rect": [
+            570,
+            100,
+            480,
+            320
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "REAL_WAYLAND_OR_WINDOWS_CAPTURE_20260919"
+            }
+          ]
+        }
+      ],
+      "bind": "fixture",
+      "refuse_close": true
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "建立真实桌面闭环任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "阅读测试文字，分心时提醒",
+        "task_prompt": "只验证测试夹具",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "check_interval_seconds": 6,
+        "allow_early_finish": true,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "task-created",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.id"
+      },
+      "operator": "exists",
+      "expected": true
+    },
+    {
+      "id": "activate",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "activate"
+    },
+    {
+      "id": "report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "timeout": 70,
+      "bind": "report",
+      "minimum_samples": 1
+    },
+    {
+      "id": "target",
+      "op": "report.target",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "entity": "target",
+      "bind": "target"
+    },
+    {
+      "id": "force_close",
+      "op": "model.call",
+      "user": "执行生产动作 force_close",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "force_close",
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "target_ref": {
+          "$ref": "target.ref"
+        },
+        "target_kind": "window"
+      },
+      "bind": "action"
+    },
+    {
+      "id": "closed-observe",
+      "op": "fixture.wait",
+      "entity": "target",
+      "expected": {
+        "present": false
+      },
+      "timeout": 10,
+      "bind": "closed"
+    },
+    {
+      "id": "closed-result",
+      "op": "assert",
+      "actual": {
+        "$ref": "action.value.closed"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "closed-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "closed.matched"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "sibling-observe",
+      "op": "fixture.observe",
+      "entity": "sibling",
+      "bind": "sibling"
+    },
+    {
+      "id": "precise-close",
+      "op": "assert",
+      "actual": {
+        "$ref": "sibling.present"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "forced-result",
+      "op": "assert",
+      "actual": {
+        "$ref": "action.value.closed"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "结束测试任务",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "结束本轮测试"
+      }
+    }
+  ],
+  "present_user": true
+}

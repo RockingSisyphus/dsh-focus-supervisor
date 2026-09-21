@@ -1,0 +1,137 @@
+{
+  "sampling": {
+    "interval_seconds": {
+      "default": 2,
+      "label": "窗口与焦点采样间隔",
+      "unit": "秒",
+      "integer": false,
+      "description": "后台读取窗口身份、焦点及输入活动的周期。"
+    },
+    "screenshot_interval_seconds": {
+      "default": 10,
+      "label": "截图读取间隔",
+      "unit": "秒",
+      "integer": false,
+      "description": "采集器读取并保存图片的周期；窗口变化可能提前刷新。"
+    },
+    "native_screenshot_interval_seconds": {
+      "default": 5,
+      "label": "GNOME原生截图间隔",
+      "unit": "秒",
+      "integer": false,
+      "description": "仅 GNOME Wayland：合成器产生原始窗口图片的周期，不影响桌面动作响应。"
+    },
+    "image_width": {
+      "default": 1600,
+      "label": "单窗口图片最大宽度",
+      "unit": "像素",
+      "integer": true,
+      "description": "单窗口保存图片的宽度上限，等比缩小，不放大。"
+    },
+    "image_height": {
+      "default": 1200,
+      "label": "单窗口图片最大高度",
+      "unit": "像素",
+      "integer": true,
+      "description": "单窗口保存图片的高度上限，等比缩小，不裁切。"
+    },
+    "screen_width": {
+      "default": 2560,
+      "label": "整屏图片最大宽度",
+      "unit": "像素",
+      "integer": true,
+      "description": "整屏保存图片的宽度上限，保留现有整屏精度。"
+    },
+    "screen_height": {
+      "default": 1600,
+      "label": "整屏图片最大高度",
+      "unit": "像素",
+      "integer": true,
+      "description": "整屏保存图片的高度上限。"
+    },
+    "text_interval_seconds": {
+      "default": 10,
+      "label": "原生正文读取间隔",
+      "unit": "秒",
+      "integer": false,
+      "description": "原生无障碍正文读取周期。"
+    },
+    "text_chars": {
+      "default": 12000,
+      "label": "单窗口正文上限",
+      "unit": "字符",
+      "integer": true,
+      "description": "单窗口正文的字符上限；截断不影响窗口身份。"
+    },
+    "text_nodes": {
+      "default": 500,
+      "label": "单窗口节点上限",
+      "unit": "节点",
+      "integer": true,
+      "platform_defaults": {
+        "linux": 1600
+      },
+      "description": "每个窗口最多读取的无障碍节点数。"
+    },
+    "browser_interval_seconds": {
+      "default": 10,
+      "label": "浏览器读取间隔",
+      "unit": "秒",
+      "integer": false,
+      "description": "通过系统无障碍读取可见浏览器选中页面的周期；不需要浏览器扩展。"
+    },
+    "browser_chars": {
+      "default": 12000,
+      "label": "单页正文上限",
+      "unit": "字符",
+      "integer": true,
+      "description": "单页结构化正文字符上限。"
+    },
+    "browser_pages": {
+      "default": null,
+      "label": "每轮浏览器正文页数",
+      "unit": "页",
+      "integer": true,
+      "nullable": true,
+      "description": "每轮读取的可见选中页数量；符合条件的窗口轮换，焦点仅用于活动说明。"
+    },
+    "log_interval_seconds": {
+      "default": 10,
+      "label": "日志读取间隔",
+      "unit": "秒",
+      "integer": false,
+      "description": "刷新应用日志尾部内容的周期。"
+    },
+    "log_bytes": {
+      "default": 8000,
+      "label": "单次日志尾部读取长度",
+      "unit": "文件字节／系统日志字符",
+      "integer": true,
+      "description": "文件日志读取尾部字节；Linux journal 摘录按字符计数，沿用原有口径。"
+    }
+  },
+  "reporting": {
+    "preview_chars": {
+      "default": 180,
+      "label": "活动文字摘要上限",
+      "unit": "字符",
+      "integer": true,
+      "description": "活动目录中单段正文预览的长度，不删除本地正文。"
+    },
+    "text_page_chars": {
+      "default": 4000,
+      "label": "插件详情分页长度",
+      "unit": "字符",
+      "integer": true,
+      "description": "插件详情工具每页正文长度；返回下一页游标。"
+    },
+    "overview_chars": {
+      "default": null,
+      "label": "心跳活动摘要上限",
+      "unit": "字符",
+      "integer": true,
+      "nullable": true,
+      "description": "心跳程序活动目录的总文字上限，任务信息和证据入口继续保留。"
+    }
+  }
+}

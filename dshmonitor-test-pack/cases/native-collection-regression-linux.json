@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "id": "native-collection-regression-linux",
+  "title": "Linux 正式更新及第六阶段补充回归",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "linux"
+  ],
+  "installation": "existing-system",
+  "features": [
+    "desktop-setup",
+    "evidence"
+  ],
+  "timeout": 1800,
+  "steps": [
+    {
+      "id": "default-screen-reader-enabled",
+      "op": "vm.command.run",
+      "argv": [
+        "gsettings",
+        "set",
+        "org.gnome.desktop.a11y.applications",
+        "screen-reader-enabled",
+        "false"
+      ],
+      "env": {
+        "XDG_RUNTIME_DIR": "/run/user/1000",
+        "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"
+      },
+      "bind": "screen-reader-enabled"
+    },
+    {
+      "id": "default-toolkit-accessibility",
+      "op": "vm.command.run",
+      "argv": [
+        "gsettings",
+        "set",
+        "org.gnome.desktop.interface",
+        "toolkit-accessibility",
+        "false"
+      ],
+      "env": {
+        "XDG_RUNTIME_DIR": "/run/user/1000",
+        "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"
+      },
+      "bind": "toolkit-accessibility"
+    },
+    {
+      "id": "installer",
+      "op": "vm.command.run",
+      "argv": [
+        "sudo",
+        "bash",
+        "deploy/upgrade-chat.sh",
+        "tester"
+      ],
+      "prepare": true,
+      "bind": "installer"
+    },
+    {
+      "id": "installer-exit",
+      "op": "assert",
+      "actual": {
+        "$ref": "installer.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "reload-desktop",
+      "op": "vm.reboot"
+    },
+    {
+      "id": "use-installed-plugin",
+      "op": "case.run",
+      "cases": [
+        "native-window-group",
+        "sampling-settings-live",
+        "native-visibility-boundaries",
+        "native-document-close"
+      ],
+      "bind": "use"
+    },
+    {
+      "id": "normal-use-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "use.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

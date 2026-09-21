@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-fixture-foundation",
+  "title": "真实同进程多窗口和浏览器多窗口标签夹具",
+  "engine": "dsh",
+  "features": [
+    "application-capture",
+    "test-reporting"
+  ],
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "regular",
+  "verification": "product",
+  "timeout": 240,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "model",
+      "op": "model.reply",
+      "user": "夹具测试开始",
+      "text": "开始真实桌面夹具测试。"
+    },
+    {
+      "id": "two-windows",
+      "op": "fixture.app",
+      "entity": "editor",
+      "windows": [
+        {
+          "id": "a",
+          "title": "同名测试窗口",
+          "rect": [
+            40,
+            100,
+            450,
+            300
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "窗口 A 初始正文"
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "title": "同名测试窗口",
+          "rect": [
+            550,
+            100,
+            450,
+            300
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "窗口 B 初始正文"
+            }
+          ]
+        }
+      ],
+      "bind": "windows"
+    },
+    {
+      "id": "same-process",
+      "op": "assert",
+      "actual": {
+        "$ref": "windows.a.window.pid"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "windows.b.window.pid"
+      }
+    },
+    {
+      "id": "a-layout",
+      "op": "fixture.window",
+      "entity": "a",
+      "action": "layout",
+      "rect": [
+        40,
+        100,
+        450,
+        300
+      ]
+    },
+    {
+      "id": "b-layout",
+      "op": "fixture.window",
+      "entity": "b",
+      "action": "layout",
+      "rect": [
+        550,
+        100,
+        450,
+        300
+      ]
+    },
+    {
+      "id": "a-edit",
+      "op": "fixture.interact",
+      "entity": "a",
+      "action": "fill",
+      "text": "真实输入：事务提交。",
+      "bind": "edited"
+    },
+    {
+      "id": "edited-text-read-back",
+      "op": "assert",
+      "actual": {
+        "$ref": "edited.input_text"
+      },
+      "operator": "equals",
+      "expected": "真实输入：事务提交。"
+    },
+    {
+      "id": "b-minimize",
+      "op": "fixture.window",
+      "entity": "b",
+      "action": "minimize",
+      "bind": "minimized"
+    },
+    {
+      "id": "is-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "minimized.window.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "b-restore",
+      "op": "fixture.window",
+      "entity": "b",
+      "action": "restore"
+    },
+    {
+      "id": "browser-one",
+      "op": "fixture.browser",
+      "entity": "tab-a",
+      "html": "<title>测试网页 A</title><input aria-label=\"笔记\"><p>论文阅读</p>",
+      "bind": "tab_a"
+    },
+    {
+      "id": "browser-input",
+      "op": "fixture.interact",
+      "entity": "tab-a",
+      "action": "fill",
+      "selector": "input",
+      "text": "真实浏览器输入"
+    },
+    {
+      "id": "browser-two",
+      "op": "fixture.browser",
+      "entity": "tab-b",
+      "new_window": false,
+      "html": "<title>测试网页 B</title><p>后台资料</p>",
+      "window": "tab-a",
+      "bind": "tab_b"
+    },
+    {
+      "id": "same-browser-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "tab_a.browser_window_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "tab_b.browser_window_id"
+      }
+    },
+    {
+      "id": "select-a",
+      "op": "fixture.interact",
+      "entity": "tab-a",
+      "action": "select",
+      "bind": "selected"
+    },
+    {
+      "id": "visible-a",
+      "op": "assert",
+      "actual": {
+        "$ref": "selected.visibility"
+      },
+      "operator": "equals",
+      "expected": "visible"
+    },
+    {
+      "id": "browser-second-window",
+      "op": "fixture.browser",
+      "entity": "tab-c",
+      "html": "<title>测试网页 C</title><p>另一个浏览器窗口</p>",
+      "bind": "tab_c"
+    },
+    {
+      "id": "separate-browser-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "tab_c.browser_window_id"
+      },
+      "operator": "not_equals",
+      "expected": {
+        "$ref": "tab_a.browser_window_id"
+      }
+    },
+    {
+      "id": "desktop-final",
+      "op": "desktop.snapshot",
+      "bind": "desktop"
+    },
+    {
+      "id": "screenshot",
+      "op": "ui.screenshot",
+      "name": "fixture-final"
+    }
+  ]
+}

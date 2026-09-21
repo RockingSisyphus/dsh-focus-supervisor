@@ -1,0 +1,81 @@
+{
+  "steps": [
+    {
+      "id": "install-plugin-service",
+      "op": "install",
+      "expect": {
+        "installed": true
+      }
+    },
+    {
+      "id": "cold-first-start",
+      "op": "start",
+      "expect": {
+        "live": [],
+        "execution.elevated": true,
+        "tasks": []
+      }
+    },
+    {
+      "id": "schedule-agreement",
+      "op": "plan",
+      "start_after": 1800,
+      "expect": {
+        "status": "scheduled"
+      }
+    },
+    {
+      "id": "activate-agreement",
+      "op": "activate",
+      "expect": {
+        "status": "active"
+      }
+    },
+    {
+      "id": "native-session-before-reboot",
+      "op": "native_before_reboot",
+      "expect": {
+        "native_session_ready": true
+      }
+    },
+    {
+      "id": "active-reboot-recovery",
+      "op": "reboot",
+      "same_task": true,
+      "expect": {
+        "live.0.status": "active",
+        "execution.elevated": true
+      }
+    },
+    {
+      "id": "dsh-woken-after-active-reboot",
+      "op": "dsh",
+      "expect": {
+        "running": true
+      }
+    },
+    {
+      "id": "native-context-and-heartbeat-after-reboot",
+      "op": "native_after_reboot",
+      "expect": {
+        "preserved_context": true,
+        "resumed_heartbeat": true
+      }
+    },
+    {
+      "id": "agent-finish",
+      "op": "finish",
+      "expect": {
+        "status": "completed"
+      }
+    },
+    {
+      "id": "idle-exit-disable-autostart",
+      "op": "idle",
+      "expect": {
+        "stopped": true,
+        "disabled": true
+      }
+    }
+  ]
+}

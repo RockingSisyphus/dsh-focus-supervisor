@@ -1,0 +1,477 @@
+{
+  "schemaVersion": 1,
+  "id": "native-structure-quality",
+  "title": "无扩展网页结构：表格、代码、编辑区、聊天、iframe 与 Shadow DOM",
+  "engine": "dsh",
+  "features": [
+    "heartbeat",
+    "desktop-gnome",
+    "evidence",
+    "native-tools",
+    "actions",
+    "cleanup"
+  ],
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "custom-prompts",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "GLOBAL_INSTRUCTIONS_271828",
+        "heartbeat_prompt": "GLOBAL_HEARTBEAT_161803"
+      },
+      "save": true
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat-model",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "bind-dsh-browser",
+      "op": "fixture.page",
+      "entity": "dsh-browser"
+    },
+    {
+      "id": "browser-before",
+      "op": "desktop.snapshot",
+      "entity": "dsh-browser",
+      "bind": "before_browser"
+    },
+    {
+      "id": "plan-active",
+      "op": "model.call",
+      "user": "测试：plan-active",
+      "tool": "focus_plan",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "start_at": {
+              "$iso_after": -1
+            },
+            "check_interval_seconds": 6
+          }
+        ]
+      },
+      "bind": "task"
+    },
+    {
+      "id": "browser-fixture",
+      "op": "fixture.browser",
+      "entity": "article",
+      "separate_instance": true,
+      "url": {
+        "$concat": [
+          {
+            "$ref": "fixture_url"
+          },
+          "/native-structure.html"
+        ]
+      }
+    },
+    {
+      "id": "ordinary-restart",
+      "op": "fixture.browser_restart",
+      "entity": "article",
+      "remote_debugging": false,
+      "bind": "ordinary"
+    },
+    {
+      "id": "no-debug-port",
+      "op": "assert",
+      "actual": {
+        "$ref": "ordinary.remote_debugging"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "no-forced-accessibility-flag",
+      "op": "assert",
+      "actual": {
+        "$ref": "ordinary.force_renderer_accessibility"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "browser-layout",
+      "op": "fixture.window",
+      "entity": "article",
+      "action": "layout",
+      "rect": [
+        0,
+        32,
+        640,
+        700
+      ]
+    },
+    {
+      "id": "create-native-fixture",
+      "op": "fixture.app",
+      "entity": "legacy-app",
+      "windows": [
+        {
+          "title": "FocusTest GTK same title",
+          "rect": [
+            30,
+            40,
+            440,
+            320
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "ALPHA_REAL_ATSPI_314159\n真实界面文字：正在核验通用无障碍采集。"
+            },
+            {
+              "type": "edit",
+              "text": "VISIBLE_EDITED_VALUE_0"
+            },
+            {
+              "type": "password",
+              "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+            }
+          ],
+          "id": "legacy-0"
+        },
+        {
+          "title": "FocusTest GTK same title",
+          "rect": [
+            510,
+            40,
+            440,
+            320
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "BETA_REAL_ATSPI_271828\n真实界面文字：正在核验通用无障碍采集。"
+            },
+            {
+              "type": "edit",
+              "text": "VISIBLE_EDITED_VALUE_1"
+            },
+            {
+              "type": "password",
+              "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+            }
+          ],
+          "id": "legacy-1"
+        }
+      ]
+    },
+    {
+      "id": "show-left-native",
+      "op": "fixture.interact",
+      "entity": "legacy-0",
+      "action": "focus"
+    },
+    {
+      "id": "show-right-native",
+      "op": "fixture.interact",
+      "entity": "legacy-1",
+      "action": "focus"
+    },
+    {
+      "id": "native-identities",
+      "op": "native.accessibility_inventory",
+      "bind": "nativeIdentities"
+    },
+    {
+      "id": "observe-focus",
+      "op": "fixture.watch_input",
+      "entity": "legacy-1",
+      "seconds": 30,
+      "chunks": [],
+      "bind": "focus_watch"
+    },
+    {
+      "id": "browser-after",
+      "op": "desktop.snapshot",
+      "entity": "dsh-browser",
+      "bind": "after_browser"
+    },
+    {
+      "id": "actual-browser-windows",
+      "op": "fixture.browser_inventory",
+      "bind": "browser_inventory"
+    },
+    {
+      "id": "no-extra-browser-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "browser_inventory.window_count"
+      },
+      "operator": "equals",
+      "expected": 1
+    },
+    {
+      "id": "focus-retained",
+      "op": "assert",
+      "actual": {
+        "$ref": "focus_watch.focus_retained"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "latest-report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "minimum_samples": 2,
+      "bind": "semantic_report"
+    },
+    {
+      "id": "read-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "semantic_report.id"
+      },
+      "bind": "material"
+    },
+    {
+      "id": "semantic-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "SEMANTIC_HEADING_271828"
+    },
+    {
+      "id": "semantic-3",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "SEMANTIC_BODY_314159"
+    },
+    {
+      "id": "semantic-4",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "SEMANTIC_INPUT_161803"
+    },
+    {
+      "id": "semantic-5",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "SEMANTIC_VALUE_57721"
+    },
+    {
+      "id": "semantic-6",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "[checked]"
+    },
+    {
+      "id": "password-excluded",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "not_contains",
+      "expected": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+    },
+    {
+      "id": "dsh-read-semantic-file",
+      "op": "model.call",
+      "user": "请读取本轮正式浏览器语义证据。",
+      "tool": "read",
+      "arguments": {
+        "file_path": {
+          "$concat": [
+            {
+              "$ref": "material.folder"
+            },
+            "/browser-snapshots.json"
+          ]
+        }
+      },
+      "bind": "dsh_semantic"
+    },
+    {
+      "id": "dsh-received-semantic-body",
+      "op": "assert",
+      "actual": {
+        "$ref": "dsh_semantic.raw"
+      },
+      "operator": "contains",
+      "expected": "SEMANTIC_BODY_314159"
+    },
+    {
+      "id": "structure-fact-0",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "STRUCTURE_TABLE_314159",
+      "continue_on_failure": true
+    },
+    {
+      "id": "structure-fact-1",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "MethodAlpha",
+      "continue_on_failure": true
+    },
+    {
+      "id": "structure-fact-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "92.75",
+      "continue_on_failure": true
+    },
+    {
+      "id": "structure-fact-3",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "def structure_test():",
+      "continue_on_failure": true
+    },
+    {
+      "id": "structure-fact-4",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "\\n    return 271828",
+      "continue_on_failure": true
+    },
+    {
+      "id": "structure-fact-5",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "EDITOR_BODY_161803",
+      "continue_on_failure": true
+    },
+    {
+      "id": "structure-fact-6",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "CHAT_MESSAGE_141421",
+      "continue_on_failure": true
+    },
+    {
+      "id": "structure-fact-7",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "Same action",
+      "continue_on_failure": true
+    },
+    {
+      "id": "structure-fact-8",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "DYNAMIC_ITEM_223606",
+      "continue_on_failure": true
+    },
+    {
+      "id": "structure-fact-9",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "IFRAME_BODY_173205",
+      "continue_on_failure": true
+    },
+    {
+      "id": "structure-fact-10",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "SHADOW_BODY_244948",
+      "continue_on_failure": true
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "测试：finish",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "固定回复只验证软件验收流程。"
+      },
+      "bind": "result"
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "note": "独立浏览器 profile 不加载任何采集扩展；重启后无调试端口，通过真实 DSH 验收可见未聚焦正文。",
+  "present_user": true,
+  "timeout": 240,
+  "browser_skill": false
+}

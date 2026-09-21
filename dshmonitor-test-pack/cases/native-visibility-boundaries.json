@@ -1,0 +1,319 @@
+{
+  "schemaVersion": 1,
+  "id": "native-visibility-boundaries",
+  "title": "无扩展采集范围：后台标签、完全遮挡、恢复与最小化",
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "verification": "product",
+  "features": [
+    "evidence",
+    "desktop-gnome",
+    "sampling-settings"
+  ],
+  "steps": [
+    {
+      "id": "settings",
+      "op": "ui.settings",
+      "values": {
+        "sampling": {
+          "browser_interval_seconds": 2,
+          "text_interval_seconds": 2
+        }
+      },
+      "save": true
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan-active",
+      "op": "model.call",
+      "user": "测试：plan-active",
+      "tool": "focus_plan",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "start_at": {
+              "$iso_after": -1
+            },
+            "check_interval_seconds": 6
+          }
+        ]
+      },
+      "bind": "task"
+    },
+    {
+      "id": "article",
+      "op": "fixture.browser",
+      "entity": "article",
+      "separate_instance": true,
+      "html": "<title>VISIBLE_ARTICLE_161803</title><p>VISIBLE_BODY_271828</p>"
+    },
+    {
+      "id": "background",
+      "op": "fixture.browser",
+      "entity": "background",
+      "instance": "article",
+      "new_window": false,
+      "window": "article",
+      "html": "<title>BACKGROUND_PAGE_314159</title><p>BACKGROUND_BODY_141421</p>"
+    },
+    {
+      "id": "layout-article",
+      "op": "fixture.window",
+      "entity": "article",
+      "action": "layout",
+      "rect": [
+        30,
+        60,
+        620,
+        600
+      ]
+    },
+    {
+      "id": "select-article",
+      "op": "fixture.window",
+      "entity": "article",
+      "action": "activate"
+    },
+    {
+      "id": "visible-wait",
+      "op": "fixture.watch_input",
+      "entity": "article",
+      "seconds": 10,
+      "chunks": []
+    },
+    {
+      "id": "visible-sample",
+      "op": "sample.inspect",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "entity": "article",
+      "after": {
+        "$time_after": -5
+      },
+      "bind": "visible"
+    },
+    {
+      "id": "visible-page",
+      "op": "assert",
+      "actual": {
+        "$ref": "visible.metrics.browser_titles"
+      },
+      "operator": "contains",
+      "expected": "VISIBLE_ARTICLE_161803"
+    },
+    {
+      "id": "background-excluded",
+      "op": "assert",
+      "actual": {
+        "$ref": "visible.frames"
+      },
+      "operator": "not_contains",
+      "expected": "BACKGROUND_BODY_141421"
+    },
+    {
+      "id": "cover",
+      "op": "fixture.app",
+      "entity": "cover-app",
+      "windows": [
+        {
+          "id": "cover",
+          "title": "Opaque cover",
+          "rect": [
+            30,
+            60,
+            620,
+            600
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "COVER_BODY_173205"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "activate-cover",
+      "op": "fixture.window",
+      "entity": "cover",
+      "action": "activate"
+    },
+    {
+      "id": "covered-wait",
+      "op": "fixture.watch_input",
+      "entity": "article",
+      "seconds": 10,
+      "chunks": []
+    },
+    {
+      "id": "covered-sample",
+      "op": "sample.inspect",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "entity": "article",
+      "after": {
+        "$time_after": -5
+      },
+      "bind": "covered"
+    },
+    {
+      "id": "covered-page",
+      "op": "assert",
+      "actual": {
+        "$ref": "covered.metrics.browser_titles"
+      },
+      "operator": "not_contains",
+      "expected": "VISIBLE_ARTICLE_161803"
+    },
+    {
+      "id": "covered-text_count",
+      "op": "assert",
+      "actual": {
+        "$ref": "covered.metrics.text_count"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "covered-image_count",
+      "op": "assert",
+      "actual": {
+        "$ref": "covered.metrics.image_count"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "covered-log_count",
+      "op": "assert",
+      "actual": {
+        "$ref": "covered.metrics.log_count"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "uncover",
+      "op": "fixture.window",
+      "entity": "cover",
+      "action": "minimize"
+    },
+    {
+      "id": "restored-wait",
+      "op": "fixture.watch_input",
+      "entity": "article",
+      "seconds": 10,
+      "chunks": []
+    },
+    {
+      "id": "restored-sample",
+      "op": "sample.inspect",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "entity": "article",
+      "after": {
+        "$time_after": -5
+      },
+      "bind": "restored"
+    },
+    {
+      "id": "restored-page",
+      "op": "assert",
+      "actual": {
+        "$ref": "restored.metrics.browser_titles"
+      },
+      "operator": "contains",
+      "expected": "VISIBLE_ARTICLE_161803"
+    },
+    {
+      "id": "minimize-article",
+      "op": "fixture.window",
+      "entity": "article",
+      "action": "minimize"
+    },
+    {
+      "id": "minimized-wait",
+      "op": "fixture.watch_input",
+      "entity": "article",
+      "seconds": 10,
+      "chunks": []
+    },
+    {
+      "id": "minimized-sample",
+      "op": "sample.inspect",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "entity": "article",
+      "after": {
+        "$time_after": -5
+      },
+      "bind": "minimized"
+    },
+    {
+      "id": "minimized-page",
+      "op": "assert",
+      "actual": {
+        "$ref": "minimized.metrics.browser_titles"
+      },
+      "operator": "not_contains",
+      "expected": "VISIBLE_ARTICLE_161803"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "测试：finish",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "固定回复只验证软件验收流程。"
+      },
+      "bind": "result"
+    }
+  ],
+  "timeout": 300,
+  "browser_skill": false,
+  "present_user": true,
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  }
+}

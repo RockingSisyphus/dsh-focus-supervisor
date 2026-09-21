@@ -1,0 +1,661 @@
+{
+  "schemaVersion": 1,
+  "id": "minimize-window-rules",
+  "title": "窗口动作：最小化生效且不结束进程、正文变化仍可最小化、强杀有效且不误伤、focus_check 返回最新数据",
+  "engine": "dsh",
+  "features": [
+    "actions",
+    "heartbeat",
+    "evidence",
+    "cleanup"
+  ],
+  "preview": true,
+  "present_user": true,
+  "timeout": 420,
+  "variables": {
+    "active_start": {
+      "$iso_after": 0
+    },
+    "contract": {
+      "agreement": "窗口动作回归：确认分心窗口能被最小化，必要时能被强杀，且不会误伤。",
+      "task_prompt": "脚本回归用例：只核对最小化/强杀动作与真实窗口，不要求成果文件。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 86400
+      },
+      "end_at": {
+        "$iso_after": 90000
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss",
+      "check_interval_seconds": 6
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "我想预约一段专注工作，允许提前完成。",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "start",
+      "op": "model.call",
+      "user": "现在就开始。",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "task.value.id"
+            },
+            "start_at": {
+              "$ref": "active_start"
+            },
+            "end_at": {
+              "$iso_after": 900
+            },
+            "reason": "窗口动作回归：立即开工"
+          }
+        ]
+      },
+      "bind": "active"
+    },
+    {
+      "id": "wait-active",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "status": "active"
+    },
+    {
+      "id": "rule",
+      "op": "heartbeat.enable",
+      "decision": "off_task",
+      "reason": "固定回归判断：这些测试记事本代表分心窗口。"
+    },
+    {
+      "id": "notepad-a",
+      "op": "desktop.notepad",
+      "fixture": "notepad_activity.json",
+      "bind": "notepad_a"
+    },
+    {
+      "id": "a-set",
+      "op": "desktop.activity",
+      "title": "A 组记事本 DSH_A",
+      "text": "DSH_NOTEPAD_CONTENT 待最小化的正文。",
+      "expect_text": "DSH_NOTEPAD_CONTENT",
+      "entity": "notepad-a-0",
+      "bind": "a_prepared"
+    },
+    {
+      "id": "a-preview",
+      "op": "report.wait",
+      "bind": "report_a",
+      "timeout": 40,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "a_prepared.id"
+      },
+      "metadata_after": {
+        "$ref": "a_prepared.established_at"
+      },
+      "detail_after": {
+        "$ref": "a_prepared.established_at"
+      }
+    },
+    {
+      "id": "a-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report_a.id"
+      },
+      "bind": "reviewed_a"
+    },
+    {
+      "id": "a-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report_a.id"
+      },
+      "target_title": "A 组记事本 DSH_A",
+      "bind": "material_a",
+      "target_entity": "notepad-a-0"
+    },
+    {
+      "id": "a-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "material_a.evidence"
+      },
+      "operator": "contains",
+      "expected": "DSH_NOTEPAD_CONTENT"
+    },
+    {
+      "id": "min_a",
+      "op": "model.call",
+      "user": "这个窗口在分心：请把它最小化。",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "minimize_window",
+        "report_id": {
+          "$ref": "report_a.id"
+        },
+        "target_ref": {
+          "$ref": "material_a.target_ref"
+        }
+      },
+      "bind": "min_a"
+    },
+    {
+      "id": "a-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "min_a.value.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "a-after",
+      "op": "desktop.capture",
+      "bind": "after_a"
+    },
+    {
+      "id": "a-process-alive",
+      "op": "assert",
+      "actual": {
+        "$ref": "after_a.desktop.windows"
+      },
+      "operator": "contains",
+      "expected": "A 组记事本 DSH_A"
+    },
+    {
+      "id": "notepad-b",
+      "op": "desktop.notepad",
+      "fixture": "notepad_activity.json",
+      "bind": "notepad_b"
+    },
+    {
+      "id": "b-set",
+      "op": "desktop.activity",
+      "title": "B 组记事本 DSH_B",
+      "text": "DSH_NOTEPAD_CONTENT 改写前的正文。",
+      "expect_text": "DSH_NOTEPAD_CONTENT",
+      "entity": "notepad-b-0",
+      "bind": "b_prepared"
+    },
+    {
+      "id": "b-preview",
+      "op": "report.wait",
+      "bind": "report_b",
+      "timeout": 40,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "b_prepared.id"
+      },
+      "metadata_after": {
+        "$ref": "b_prepared.established_at"
+      },
+      "detail_after": {
+        "$ref": "b_prepared.established_at"
+      }
+    },
+    {
+      "id": "b-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report_b.id"
+      },
+      "bind": "reviewed_b"
+    },
+    {
+      "id": "b-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report_b.id"
+      },
+      "target_title": "B 组记事本 DSH_B",
+      "bind": "material_b",
+      "target_entity": "notepad-b-0"
+    },
+    {
+      "id": "b-content-change",
+      "op": "desktop.activity",
+      "title": "B 组记事本 DSH_B",
+      "text": "DSH_NOTEPAD_AFTER 正文已被改写，标题没变。",
+      "expect_text": "DSH_NOTEPAD_AFTER",
+      "entity": "notepad-b-0"
+    },
+    {
+      "id": "min_b",
+      "op": "model.call",
+      "user": "内容变了也要能最小化：请用之前那份证据。",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "minimize_window",
+        "report_id": {
+          "$ref": "report_b.id"
+        },
+        "target_ref": {
+          "$ref": "material_b.target_ref"
+        }
+      },
+      "bind": "min_b"
+    },
+    {
+      "id": "b-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "min_b.value.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "min_b2",
+      "op": "model.call",
+      "user": "它已经最小化了，再确认一次。",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "minimize_window",
+        "report_id": {
+          "$ref": "report_b.id"
+        },
+        "target_ref": {
+          "$ref": "material_b.target_ref"
+        }
+      },
+      "bind": "min_b2"
+    },
+    {
+      "id": "b2-already",
+      "op": "assert",
+      "actual": {
+        "$ref": "min_b2.value.already_minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "notepad-bystander",
+      "op": "desktop.notepad",
+      "fixture": "notepad_bystander.json",
+      "bind": "bystander",
+      "expect_text": "DSH_BYSTANDER_CONTENT"
+    },
+    {
+      "id": "notepad-stubborn",
+      "op": "desktop.notepad",
+      "fixture": "stubborn.json",
+      "bind": "stubborn",
+      "expect_text": "DSH_STUBBORN_CONTENT"
+    },
+    {
+      "id": "d-preview",
+      "op": "report.wait",
+      "bind": "report_d",
+      "timeout": 40,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "stubborn.id"
+      },
+      "detail_after": {
+        "$ref": "stubborn.established_at"
+      }
+    },
+    {
+      "id": "d-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report_d.id"
+      },
+      "bind": "reviewed_d"
+    },
+    {
+      "id": "d-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report_d.id"
+      },
+      "target_title": "持续分心测试 DSH_STUBBORN",
+      "bind": "material_d",
+      "target_entity": "notepad-stubborn-0"
+    },
+    {
+      "id": "d-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "material_d.evidence"
+      },
+      "operator": "contains",
+      "expected": "DSH_STUBBORN_CONTENT"
+    },
+    {
+      "id": "force_d",
+      "op": "model.call",
+      "user": "多次提醒并最小化后仍在分心：请强制结束这个应用的进程。",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "force_close",
+        "report_id": {
+          "$ref": "report_d.id"
+        },
+        "target_ref": {
+          "$ref": "material_d.target_ref"
+        }
+      },
+      "bind": "force_d"
+    },
+    {
+      "id": "d-forced-closed",
+      "op": "assert",
+      "actual": {
+        "$ref": "force_d.value.closed"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "d-forced-flag",
+      "op": "assert",
+      "actual": {
+        "$ref": "force_d.value.forced"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "d-after",
+      "op": "desktop.capture",
+      "bind": "after_d"
+    },
+    {
+      "id": "d-gone",
+      "op": "assert",
+      "actual": {
+        "$ref": "after_d.desktop.windows"
+      },
+      "operator": "not_contains",
+      "expected": "持续分心测试 DSH_STUBBORN"
+    },
+    {
+      "id": "d-bystander-alive",
+      "op": "assert",
+      "actual": {
+        "$ref": "after_d.desktop.windows"
+      },
+      "operator": "contains",
+      "expected": "旁观记事本 DSH_BYSTANDER"
+    },
+    {
+      "id": "notepad-e",
+      "op": "desktop.notepad",
+      "fixture": "notepad_second.json",
+      "bind": "notepad_e"
+    },
+    {
+      "id": "e-set",
+      "op": "desktop.activity",
+      "title": "E 组记事本 DSH_E",
+      "text": "DSH_NOTEPAD2_CONTENT 重新取证前的正文。",
+      "expect_text": "DSH_NOTEPAD2_CONTENT",
+      "entity": "notepad-e-0",
+      "bind": "e_prepared"
+    },
+    {
+      "id": "e-preview",
+      "op": "report.wait",
+      "bind": "report_e",
+      "timeout": 40,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "e_prepared.id"
+      },
+      "metadata_after": {
+        "$ref": "e_prepared.established_at"
+      },
+      "detail_after": {
+        "$ref": "e_prepared.established_at"
+      }
+    },
+    {
+      "id": "e-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report_e.id"
+      },
+      "bind": "reviewed_e"
+    },
+    {
+      "id": "e-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report_e.id"
+      },
+      "target_title": "E 组记事本 DSH_E",
+      "bind": "material_e",
+      "target_entity": "notepad-e-0"
+    },
+    {
+      "id": "e-retitle",
+      "op": "desktop.activity",
+      "title": "切走的标签页 DSH_TAB2_E",
+      "text": "DSH_TAB2E_TEXT 标题刚刚改过。",
+      "expect_text": "DSH_TAB2E_TEXT",
+      "entity": "notepad-e-0"
+    },
+    {
+      "id": "e-dsh-window",
+      "op": "fixture.page",
+      "entity": "e-dsh"
+    },
+    {
+      "id": "e-dsh-layout",
+      "op": "fixture.window",
+      "entity": "e-dsh",
+      "action": "layout",
+      "rect": [
+        0,
+        0,
+        540,
+        700
+      ]
+    },
+    {
+      "id": "e-target-layout",
+      "op": "fixture.window",
+      "entity": "notepad-e-0",
+      "action": "layout",
+      "rect": [
+        550,
+        60,
+        460,
+        360
+      ]
+    },
+    {
+      "id": "e-check",
+      "op": "model.call",
+      "user": "请重新取证一次，我要用最新的窗口数据。",
+      "tool": "focus_check",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        }
+      },
+      "bind": "checked_e"
+    },
+    {
+      "id": "e-fresh-title",
+      "op": "assert",
+      "actual": {
+        "$ref": "checked_e.value.overview.current_objects"
+      },
+      "operator": "contains",
+      "expected": "切走的标签页 DSH_TAB2_E"
+    },
+    {
+      "id": "e-fresh-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "checked_e.value.report_id"
+      },
+      "target_title": "切走的标签页 DSH_TAB2_E",
+      "bind": "material_e2",
+      "target_entity": "notepad-e-0"
+    },
+    {
+      "id": "min_e",
+      "op": "model.call",
+      "user": "请用刚才那份最新报告最小化这个窗口。",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "minimize_window",
+        "report_id": {
+          "$ref": "checked_e.value.report_id"
+        },
+        "target_ref": {
+          "$ref": "material_e2.target_ref"
+        }
+      },
+      "bind": "min_e"
+    },
+    {
+      "id": "e-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "min_e.value.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "congratulations",
+      "op": "model.call",
+      "user": "请按刚才的判断提醒我。congratulations",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "celebrate",
+        "message": "窗口动作回归全部通过。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "congratulations-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "请结束这次回归任务。",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "固定回复只验证最小化与强杀流程；不代表真实 AI 判断质量。"
+      },
+      "bind": "finished"
+    },
+    {
+      "id": "completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "finished.value.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "final-state",
+      "op": "state.read",
+      "bind": "state"
+    },
+    {
+      "id": "no-live-tasks",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live"
+      },
+      "operator": "count",
+      "expected": 0
+    },
+    {
+      "id": "reports-cleaned",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.reports"
+      },
+      "operator": "count",
+      "expected": 0
+    }
+  ],
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

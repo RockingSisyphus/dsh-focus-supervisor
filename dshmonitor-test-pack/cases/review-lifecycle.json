@@ -1,0 +1,919 @@
+{
+  "schemaVersion": 1,
+  "id": "review-lifecycle",
+  "title": "完整任务人工审核：预约、分心、解释、警告、延期与提前完成",
+  "engine": "dsh",
+  "features": [
+    "heartbeat",
+    "actions",
+    "deadlines",
+    "cleanup"
+  ],
+  "preview": true,
+  "present_user": true,
+  "timeout": 240,
+  "variables": {
+    "active_start": {
+      "$iso_after": 0
+    },
+    "contract": {
+      "agreement": "阅读事务论文，能解释提交与回滚；通过聊天讨论验收。",
+      "task_prompt": "此为脚本模拟人工审核场景。结合真实采集和用户解释检查任务，不要求提交文件。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 86400
+      },
+      "end_at": {
+        "$iso_after": 90000
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss",
+      "check_interval_seconds": 6
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "create-native-fixture",
+      "op": "fixture.app",
+      "entity": "legacy-app",
+      "windows": [
+        {
+          "title": "论文阅读 · 人工审核测试",
+          "rect": [
+            30,
+            40,
+            720,
+            430
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "正在阅读论文：事务提交与回滚。\n这是专用测试窗口。"
+            }
+          ],
+          "id": "legacy-0"
+        }
+      ]
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "我想预约阅读事务论文，允许提前完成；遇到问题可以商量延期。",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "start",
+      "op": "model.call",
+      "user": "我准备好了，把预约提前到现在开始，先给我一小时。",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "task.value.id"
+            },
+            "start_at": {
+              "$ref": "active_start"
+            },
+            "end_at": {
+              "$iso_after": 3600
+            },
+            "reason": "人工审核场景：用户协商提前开工"
+          }
+        ]
+      },
+      "bind": "active"
+    },
+    {
+      "id": "wait-active",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "status": "active"
+    },
+    {
+      "id": "start-check-model",
+      "op": "heartbeat.enable",
+      "decision": "on_task",
+      "reason": "固定测试判断：任务开始，真实窗口显示论文阅读。"
+    },
+    {
+      "id": "start-check-preview",
+      "op": "report.next",
+      "bind": "report",
+      "timeout": 30
+    },
+    {
+      "id": "start-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "start-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "on_task"
+    },
+    {
+      "id": "start-reminder",
+      "op": "model.call",
+      "user": "请按刚才的判断提醒我。start-reminder",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "start",
+        "message": "任务开始了，我们先读论文。此为人工审核演示。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "start-reminder-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "start-reminder-capture",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "start-reminder-capture-user-click",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "start-reminder-focus-finished",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "start_focus_completion"
+    },
+    {
+      "id": "start-reminder-focus-completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "start_focus_completion.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "article-browser",
+      "op": "desktop.browser",
+      "file": "article.html",
+      "title": "DSH_BROWSER_ARTICLE",
+      "bind": "browser_window",
+      "expect_text": "事务提交使修改生效"
+    },
+    {
+      "id": "article-focus",
+      "op": "assert",
+      "actual": {
+        "$ref": "browser_window.focused"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "article-rule",
+      "op": "heartbeat.enable",
+      "decision": "on_task",
+      "reason": "固定测试判断，核对真实采集和工具执行。"
+    },
+    {
+      "id": "article-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "browser_window.id"
+      },
+      "detail_after": {
+        "$ref": "browser_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "browser_window.established_at"
+      }
+    },
+    {
+      "id": "article-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "article-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "material",
+      "target_title": "FocusTest GTK same title"
+    },
+    {
+      "id": "article-visible-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "事务提交使修改生效"
+    },
+    {
+      "id": "article-model-image",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.model_image_valid"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "entertainment-browser",
+      "op": "desktop.browser",
+      "file": "entertainment.html",
+      "title": "DSH_BROWSER_GAME",
+      "bind": "browser_window",
+      "expect_text": "当前活动：继续游玩"
+    },
+    {
+      "id": "entertainment-focus",
+      "op": "assert",
+      "actual": {
+        "$ref": "browser_window.focused"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "entertainment-rule",
+      "op": "heartbeat.enable",
+      "decision": "on_task",
+      "reason": "固定测试判断，核对真实采集和工具执行。"
+    },
+    {
+      "id": "entertainment-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "browser_window.id"
+      },
+      "detail_after": {
+        "$ref": "browser_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "browser_window.established_at"
+      }
+    },
+    {
+      "id": "entertainment-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "entertainment-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "material",
+      "target_title": "FocusTest GTK same title"
+    },
+    {
+      "id": "entertainment-visible-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "当前活动：继续游玩"
+    },
+    {
+      "id": "entertainment-model-image",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.model_image_valid"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "possible-distraction",
+      "op": "desktop.activity",
+      "title": "小游戏 · 人工审核测试",
+      "text": "关卡选择：纸牌小游戏（模拟游戏界面）\n用户暂时离开论文阅读。",
+      "entity": "legacy-0",
+      "bind": "activity_window"
+    },
+    {
+      "id": "uncertain-check-model",
+      "op": "heartbeat.enable",
+      "decision": "uncertain",
+      "reason": "固定测试判断：出现小游戏测试窗口，尚不确定用户是否在查任务相关内容，先询问。"
+    },
+    {
+      "id": "uncertain-check-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "timeout": 30,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "uncertain-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "uncertain-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "uncertain"
+    },
+    {
+      "id": "uncertain-check-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "target_title": "小游戏 · 人工审核测试",
+      "bind": "material"
+    },
+    {
+      "id": "uncertain-check-real-game-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "小游戏 · 人工审核测试"
+    },
+    {
+      "id": "question",
+      "op": "model.call",
+      "user": "请按刚才的判断提醒我。question",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "question",
+        "message": "我看到你切换到了小游戏测试窗口。这和论文有关吗？请到聊天中解释。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "question-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "question-capture",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "question-capture-user-click",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "question-capture-user-click-await-focus",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "focus_result"
+    },
+    {
+      "id": "question-capture-user-click-focus-complete",
+      "op": "assert",
+      "actual": {
+        "$ref": "focus_result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "explanation",
+      "op": "model.reply",
+      "user": "我刚才在查论文里游戏论的术语，现在已经查完，回去继续阅读。",
+      "text": "演示判断：这次解释可以接受。接下来我会结合新一轮采集确认你是否回到论文。"
+    },
+    {
+      "id": "back-to-work",
+      "op": "desktop.activity",
+      "title": "论文阅读 · 人工审核测试",
+      "text": "正在阅读论文：事务提交与回滚。\n已写下理解：提交使修改生效，回滚恢复先前状态。",
+      "entity": "legacy-0",
+      "bind": "activity_window"
+    },
+    {
+      "id": "returned-check-model",
+      "op": "heartbeat.enable",
+      "decision": "returned",
+      "reason": "固定测试判断：解释后实际窗口已返回论文阅读。"
+    },
+    {
+      "id": "returned-check-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "timeout": 30,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "returned-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "returned-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "returned"
+    },
+    {
+      "id": "confirmed-distraction",
+      "op": "desktop.activity",
+      "title": "小游戏 · 人工审核测试",
+      "text": "小游戏第 2 关：继续游玩（模拟游戏界面）\n用户承认这次与任务无关。",
+      "entity": "legacy-0",
+      "bind": "activity_window"
+    },
+    {
+      "id": "admission",
+      "op": "model.reply",
+      "user": "这次确实是在玩，跟论文没关系。",
+      "text": "演示判断：这次属于分心。我会记录本轮观察，并发出明确提醒。"
+    },
+    {
+      "id": "off-task-check-model",
+      "op": "heartbeat.enable",
+      "decision": "off_task",
+      "reason": "固定测试判断：用户明确承认与任务无关，窗口也显示小游戏。"
+    },
+    {
+      "id": "off-task-check-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "timeout": 30,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "off-task-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "off-task-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "off_task"
+    },
+    {
+      "id": "off-task-check-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "target_title": "小游戏 · 人工审核测试",
+      "bind": "material"
+    },
+    {
+      "id": "off-task-check-real-game-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "小游戏 · 人工审核测试"
+    },
+    {
+      "id": "warning",
+      "op": "model.call",
+      "user": "请按刚才的判断提醒我。warning",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "warning",
+        "message": "这次确实分心了。请退出小游戏，回到论文阅读。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "warning-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "warning-capture",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "warning-capture-user-click",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "warning-capture-user-click-await-focus",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "focus_result"
+    },
+    {
+      "id": "warning-capture-user-click-focus-complete",
+      "op": "assert",
+      "actual": {
+        "$ref": "focus_result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "open-notepad",
+      "op": "desktop.notepad",
+      "bind": "activity_window"
+    },
+    {
+      "id": "notepad-rule",
+      "op": "heartbeat.enable",
+      "decision": "off_task",
+      "reason": "固定演示：以本次专用记事本模拟提醒后仍持续分心的窗口，随后测试最后手段。"
+    },
+    {
+      "id": "notepad-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "notepad-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "notepad-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "material",
+      "target_title": "监工测试记事本 DSH_NOTEPAD"
+    },
+    {
+      "id": "notepad-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "DSH_NOTEPAD_CONTENT"
+    },
+    {
+      "id": "close-test-notepad",
+      "op": "model.call",
+      "user": "演示最后手段：请只终止本轮创建的监工测试记事本窗口进程。",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "force_close",
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "target_ref": {
+          "$ref": "material.target_ref"
+        }
+      },
+      "bind": "close_result"
+    },
+    {
+      "id": "notepad-closed",
+      "op": "assert",
+      "actual": {
+        "$ref": "close_result.value.closed"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "verify-notepad-gone",
+      "op": "desktop.capture",
+      "bind": "desktop_after"
+    },
+    {
+      "id": "notepad-no-longer-present",
+      "op": "assert",
+      "actual": {
+        "$ref": "desktop_after.desktop.windows"
+      },
+      "operator": "not_contains",
+      "expected": "监工测试记事本 DSH_NOTEPAD"
+    },
+    {
+      "id": "resume-reading",
+      "op": "desktop.activity",
+      "title": "论文阅读 · 人工审核测试",
+      "text": "继续阅读论文：事务隔离与一致性。\n准备解释提交与回滚的区别。",
+      "entity": "legacy-0"
+    },
+    {
+      "id": "extend-once",
+      "op": "model.call",
+      "user": "剩余内容比预期多，我想申请延长一小时。",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "task.value.id"
+            },
+            "start_at": {
+              "$ref": "active_start"
+            },
+            "end_at": {
+              "$iso_after": 7200
+            },
+            "reason": "人工审核场景：讨论后同意第一次且唯一一次延期"
+          }
+        ]
+      },
+      "bind": "extended"
+    },
+    {
+      "id": "deadline-extended",
+      "op": "assert",
+      "actual": {
+        "$ref": "extended.value.end_at"
+      },
+      "operator": "gt",
+      "expected": {
+        "$ref": "active.value.end_at"
+      }
+    },
+    {
+      "id": "verification-question",
+      "op": "model.reply",
+      "user": "我已经读完了，可以提前验收吗？",
+      "text": "可以。请解释事务提交和回滚的区别，以及什么时候需要回滚。"
+    },
+    {
+      "id": "verification-answer",
+      "op": "model.reply",
+      "user": "提交会使修改正式生效；回滚会撤销未提交的修改。遇到错误或无法满足一致性条件时应回滚。",
+      "text": "演示验收结论：回答符合这次约定，可以提前结束。这是固定测试结论，不代表真实模型评审质量。"
+    },
+    {
+      "id": "congratulations",
+      "op": "model.call",
+      "user": "请按刚才的判断提醒我。congratulations",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "celebrate",
+        "message": "恭喜完成！你在延期一次后提前通过了本次演示验收。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "congratulations-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "congratulations-capture",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "congratulations-capture-user-click",
+      "op": "desktop.popup_click"
+    },
+    {
+      "id": "congratulations-capture-user-click-await-focus",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "focus_result"
+    },
+    {
+      "id": "congratulations-capture-user-click-focus-complete",
+      "op": "assert",
+      "actual": {
+        "$ref": "focus_result.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "finish-early",
+      "op": "model.call",
+      "user": "请按刚才的验收结论结束任务。",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "固定演示：通过口头讨论确认理解，无成果文件要求；延期一次后提前完成。"
+      },
+      "bind": "finished"
+    },
+    {
+      "id": "completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "finished.value.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "finished-before-extended-deadline",
+      "op": "assert",
+      "actual": {
+        "$ref": "finished.value.ended_at"
+      },
+      "operator": "lt",
+      "expected": {
+        "$ref": "extended.value.end_at"
+      }
+    },
+    {
+      "id": "final-state",
+      "op": "state.read",
+      "bind": "state"
+    },
+    {
+      "id": "no-live-tasks",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live"
+      },
+      "operator": "count",
+      "expected": 0
+    },
+    {
+      "id": "reports-cleaned",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.reports"
+      },
+      "operator": "count",
+      "expected": 0
+    },
+    {
+      "id": "task-prompt-cleaned",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.tasks.0.task_prompt"
+      },
+      "operator": "exists",
+      "expected": false
+    }
+  ],
+  "browser_fixture": true,
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

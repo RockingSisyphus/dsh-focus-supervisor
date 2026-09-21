@@ -1,0 +1,557 @@
+{
+  "schemaVersion": 1,
+  "id": "heartbeat-evidence-followup",
+  "title": "保留首轮报告并验收下一周期真实证据与动作",
+  "engine": "dsh",
+  "features": [
+    "heartbeat",
+    "desktop-gnome",
+    "evidence",
+    "native-tools",
+    "actions",
+    "cleanup"
+  ],
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "custom-prompts",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "GLOBAL_INSTRUCTIONS_271828",
+        "heartbeat_prompt": "GLOBAL_HEARTBEAT_161803"
+      },
+      "save": true
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat-model",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan-active",
+      "op": "model.call",
+      "user": "测试：plan-active",
+      "tool": "focus_plan",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "start_at": {
+              "$iso_after": -1
+            },
+            "check_interval_seconds": 6
+          }
+        ]
+      },
+      "bind": "task"
+    },
+    {
+      "id": "create-native-fixture",
+      "op": "fixture.app",
+      "entity": "legacy-app",
+      "windows": [
+        {
+          "title": "FocusTest GTK same title",
+          "rect": [
+            30,
+            40,
+            440,
+            320
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "ALPHA_REAL_ATSPI_314159\n真实界面文字：正在核验通用无障碍采集。"
+            },
+            {
+              "type": "edit",
+              "text": "VISIBLE_EDITED_VALUE_0"
+            },
+            {
+              "type": "password",
+              "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+            }
+          ],
+          "id": "legacy-0"
+        },
+        {
+          "title": "FocusTest GTK same title",
+          "rect": [
+            510,
+            40,
+            440,
+            320
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "BETA_REAL_ATSPI_271828\n真实界面文字：正在核验通用无障碍采集。"
+            },
+            {
+              "type": "edit",
+              "text": "VISIBLE_EDITED_VALUE_1"
+            },
+            {
+              "type": "password",
+              "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+            }
+          ],
+          "id": "legacy-1"
+        }
+      ]
+    },
+    {
+      "id": "show-left-native",
+      "op": "fixture.window",
+      "entity": "legacy-0",
+      "action": "activate"
+    },
+    {
+      "id": "show-right-native",
+      "op": "fixture.window",
+      "entity": "legacy-1",
+      "action": "activate"
+    },
+    {
+      "id": "native-identities",
+      "op": "native.accessibility_inventory",
+      "bind": "nativeIdentities"
+    },
+    {
+      "id": "start-preview",
+      "op": "report.next",
+      "bind": "first"
+    },
+    {
+      "id": "start-phase",
+      "op": "assert",
+      "actual": {
+        "$ref": "first.phase"
+      },
+      "operator": "equals",
+      "expected": "start"
+    },
+    {
+      "id": "release-start",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "first.id"
+      }
+    },
+    {
+      "id": "interval-preview",
+      "op": "report.wait",
+      "bind": "second",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "minimum_samples": 2
+    },
+    {
+      "id": "release-monitor",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "second.id"
+      }
+    },
+    {
+      "id": "following-monitor",
+      "op": "report.wait",
+      "bind": "second",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "minimum_samples": 2,
+      "created_after": {
+        "$ref": "second.created_at"
+      }
+    },
+    {
+      "id": "following-monitor-reviewed",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "second.id"
+      }
+    },
+    {
+      "id": "inspect-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "second.id"
+      },
+      "bind": "material",
+      "target_title": "FocusTest GTK same title",
+      "target_entity": "legacy-0"
+    },
+    {
+      "id": "real-duration-unmodified",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.effective_seconds"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "material.raw_seconds"
+      }
+    },
+    {
+      "id": "real-duration-positive",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.raw_seconds"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "images-present",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.image_count"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "full-desktop-image",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.full_desktop_image"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "both-native-window-images",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.fixture_window_ids"
+      },
+      "operator": "count",
+      "expected": 2
+    },
+    {
+      "id": "program-details-present",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.fixture_program_files"
+      },
+      "operator": "count",
+      "expected": 1
+    },
+    {
+      "id": "focus-observed",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.has_focus"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "native-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "REAL_ATSPI_"
+    },
+    {
+      "id": "password-hidden",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "not_contains",
+      "expected": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+    },
+    {
+      "id": "image-at-model",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.model_image_valid"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "global-instructions-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.system_text"
+      },
+      "operator": "contains",
+      "expected": "GLOBAL_INSTRUCTIONS_271828"
+    },
+    {
+      "id": "heartbeat-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.heartbeat_text"
+      },
+      "operator": "contains",
+      "expected": "GLOBAL_HEARTBEAT_161803"
+    },
+    {
+      "id": "task-prompt-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.heartbeat_text"
+      },
+      "operator": "contains",
+      "expected": "TASK_EXTRA_314159"
+    },
+    {
+      "id": "native-effort",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.reasoning_effort"
+      },
+      "operator": "equals",
+      "expected": "high"
+    },
+    {
+      "id": "native-read",
+      "op": "model.call",
+      "user": "测试：native-read",
+      "tool": "read",
+      "arguments": {
+        "file_path": {
+          "$ref": "material.overview_file"
+        }
+      },
+      "bind": "result"
+    },
+    {
+      "id": "native-read-has-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.raw"
+      },
+      "operator": "contains",
+      "expected": "FocusTest GTK same title"
+    },
+    {
+      "id": "verify-original",
+      "op": "model.call",
+      "user": "测试：verify-original",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "second.id"
+        },
+        "operation": "verify_files"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "verified",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.verified"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "tamper",
+      "op": "file.write",
+      "path": {
+        "$ref": "material.timeline_file"
+      },
+      "text": "{}"
+    },
+    {
+      "id": "verify-tampered",
+      "op": "model.call",
+      "user": "测试：verify-tampered",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "second.id"
+        },
+        "operation": "verify_files"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "tamper-detected",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.verified"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "minimize-window",
+      "op": "model.call",
+      "user": "测试：minimize-window",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "minimize_window",
+        "report_id": {
+          "$ref": "second.id"
+        },
+        "target_ref": {
+          "$ref": "material.target_ref"
+        }
+      },
+      "bind": "result"
+    },
+    {
+      "id": "window-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "remind",
+      "op": "model.call",
+      "user": "测试：remind",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "question",
+        "message": "功能测试：请解释当前活动。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "popup-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "capture-popup",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "popup-is-real",
+      "op": "assert",
+      "actual": {
+        "$ref": "popup.title"
+      },
+      "operator": "equals",
+      "expected": "大肥鱼监工提醒"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "测试：finish",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "固定回复只验证软件验收流程。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "directory-gone",
+      "op": "file.exists",
+      "path": {
+        "$ref": "material.task_folder"
+      },
+      "bind": "exists"
+    },
+    {
+      "id": "evidence-cleaned",
+      "op": "assert",
+      "actual": {
+        "$ref": "exists"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "finished-state",
+      "op": "state.read",
+      "bind": "state",
+      "task_id": {
+        "$ref": "task.value.id"
+      }
+    },
+    {
+      "id": "tasks-ended",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live"
+      },
+      "operator": "count",
+      "expected": 0
+    },
+    {
+      "id": "reports-deleted",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.reports"
+      },
+      "operator": "count",
+      "expected": 0
+    },
+    {
+      "id": "task-prompt-deleted",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.tasks.0.task_prompt"
+      },
+      "operator": "exists",
+      "expected": false
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "note": "正式后台按真实时间生成报告；时长覆盖算法仅由契约测试覆盖。",
+  "present_user": true,
+  "timeout": 300
+}

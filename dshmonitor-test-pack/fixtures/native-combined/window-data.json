@@ -1,0 +1,15 @@
+{
+  "keys": [
+    "C",
+    "D",
+    "A",
+    "B"
+  ],
+  "title": "Combined same title",
+  "log_marker": "COMBINED_REAL_LOG",
+  "group_prefix": "GROUP ",
+  "edit_suffix": "_ORIGINAL 中文",
+  "checkbox": "Auto save",
+  "password": "SECRET_MUST_NOT_LEAK",
+  "hidden": "HIDDEN_MUST_NOT_LEAK"
+}

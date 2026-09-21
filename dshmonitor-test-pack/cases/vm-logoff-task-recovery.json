@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "vm-logoff-task-recovery",
+  "title": "Windows 真实注销登录后保留原任务并恢复采样",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "persistent_session": true,
+  "verification": "product",
+  "group": "extended",
+  "platforms": [
+    "windows"
+  ],
+  "features": [
+    "persistence",
+    "heartbeat"
+  ],
+  "timeout": 1200,
+  "steps": [
+    {
+      "id": "prepare",
+      "op": "case.run",
+      "cases": [
+        "active-reboot-prepare"
+      ],
+      "bind": "before"
+    },
+    {
+      "id": "prepare-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "logout",
+      "op": "vm.desktop_session",
+      "action": "logout",
+      "bind": "logout"
+    },
+    {
+      "id": "login",
+      "op": "vm.desktop_session",
+      "action": "login",
+      "bind": "login"
+    },
+    {
+      "id": "resume",
+      "op": "case.run",
+      "cases": [
+        "active-reboot-resume"
+      ],
+      "bind": "after"
+    },
+    {
+      "id": "resume-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

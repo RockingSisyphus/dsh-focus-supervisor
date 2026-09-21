@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "id": "settings-document-threshold",
+  "title": "真实设置 UI 完整说明与离席阈值应用",
+  "engine": "dsh",
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "features": [
+    "settings-ui",
+    "prompt-permissions"
+  ],
+  "timeout": 150,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "save-ui",
+      "op": "ui.settings",
+      "values": {
+        "instructions_full": "STAGE4_FULL_DOCUMENT_FROM_REAL_UI",
+        "away_heartbeats": 3
+      },
+      "save": true,
+      "bind": "saved"
+    },
+    {
+      "id": "reopen",
+      "op": "ui.settings",
+      "bind": "panel"
+    },
+    {
+      "id": "ui-instructions_full",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.instructions_full"
+      },
+      "operator": "equals",
+      "expected": "STAGE4_FULL_DOCUMENT_FROM_REAL_UI"
+    },
+    {
+      "id": "ui-away_heartbeats",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.away_heartbeats"
+      },
+      "operator": "equals",
+      "expected": 3
+    },
+    {
+      "id": "tool-settings",
+      "op": "model.call",
+      "user": "读取当前设置",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "get"
+      },
+      "bind": "settings"
+    },
+    {
+      "id": "threshold-applied",
+      "op": "assert",
+      "actual": {
+        "$ref": "settings.value.away_heartbeats"
+      },
+      "operator": "equals",
+      "expected": 3
+    },
+    {
+      "id": "tool-help",
+      "op": "model.call",
+      "user": "读取完整说明",
+      "tool": "focus_help",
+      "arguments": {},
+      "bind": "help"
+    },
+    {
+      "id": "custom-document-applied",
+      "op": "assert",
+      "actual": {
+        "$ref": "help.raw"
+      },
+      "operator": "contains",
+      "expected": "STAGE4_FULL_DOCUMENT_FROM_REAL_UI"
+    }
+  ]
+}

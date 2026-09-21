@@ -1,0 +1,20 @@
+{
+  "windows": [
+    {
+      "title": "持续分心测试 DSH_STUBBORN",
+      "rect": [
+        40,
+        40,
+        620,
+        360
+      ],
+      "controls": [
+        {
+          "type": "edit",
+          "text": "DSH_STUBBORN_CONTENT 此测试应用故意拒绝普通关闭，用于检验最后手段。"
+        }
+      ]
+    }
+  ],
+  "refuse_close": true
+}

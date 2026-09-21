@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "id": "fresh-desktop-regression",
+  "title": "干净安装后重跑原始窗口动作、提醒闭环和完整桌面场景",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "verification_layer": "dsh",
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "actions",
+    "live-reminder-delivery",
+    "test-reporting"
+  ],
+  "installation": "fresh",
+  "timeout": 1800,
+  "steps": [
+    {
+      "id": "install",
+      "op": "case.run",
+      "cases": [
+        "fresh-install-ui"
+      ],
+      "bind": "installed"
+    },
+    {
+      "id": "installed",
+      "op": "assert",
+      "actual": {
+        "$ref": "installed.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "load-installed-components",
+      "op": "vm.reboot"
+    },
+    {
+      "id": "original-regressions",
+      "op": "case.run",
+      "cases": [
+        "minimize-window-rules",
+        "product-desktop-loop",
+        "review-lifecycle-live"
+      ],
+      "bind": "regressions"
+    },
+    {
+      "id": "original-regressions-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "regressions.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

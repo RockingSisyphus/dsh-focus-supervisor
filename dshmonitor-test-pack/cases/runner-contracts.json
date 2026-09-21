@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "runner-contracts",
+  "title": "测试器自检：失败退出、继续执行、回退与未覆盖标记",
+  "engine": "command",
+  "features": [
+    "test-reporting"
+  ],
+  "argv": [
+    "$python",
+    "-m",
+    "pytest",
+    "-q",
+    "dshmonitor-test-pack/tests/test_runner.py",
+    "dshmonitor-test-pack/tests/test_review.py",
+    "dshmonitor-test-pack/tests/test_browser_history.py",
+    "test-support/tests/test_catalog.py",
+    "dshmonitor-test-pack/tests/test_cross_platform.py",
+    "tests/test_windows_login.py",
+    "dshmonitor-test-pack/tests/test_process_cleanup.py",
+    "dshmonitor-test-pack/tests/test_vm_input.py"
+  ],
+  "expect_exit": 0,
+  "timeout": 30,
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "contract",
+  "verification_layer": "protocol"
+}

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "fresh-install-download-failure",
+  "title": "真实依赖下载断开时安装不得误报成功",
+  "engine": "dsh",
+  "features": [
+    "settings-ui",
+    "desktop-setup"
+  ],
+  "preview": true,
+  "npm_install": true,
+  "timeout": 1200,
+  "note": "仅在干净来宾执行；真实 DSH、实际安装按钮和系统授权。系统重新登录由外层 JSON 编排。",
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "panel",
+      "op": "ui.open",
+      "bind": "panel"
+    },
+    {
+      "id": "card-needs-install",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.setup_card.state"
+      },
+      "operator": "equals",
+      "expected": "required"
+    },
+    {
+      "id": "click-install",
+      "op": "ui.click",
+      "selector": "button[data-dafeiyu-setup-install]"
+    },
+    {
+      "id": "authorize-real-dialog",
+      "op": "native.authorize"
+    },
+    {
+      "id": "download-failed",
+      "op": "ui.wait_plugin_state",
+      "path": "setup_install.state",
+      "timeout": 900,
+      "one_of": [
+        "failed",
+        "cancelled"
+      ],
+      "bind": "failed_install"
+    },
+    {
+      "id": "failed-still-uninstalled",
+      "op": "assert",
+      "actual": {
+        "$ref": "failed_install.setup.required"
+      },
+      "operator": "equals",
+      "expected": true
+    }
+  ],
+  "group": "manual",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "installation": "fresh",
+  "verification_layer": "dsh"
+}

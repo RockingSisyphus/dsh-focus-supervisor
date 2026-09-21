@@ -1,0 +1,1160 @@
+{
+  "schemaVersion": 1,
+  "id": "native-combined",
+  "title": "综合原生场景：四窗口、结构/日志/截图、任务生命周期与真实关闭",
+  "engine": "command",
+  "features": [
+    "application-capture",
+    "scheduling",
+    "prompt-permissions",
+    "heartbeat",
+    "evidence",
+    "actions",
+    "cleanup"
+  ],
+  "argv": [
+    "$python",
+    "dshmonitor-test-pack/runtime/native_combined.py",
+    "--output",
+    "$output",
+    "--case",
+    "$case"
+  ],
+  "expect_exit": 0,
+  "timeout": 240,
+  "variables": {
+    "contract": {
+      "task_id": "combined",
+      "agreement": "观察测试界面并解释内容",
+      "task_prompt": "只核查测试窗口的可见文字；组合场景测试",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$time_after": 30
+      },
+      "end_at": {
+        "$time_after": 300
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss",
+      "check_interval_seconds": 2
+    },
+    "extension_end": {
+      "$time_after": 360
+    }
+  },
+  "steps": [
+    {
+      "id": "enable-task-protection",
+      "op": "monitor.call",
+      "method": "configure",
+      "args": [
+        {
+          "patch": {
+            "protect_task_changes": true
+          }
+        },
+        "ui"
+      ]
+    },
+    {
+      "id": "plan",
+      "op": "monitor.call",
+      "method": "plan",
+      "args": [
+        {
+          "$ref": "contract"
+        },
+        "test-chat"
+      ],
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "conflicting-plan",
+      "op": "monitor.call",
+      "method": "plan",
+      "args": [
+        {
+          "$merge": [
+            {
+              "$ref": "contract"
+            },
+            {
+              "task_id": "conflict"
+            }
+          ]
+        },
+        "test-chat"
+      ],
+      "capture_error": true,
+      "bind": "conflict"
+    },
+    {
+      "id": "conflict-identifies-task",
+      "op": "assert",
+      "actual": {
+        "$ref": "conflict.error"
+      },
+      "operator": "contains",
+      "expected": "combined"
+    },
+    {
+      "id": "locked-configure",
+      "op": "monitor.call",
+      "method": "configure",
+      "args": [
+        {
+          "patch": {
+            "mascot_size": 120
+          }
+        },
+        "ui"
+      ],
+      "capture_error": true,
+      "bind": "locked"
+    },
+    {
+      "id": "scheduled-settings-locked",
+      "op": "assert",
+      "actual": {
+        "$ref": "locked.error"
+      },
+      "operator": "exists",
+      "expected": true
+    },
+    {
+      "id": "begin",
+      "op": "monitor.call",
+      "method": "revise",
+      "args": [
+        {
+          "$merge": [
+            {
+              "$ref": "contract"
+            },
+            {
+              "start_at": {
+                "$time_after": -1
+              },
+              "reason": "测试开始"
+            }
+          ]
+        },
+        "test-chat"
+      ],
+      "bind": "task"
+    },
+    {
+      "id": "active",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.status"
+      },
+      "operator": "equals",
+      "expected": "active"
+    },
+    {
+      "id": "overlap",
+      "op": "native.phase",
+      "phase": {
+        "id": "overlap",
+        "focus": "B",
+        "windows": {
+          "C": {
+            "rect": [
+              400,
+              260,
+              240,
+              220
+            ]
+          },
+          "D": {
+            "rect": [
+              10,
+              35,
+              300,
+              280
+            ],
+            "minimized": true
+          },
+          "A": {
+            "rect": [
+              40,
+              60,
+              380,
+              340
+            ]
+          },
+          "B": {
+            "rect": [
+              240,
+              180,
+              420,
+              380
+            ]
+          }
+        },
+        "visible": [
+          "A",
+          "B"
+        ],
+        "hidden": [
+          "C",
+          "D"
+        ]
+      },
+      "bind": "phase0"
+    },
+    {
+      "id": "overlap-visible-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.visible"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "overlap-nodes-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.nodes"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "overlap-checked-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.text"
+      },
+      "operator": "contains",
+      "expected": "[checked]"
+    },
+    {
+      "id": "overlap-label-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.text"
+      },
+      "operator": "contains",
+      "expected": "Auto save"
+    },
+    {
+      "id": "overlap-image-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.scope"
+      },
+      "operator": "equals",
+      "expected": "native_window_surface"
+    },
+    {
+      "id": "overlap-identity-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.text"
+      },
+      "operator": "contains",
+      "expected": "GROUP A"
+    },
+    {
+      "id": "overlap-not-B-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP B"
+    },
+    {
+      "id": "overlap-not-C-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP C"
+    },
+    {
+      "id": "overlap-not-D-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP D"
+    },
+    {
+      "id": "overlap-SECRET_MUST_NOT_LEAK-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.text"
+      },
+      "operator": "not_contains",
+      "expected": "SECRET_MUST_NOT_LEAK"
+    },
+    {
+      "id": "overlap-HIDDEN_MUST_NOT_LEAK-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.text"
+      },
+      "operator": "not_contains",
+      "expected": "HIDDEN_MUST_NOT_LEAK"
+    },
+    {
+      "id": "overlap-visible-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.visible"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "overlap-nodes-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.nodes"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "overlap-checked-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.text"
+      },
+      "operator": "contains",
+      "expected": "[checked]"
+    },
+    {
+      "id": "overlap-label-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.text"
+      },
+      "operator": "contains",
+      "expected": "Auto save"
+    },
+    {
+      "id": "overlap-image-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.scope"
+      },
+      "operator": "equals",
+      "expected": "native_window_surface"
+    },
+    {
+      "id": "overlap-identity-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.text"
+      },
+      "operator": "contains",
+      "expected": "GROUP B"
+    },
+    {
+      "id": "overlap-not-A-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP A"
+    },
+    {
+      "id": "overlap-not-C-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP C"
+    },
+    {
+      "id": "overlap-not-D-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP D"
+    },
+    {
+      "id": "overlap-SECRET_MUST_NOT_LEAK-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "SECRET_MUST_NOT_LEAK"
+    },
+    {
+      "id": "overlap-HIDDEN_MUST_NOT_LEAK-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "HIDDEN_MUST_NOT_LEAK"
+    },
+    {
+      "id": "overlap-hidden-C",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.C.visible"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "overlap-no-hidden-content-C",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.C.has_content"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "overlap-hidden-D",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.D.visible"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "overlap-no-hidden-content-D",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.D.has_content"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "overlap-focus",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.B.focused"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "real-open-log",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase0.A.logs_text"
+      },
+      "operator": "contains",
+      "expected": "COMBINED_REAL_LOG"
+    },
+    {
+      "id": "overlap-report",
+      "op": "monitor.report",
+      "task_id": "combined",
+      "name": "overlap",
+      "bind": "exported"
+    },
+    {
+      "id": "overlap-export",
+      "op": "assert",
+      "actual": {
+        "$ref": "exported.export.error"
+      },
+      "operator": "exists",
+      "expected": false
+    },
+    {
+      "id": "overlap-judgment",
+      "op": "monitor.call",
+      "method": "observe",
+      "args": [
+        {
+          "report_id": {
+            "$ref": "exported.report.id"
+          },
+          "decision": "suspect",
+          "reason": "模拟模型判断"
+        },
+        "test-chat"
+      ]
+    },
+    {
+      "id": "edit-and-switch",
+      "op": "native.phase",
+      "phase": {
+        "id": "edit-and-switch",
+        "focus": "A",
+        "windows": {
+          "C": {
+            "visible": false
+          },
+          "D": {
+            "minimized": true
+          },
+          "A": {
+            "rect": [
+              50,
+              60,
+              430,
+              360
+            ],
+            "text": "A_EDITED_中文_😀"
+          },
+          "B": {
+            "rect": [
+              360,
+              220,
+              420,
+              380
+            ]
+          }
+        },
+        "visible": [
+          "A",
+          "B"
+        ],
+        "hidden": [
+          "C",
+          "D"
+        ]
+      },
+      "bind": "phase1"
+    },
+    {
+      "id": "observe-edited-layout",
+      "op": "native.observe",
+      "seconds": 12,
+      "bind": "phase1"
+    },
+    {
+      "id": "edit-and-switch-visible-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.visible"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "edit-and-switch-nodes-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.nodes"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "edit-and-switch-checked-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.text"
+      },
+      "operator": "contains",
+      "expected": "[checked]"
+    },
+    {
+      "id": "edit-and-switch-label-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.text"
+      },
+      "operator": "contains",
+      "expected": "Auto save"
+    },
+    {
+      "id": "edit-and-switch-image-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.scope"
+      },
+      "operator": "equals",
+      "expected": "native_window_surface"
+    },
+    {
+      "id": "edit-and-switch-identity-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.text"
+      },
+      "operator": "contains",
+      "expected": "GROUP A"
+    },
+    {
+      "id": "edit-and-switch-not-B-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP B"
+    },
+    {
+      "id": "edit-and-switch-not-C-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP C"
+    },
+    {
+      "id": "edit-and-switch-not-D-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP D"
+    },
+    {
+      "id": "edit-and-switch-SECRET_MUST_NOT_LEAK-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.text"
+      },
+      "operator": "not_contains",
+      "expected": "SECRET_MUST_NOT_LEAK"
+    },
+    {
+      "id": "edit-and-switch-HIDDEN_MUST_NOT_LEAK-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.text"
+      },
+      "operator": "not_contains",
+      "expected": "HIDDEN_MUST_NOT_LEAK"
+    },
+    {
+      "id": "edit-and-switch-visible-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.visible"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "edit-and-switch-nodes-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.nodes"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "edit-and-switch-checked-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.text"
+      },
+      "operator": "contains",
+      "expected": "[checked]"
+    },
+    {
+      "id": "edit-and-switch-label-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.text"
+      },
+      "operator": "contains",
+      "expected": "Auto save"
+    },
+    {
+      "id": "edit-and-switch-image-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.scope"
+      },
+      "operator": "equals",
+      "expected": "native_window_surface"
+    },
+    {
+      "id": "edit-and-switch-identity-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.text"
+      },
+      "operator": "contains",
+      "expected": "GROUP B"
+    },
+    {
+      "id": "edit-and-switch-not-A-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP A"
+    },
+    {
+      "id": "edit-and-switch-not-C-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP C"
+    },
+    {
+      "id": "edit-and-switch-not-D-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP D"
+    },
+    {
+      "id": "edit-and-switch-SECRET_MUST_NOT_LEAK-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "SECRET_MUST_NOT_LEAK"
+    },
+    {
+      "id": "edit-and-switch-HIDDEN_MUST_NOT_LEAK-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "HIDDEN_MUST_NOT_LEAK"
+    },
+    {
+      "id": "edit-and-switch-hidden-C",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.C.visible"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "edit-and-switch-no-hidden-content-C",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.C.has_content"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "edit-and-switch-hidden-D",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.D.visible"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "edit-and-switch-no-hidden-content-D",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.D.has_content"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "edit-and-switch-focus",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.focused"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "unicode-edit",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase1.A.text"
+      },
+      "operator": "contains",
+      "expected": "A_EDITED_中文_😀"
+    },
+    {
+      "id": "edit-and-switch-report",
+      "op": "monitor.report",
+      "task_id": "combined",
+      "name": "edit-and-switch",
+      "bind": "exported"
+    },
+    {
+      "id": "edit-and-switch-export",
+      "op": "assert",
+      "actual": {
+        "$ref": "exported.export.error"
+      },
+      "operator": "exists",
+      "expected": false
+    },
+    {
+      "id": "edit-and-switch-judgment",
+      "op": "monitor.call",
+      "method": "observe",
+      "args": [
+        {
+          "report_id": {
+            "$ref": "exported.report.id"
+          },
+          "decision": "returned",
+          "reason": "模拟模型判断"
+        },
+        "test-chat"
+      ]
+    },
+    {
+      "id": "minimize-after-visible",
+      "op": "native.phase",
+      "phase": {
+        "id": "minimize-after-visible",
+        "focus": "B",
+        "windows": {
+          "C": {
+            "visible": false
+          },
+          "D": {
+            "minimized": true
+          },
+          "A": {
+            "minimized": true
+          },
+          "B": {
+            "rect": [
+              200,
+              100,
+              420,
+              380
+            ]
+          }
+        },
+        "visible": [
+          "B"
+        ],
+        "hidden": [
+          "A",
+          "C",
+          "D"
+        ]
+      },
+      "bind": "phase2"
+    },
+    {
+      "id": "minimize-after-visible-visible-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.visible"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "minimize-after-visible-nodes-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.nodes"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "minimize-after-visible-checked-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.text"
+      },
+      "operator": "contains",
+      "expected": "[checked]"
+    },
+    {
+      "id": "minimize-after-visible-label-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.text"
+      },
+      "operator": "contains",
+      "expected": "Auto save"
+    },
+    {
+      "id": "minimize-after-visible-image-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.scope"
+      },
+      "operator": "equals",
+      "expected": "native_window_surface"
+    },
+    {
+      "id": "minimize-after-visible-identity-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.text"
+      },
+      "operator": "contains",
+      "expected": "GROUP B"
+    },
+    {
+      "id": "minimize-after-visible-not-A-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP A"
+    },
+    {
+      "id": "minimize-after-visible-not-C-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP C"
+    },
+    {
+      "id": "minimize-after-visible-not-D-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "GROUP D"
+    },
+    {
+      "id": "minimize-after-visible-SECRET_MUST_NOT_LEAK-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "SECRET_MUST_NOT_LEAK"
+    },
+    {
+      "id": "minimize-after-visible-HIDDEN_MUST_NOT_LEAK-B",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.text"
+      },
+      "operator": "not_contains",
+      "expected": "HIDDEN_MUST_NOT_LEAK"
+    },
+    {
+      "id": "minimize-after-visible-hidden-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.A.visible"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "minimize-after-visible-no-hidden-content-A",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.A.has_content"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "minimize-after-visible-hidden-C",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.C.visible"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "minimize-after-visible-no-hidden-content-C",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.C.has_content"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "minimize-after-visible-hidden-D",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.D.visible"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "minimize-after-visible-no-hidden-content-D",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.D.has_content"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "minimize-after-visible-focus",
+      "op": "assert",
+      "actual": {
+        "$ref": "phase2.B.focused"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "minimize-after-visible-report",
+      "op": "monitor.report",
+      "task_id": "combined",
+      "name": "minimize-after-visible",
+      "bind": "exported"
+    },
+    {
+      "id": "minimize-after-visible-export",
+      "op": "assert",
+      "actual": {
+        "$ref": "exported.export.error"
+      },
+      "operator": "exists",
+      "expected": false
+    },
+    {
+      "id": "extend",
+      "op": "monitor.call",
+      "method": "revise",
+      "args": [
+        {
+          "$merge": [
+            {
+              "$ref": "task"
+            },
+            {
+              "task_id": "combined",
+              "end_at": {
+                "$ref": "extension_end"
+              },
+              "reason": "模拟约定延期一次"
+            }
+          ]
+        },
+        "test-chat"
+      ],
+      "bind": "extended"
+    },
+    {
+      "id": "extend-once",
+      "op": "assert",
+      "actual": {
+        "$ref": "extended.end_at"
+      },
+      "operator": "gt",
+      "expected": {
+        "$ref": "task.end_at"
+      }
+    },
+    {
+      "id": "close",
+      "op": "native.minimize",
+      "task_id": "combined",
+      "target": "B",
+      "session": "test-chat",
+      "bind": "minimized"
+    },
+    {
+      "id": "minimize-fixture-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "minimized.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "finish",
+      "op": "monitor.call",
+      "method": "finish",
+      "args": [
+        {
+          "task_id": "combined",
+          "verdict": "completed",
+          "reason": "模拟验收提前完成"
+        },
+        "test-chat"
+      ],
+      "bind": "finished"
+    },
+    {
+      "id": "early-finish",
+      "op": "assert",
+      "actual": {
+        "$ref": "finished.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "resources",
+      "op": "monitor.resources",
+      "bind": "resources"
+    },
+    {
+      "id": "report-cleanup",
+      "op": "assert",
+      "actual": {
+        "$ref": "resources.reports"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "export-cleanup",
+      "op": "assert",
+      "actual": {
+        "$ref": "resources.exports"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "settings-unlocked",
+      "op": "assert",
+      "actual": {
+        "$ref": "resources.settings.ui_locked"
+      },
+      "operator": "equals",
+      "expected": false
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "desktop-contract",
+  "verification_layer": "desktop"
+}

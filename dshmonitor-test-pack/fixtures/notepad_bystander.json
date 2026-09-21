@@ -1,0 +1,19 @@
+{
+  "windows": [
+    {
+      "title": "旁观记事本 DSH_BYSTANDER",
+      "rect": [
+        700,
+        40,
+        620,
+        360
+      ],
+      "controls": [
+        {
+          "type": "edit",
+          "text": "DSH_BYSTANDER_CONTENT 旁观窗口：强杀另一个应用时不应该误伤它。"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "sampling-settings-contracts",
+  "title": "采样设置迁移、校验与时间覆盖契约",
+  "engine": "command",
+  "verification": "contract",
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "settings-ui",
+    "evidence"
+  ],
+  "argv": [
+    "$python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_sampling_settings.py",
+    "tests/test_capture_freshness.py",
+    "tests/test_native_browser.py"
+  ],
+  "timeout": 120
+}

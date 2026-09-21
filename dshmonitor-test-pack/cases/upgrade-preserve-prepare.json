@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "engine": "dsh",
+  "platforms": [
+    "windows"
+  ],
+  "verification": "product",
+  "group": "manual",
+  "features": [
+    "persistence",
+    "heartbeat"
+  ],
+  "timeout": 300,
+  "present_user": true,
+  "id": "upgrade-preserve-prepare",
+  "title": "升级前通过真实 UI 设置提示词并保存原任务和用户文件",
+  "steps": [
+    {
+      "id": "custom-settings",
+      "op": "ui.settings",
+      "values": {
+        "$ref": "upgrade_settings"
+      },
+      "save": true
+    },
+    {
+      "id": "close-settings",
+      "op": "ui.close"
+    },
+    {
+      "id": "user-content",
+      "op": "file.write",
+      "path": {
+        "$ref": "user_file"
+      },
+      "text": {
+        "$ref": "user_text"
+      }
+    },
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "开始跨整机重启测试任务，请继续监工",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "跨整机重启持续进行的真实监工测试任务",
+        "task_prompt": "本任务用于验证插件自动离席：无输入心跳达到设置阈值即进入待机，检测到真实输入后恢复。",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 3600
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "discuss",
+        "check_interval_seconds": 10
+      },
+      "bind": "task"
+    },
+    {
+      "id": "reviewed",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "bind": "before_report",
+      "timeout": 90
+    },
+    {
+      "id": "checkpoint",
+      "op": "session.save",
+      "keys": [
+        "task",
+        "before_report",
+        "initial_settings",
+        "upgrade_settings",
+        "user_file",
+        "user_text",
+        "installed_backend_script"
+      ]
+    }
+  ],
+  "variables": {
+    "upgrade_settings": {
+      "instructions": "UPGRADE_CUSTOM_INSTRUCTIONS_20260920",
+      "heartbeat_prompt": "UPGRADE_CUSTOM_HEARTBEAT_20260920",
+      "mascot_size": 144
+    },
+    "user_file": {
+      "$concat": [
+        {
+          "$ref": "project"
+        },
+        "/keep-upgrade.txt"
+      ]
+    },
+    "user_text": "UPGRADE_USER_CONTENT_20260920"
+  }
+}

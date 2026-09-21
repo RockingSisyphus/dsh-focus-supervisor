@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "id": "browser-skill",
+  "title": "真实 DSH 调用已安装 BrowserSkill：加载技能、打开页面、读取正文、关闭自己的会话",
+  "engine": "dsh",
+  "browser_skill": true,
+  "features": [
+    "browser-skill-integration"
+  ],
+  "timeout": 150,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "load-skill",
+      "op": "model.call",
+      "user": "请加载 browser-skill 技能。",
+      "tool": "skill",
+      "arguments": {
+        "name": "browser-skill"
+      },
+      "bind": "skill"
+    },
+    {
+      "id": "skill-instructions",
+      "op": "assert",
+      "actual": {
+        "$ref": "skill.raw"
+      },
+      "operator": "contains",
+      "expected": "browser_session"
+    },
+    {
+      "id": "open-agent-window",
+      "op": "model.call",
+      "user": "请用 BrowserSkill 新建本次测试专用浏览器窗口，打开论文测试页面。",
+      "tool": "browser_session",
+      "arguments": {
+        "action": "start",
+        "url": {
+          "$concat": [
+            {
+              "$ref": "fixture_url"
+            },
+            "/article.html"
+          ]
+        }
+      },
+      "bind": "session"
+    },
+    {
+      "id": "session-started",
+      "op": "assert",
+      "actual": {
+        "$ref": "session.raw"
+      },
+      "operator": "contains",
+      "expected": "started browser session"
+    },
+    {
+      "id": "read-article",
+      "op": "model.call",
+      "user": "请通过 browser_inspect 读取当前论文页面。",
+      "tool": "browser_inspect",
+      "arguments": {
+        "action": "snapshot"
+      },
+      "bind": "article"
+    },
+    {
+      "id": "article-body",
+      "op": "assert",
+      "actual": {
+        "$ref": "article.raw"
+      },
+      "operator": "contains",
+      "expected": "事务提交使修改生效"
+    },
+    {
+      "id": "navigate-game",
+      "op": "model.call",
+      "user": "请用 browser_page 切换到娱乐测试页。",
+      "tool": "browser_page",
+      "arguments": {
+        "action": "navigate",
+        "url": {
+          "$concat": [
+            {
+              "$ref": "fixture_url"
+            },
+            "/entertainment.html"
+          ]
+        }
+      },
+      "bind": "navigation"
+    },
+    {
+      "id": "read-game",
+      "op": "model.call",
+      "user": "请读取娱乐页面的实际内容。",
+      "tool": "browser_inspect",
+      "arguments": {
+        "action": "snapshot"
+      },
+      "bind": "game"
+    },
+    {
+      "id": "game-body",
+      "op": "assert",
+      "actual": {
+        "$ref": "game.raw"
+      },
+      "operator": "contains",
+      "expected": "当前活动：继续游玩"
+    },
+    {
+      "id": "stop-own-session",
+      "op": "model.call",
+      "user": "测试结束，请关闭本插件刚才创建的浏览器会话。",
+      "tool": "browser_session",
+      "arguments": {
+        "action": "stop"
+      },
+      "bind": "stop"
+    },
+    {
+      "id": "list-own-sessions",
+      "op": "model.call",
+      "user": "请列出本插件剩余的浏览器会话。",
+      "tool": "browser_session",
+      "arguments": {
+        "action": "list"
+      },
+      "bind": "remaining"
+    }
+  ],
+  "group": "manual",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

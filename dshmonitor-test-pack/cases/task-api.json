@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 1,
+  "id": "task-api",
+  "title": "必填内容、检查间隔、重启持久化、原会话约束",
+  "engine": "dsh",
+  "features": [
+    "task-admission",
+    "interval",
+    "persistence",
+    "session-scope",
+    "anti-kill"
+  ],
+  "preview": true,
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "missing-prompt",
+      "op": "model.call",
+      "user": "测试：missing-prompt",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "读懂专用测试窗口里的论文文字。",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 180
+        },
+        "end_at": {
+          "$iso_after": 900
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "discuss"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "prompt-required",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.raw"
+      },
+      "operator": "contains",
+      "expected": "task_prompt"
+    },
+    {
+      "id": "missing-project",
+      "op": "model.call",
+      "user": "测试：missing-project",
+      "tool": "focus_plan",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "project_dir": ""
+          }
+        ]
+      },
+      "bind": "result"
+    },
+    {
+      "id": "project-required",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.raw"
+      },
+      "operator": "contains",
+      "expected": "project_dir"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "测试：plan",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "default-interval",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.check_interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 600
+    },
+    {
+      "id": "change-interval",
+      "op": "model.call",
+      "user": "测试：change-interval",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "task.value.id"
+            },
+            "reason": "修改检查间隔",
+            "check_interval_seconds": 17
+          }
+        ]
+      },
+      "bind": "result"
+    },
+    {
+      "id": "interval-changed",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.check_interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 17
+    },
+    {
+      "id": "preserve-interval",
+      "op": "model.call",
+      "user": "测试：preserve-interval",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "task.value.id"
+            },
+            "reason": "保持当前间隔"
+          }
+        ]
+      },
+      "bind": "result"
+    },
+    {
+      "id": "interval-preserved",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.check_interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 17
+    },
+    {
+      "id": "restart-backend",
+      "op": "backend.restart",
+      "bind": "state"
+    },
+    {
+      "id": "task-persists",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live.0.id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "task.value.id"
+      }
+    },
+    {
+      "id": "interval-persists",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live.0.check_interval_seconds"
+      },
+      "operator": "equals",
+      "expected": 17
+    },
+    {
+      "id": "new-chat",
+      "op": "ui.new_session"
+    },
+    {
+      "id": "wrong-session-finish",
+      "op": "model.call",
+      "user": "测试：wrong-session-finish",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "不应允许别的会话释放任务"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "session-denied",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.raw"
+      },
+      "operator": "contains",
+      "expected": "会话"
+    },
+    {
+      "id": "state",
+      "op": "state.read",
+      "bind": "state"
+    },
+    {
+      "id": "still-scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live.0.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    }
+  ],
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

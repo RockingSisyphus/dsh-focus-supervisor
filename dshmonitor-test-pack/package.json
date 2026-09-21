@@ -1,0 +1,11 @@
+{
+  "name": "dshmonitor-test-pack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Declarative regression tests for the DSH supervision plugin",
+  "scripts": {
+    "test": "../.venv/bin/python run.py test",
+    "test:extended": "../.venv/bin/python run.py test --extended",
+    "list": "../.venv/bin/python run.py list"
+  }
+}

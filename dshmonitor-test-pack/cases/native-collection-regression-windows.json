@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "id": "native-collection-regression-windows",
+  "title": "Windows 正式更新及第六阶段补充回归",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "windows"
+  ],
+  "installation": "existing-system",
+  "features": [
+    "desktop-setup",
+    "evidence"
+  ],
+  "timeout": 1800,
+  "steps": [
+    {
+      "id": "installer",
+      "op": "vm.command.start",
+      "argv": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "deploy/install-windows.ps1"
+      ]
+    },
+    {
+      "id": "authorize",
+      "op": "vm.authorize"
+    },
+    {
+      "id": "installed",
+      "op": "vm.command.wait",
+      "command": "installer",
+      "timeout": 1200,
+      "bind": "installer"
+    },
+    {
+      "id": "installer-exit",
+      "op": "assert",
+      "actual": {
+        "$ref": "installer.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "use-installed-plugin",
+      "op": "case.run",
+      "cases": [
+        "prompt-layering",
+        "native-visibility-boundaries",
+        "reminder-focus-regression",
+        "sampling-settings-live"
+      ],
+      "bind": "use"
+    },
+    {
+      "id": "normal-use-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "use.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

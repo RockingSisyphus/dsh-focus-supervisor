@@ -1,0 +1,57 @@
+{
+ "scenarios": [
+  {
+   "id": "scheduled-quiet",
+   "start": 60,
+   "end": 120,
+   "restore": false,
+   "expected_status": "scheduled",
+   "notice": null
+  },
+  {
+   "id": "scheduled-start",
+   "start": -1,
+   "end": 120,
+   "restore": false,
+   "expected_status": "active",
+   "notice": null
+  },
+  {
+   "id": "late-boot",
+   "start": -30,
+   "end": 120,
+   "restore": true,
+   "expected_status": "active",
+   "notice": "late_start"
+  },
+  {
+   "id": "missed-window",
+   "start": -120,
+   "end": -1,
+   "restore": true,
+   "expected_status": "invalidated",
+   "notice": "missed"
+  },
+  {
+   "id": "standby-before-end",
+   "start": -10,
+   "end": 120,
+   "return": "before-end",
+   "no_input_heartbeats": 3
+  },
+  {
+   "id": "standby-after-end",
+   "start": -10,
+   "end": 120,
+   "return": "after-end",
+   "no_input_heartbeats": 3
+  },
+  {
+   "id": "standby-still-away",
+   "start": -10,
+   "end": 120,
+   "return": "still-away",
+   "no_input_heartbeats": 3
+  }
+ ]
+}

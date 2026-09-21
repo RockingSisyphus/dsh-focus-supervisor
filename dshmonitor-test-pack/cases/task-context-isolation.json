@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "id": "task-context-isolation",
+  "title": "真实 DSH 新会话不继承另一会话的有效任务约定",
+  "engine": "dsh",
+  "features": [
+    "prompt-permissions",
+    "settings-ui"
+  ],
+  "preview": false,
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "initial-settings",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "LOCK_TEST_GLOBAL",
+        "heartbeat_prompt": "LOCK_TEST_HEARTBEAT"
+      },
+      "save": true
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "测试：plan",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "other-session",
+      "op": "ui.new_session"
+    },
+    {
+      "id": "other-read",
+      "op": "model.reply",
+      "user": "另一会话读取当前上下文",
+      "text": "OTHER_SESSION_READY"
+    },
+    {
+      "id": "other-context",
+      "op": "model.messages",
+      "contains": "Current runtime context",
+      "selection": "last",
+      "bind": "other"
+    },
+    {
+      "id": "no-other-task",
+      "op": "assert",
+      "actual": {
+        "$ref": "other.text"
+      },
+      "operator": "not_contains",
+      "expected": "TASK_EXTRA_314159"
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "timeout": 360,
+  "browser_skill": false,
+  "note": "按 DSH 正式动态上下文规则核对最后一个有效快照；修订前快照可能留在历史中，不把历史删除冒充插件能力。"
+}

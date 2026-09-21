@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "id": "fresh-missing-python-windows",
+  "title": "干净新机真实缺失 Python 提示及恢复安装",
+  "engine": "dsh",
+  "features": [
+    "settings-ui",
+    "desktop-setup"
+  ],
+  "preview": true,
+  "npm_install": true,
+  "timeout": 1200,
+  "note": "故障注入：在已打开的普通 DSH 中暂时重命名真实 Python 入口；不伪造安装器返回。恢复依赖后按正式 UI 与系统授权重试。",
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "panel",
+      "op": "ui.open",
+      "bind": "panel"
+    },
+    {
+      "id": "card-needs-install",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.setup_card.state"
+      },
+      "operator": "equals",
+      "expected": "required"
+    },
+    {
+      "id": "remove-dependency",
+      "op": "fault.python_dependency",
+      "available": false,
+      "bind": "missing"
+    },
+    {
+      "id": "actually-missing",
+      "op": "assert",
+      "actual": {
+        "$ref": "missing.available"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "try-missing-install",
+      "op": "ui.click",
+      "selector": "button[data-dafeiyu-setup-install]"
+    },
+    {
+      "id": "missing-error",
+      "op": "ui.wait_plugin_state",
+      "path": "setup_install.state",
+      "equals": "failed",
+      "timeout": 90,
+      "bind": "failure"
+    },
+    {
+      "id": "missing-no-success",
+      "op": "assert",
+      "actual": {
+        "$ref": "failure.setup.required"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "restore-dependency",
+      "op": "fault.python_dependency",
+      "available": true
+    },
+    {
+      "id": "click-install",
+      "op": "ui.click",
+      "selector": "button[data-dafeiyu-setup-install]"
+    },
+    {
+      "id": "authorize-real-dialog",
+      "op": "native.authorize"
+    },
+    {
+      "id": "installed-via-click",
+      "op": "ui.wait_plugin_state",
+      "path": "setup_install.state",
+      "equals": "ok",
+      "timeout": 600
+    },
+    {
+      "id": "plugin-install-state",
+      "op": "ui.plugin_state",
+      "bind": "plugin"
+    },
+    {
+      "id": "install-state-is-ok",
+      "op": "assert",
+      "actual": {
+        "$ref": "plugin.setup_install.state"
+      },
+      "operator": "equals",
+      "expected": "ok"
+    },
+    {
+      "id": "installed-chat",
+      "op": "model.reply",
+      "user": "安装后验证聊天",
+      "text": "安装后真实模型通道可用。",
+      "bind": "reply"
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "windows"
+  ],
+  "verification": "product",
+  "installation": "fresh",
+  "verification_layer": "dsh"
+}

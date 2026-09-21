@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "id": "ui-setup-click-windows",
+  "title": "npm 安装后点击按钮走完第二半安装（Windows：自提权安装器真实建 venv、装依赖、注册计划任务）",
+  "engine": "dsh",
+  "features": [
+    "settings-ui",
+    "desktop-setup"
+  ],
+  "preview": true,
+  "npm_install": true,
+  "timeout": 1800,
+  "note": "仅适用于现有 Windows VM 尚未安装后台的状态；已安装系统使用 windows-install-upgrade，不卸载后台来制造通过。",
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "panel",
+      "op": "ui.open",
+      "bind": "panel"
+    },
+    {
+      "id": "card-needs-install",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.setup_card.state"
+      },
+      "operator": "equals",
+      "expected": "required"
+    },
+    {
+      "id": "click-install",
+      "op": "ui.click",
+      "selector": "button[data-dafeiyu-setup-install]"
+    },
+    {
+      "id": "authorize-real-dialog",
+      "op": "native.authorize"
+    },
+    {
+      "id": "installed-via-click",
+      "op": "ui.wait_plugin_state",
+      "path": "setup_install.state",
+      "equals": "ok",
+      "timeout": 900
+    },
+    {
+      "id": "plugin-install-state",
+      "op": "ui.plugin_state",
+      "bind": "plugin"
+    },
+    {
+      "id": "install-state-is-ok",
+      "op": "assert",
+      "actual": {
+        "$ref": "plugin.setup_install.state"
+      },
+      "operator": "equals",
+      "expected": "ok"
+    },
+    {
+      "id": "installed-chat",
+      "op": "model.reply",
+      "user": "安装后验证聊天",
+      "text": "安装后真实模型通道可用。",
+      "bind": "reply"
+    }
+  ],
+  "group": "manual",
+  "platforms": [
+    "windows"
+  ],
+  "verification": "product",
+  "installation": "existing-system"
+}

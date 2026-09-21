@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "id": "fresh-network-recovery",
+  "title": "两端新机真实阻断依赖下载，再恢复网络重试安装",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "installation": "fresh",
+  "persistent_session": true,
+  "verification": "product",
+  "verification_layer": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "features": [
+    "desktop-setup",
+    "test-reporting"
+  ],
+  "timeout": 2400,
+  "steps": [
+    {
+      "id": "register",
+      "op": "case.run",
+      "cases": [
+        "fresh-register-only"
+      ],
+      "bind": "register"
+    },
+    {
+      "id": "register-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "register.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "downloads-blocked",
+      "op": "vm.network",
+      "enabled": false
+    },
+    {
+      "id": "blocked",
+      "op": "case.run",
+      "cases": [
+        "fresh-install-download-failure"
+      ],
+      "bind": "blocked"
+    },
+    {
+      "id": "blocked-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "blocked.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "downloads-retry",
+      "op": "vm.network",
+      "enabled": true
+    },
+    {
+      "id": "retry",
+      "op": "case.run",
+      "cases": [
+        "fresh-install-ui"
+      ],
+      "bind": "retry"
+    },
+    {
+      "id": "retry-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "retry.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "browser-visibility",
+  "title": "真实窗口可见性：焦点、并排无焦点、完全遮挡和最小化",
+  "engine": "command",
+  "features": [
+    "browser-visibility"
+  ],
+  "argv": [
+    "$python",
+    "dshmonitor-test-pack/runtime/browser_history.py",
+    "capture",
+    "--output",
+    "$output",
+    "--scenario",
+    "dshmonitor-test-pack/fixtures/browser-history/visibility-scenario.json"
+  ],
+  "expect_exit": 0,
+  "timeout": 180,
+  "group": "manual",
+  "platforms": [
+    "linux"
+  ],
+  "verification": "desktop-contract",
+  "verification_layer": "desktop"
+}

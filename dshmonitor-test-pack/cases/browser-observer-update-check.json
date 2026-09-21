@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "id": "browser-observer-update-check",
+  "title": "Windows正式更新后验证普通浏览器只读通道",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "windows"
+  ],
+  "installation": "existing-system",
+  "features": [
+    "desktop-setup",
+    "evidence"
+  ],
+  "timeout": 1800,
+  "steps": [
+    {
+      "id": "installer",
+      "op": "vm.command.start",
+      "argv": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "deploy/install-windows.ps1"
+      ]
+    },
+    {
+      "id": "authorize",
+      "op": "vm.authorize"
+    },
+    {
+      "id": "installed",
+      "op": "vm.command.wait",
+      "command": "installer",
+      "timeout": 1200,
+      "bind": "installer"
+    },
+    {
+      "id": "installer-exit",
+      "op": "assert",
+      "actual": {
+        "$ref": "installer.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "use-installed-plugin",
+      "op": "case.run",
+      "cases": [
+        "browser-observer-ordinary"
+      ],
+      "bind": "use"
+    },
+    {
+      "id": "normal-use-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "use.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ],
+  "note": "沿用历史用例 ID 以对应旧报告；本轮改为系统无障碍采集，不加载自有浏览器扩展。"
+}

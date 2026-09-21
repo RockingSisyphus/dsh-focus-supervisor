@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "vm-lock-login-diagnostic",
+  "title": "真实 Windows 基线锁屏与登录驱动诊断",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "desktop-contract",
+  "verification_layer": "desktop",
+  "group": "manual",
+  "platforms": [
+    "windows"
+  ],
+  "features": [
+    "test-reporting"
+  ],
+  "installation": "fresh",
+  "timeout": 360,
+  "steps": [
+    {
+      "id": "lock",
+      "op": "vm.desktop_session",
+      "action": "lock"
+    },
+    {
+      "id": "unlock",
+      "op": "vm.desktop_session",
+      "action": "unlock"
+    }
+  ]
+}

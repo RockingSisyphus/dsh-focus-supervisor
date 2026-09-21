@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "id": "service-idle-admission",
+  "title": "正式服务空闲退出前后通过 DSH 创建任务",
+  "engine": "dsh",
+  "features": [
+    "persistence",
+    "task-admission"
+  ],
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "verification": "product",
+  "verification_layer": "dsh",
+  "timeout": 300,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "idle-1",
+      "op": "service.observe",
+      "seconds": 15,
+      "bind": "idle1"
+    },
+    {
+      "id": "plan-1",
+      "op": "model.call",
+      "user": "生命周期测试第1轮：预约一小时后的阅读任务。",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "读懂专用测试窗口里的论文文字。",
+        "task_prompt": "TASK_EXTRA_314159",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 3600
+        },
+        "end_at": {
+          "$iso_after": 7200
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task1"
+    },
+    {
+      "id": "accepted-1",
+      "op": "assert",
+      "actual": {
+        "$ref": "task1.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "finish-1",
+      "op": "model.call",
+      "user": "生命周期测试第1轮：取消刚才的预约。",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task1.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "本轮预约验证结束"
+      },
+      "bind": "finish1"
+    },
+    {
+      "id": "finished-1",
+      "op": "assert",
+      "actual": {
+        "$ref": "finish1.value.status"
+      },
+      "operator": "equals",
+      "expected": "cancelled"
+    },
+    {
+      "id": "idle-2",
+      "op": "service.observe",
+      "seconds": 9.5,
+      "bind": "idle2"
+    },
+    {
+      "id": "plan-2",
+      "op": "model.call",
+      "user": "生命周期测试第2轮：预约一小时后的阅读任务。",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "读懂专用测试窗口里的论文文字。",
+        "task_prompt": "TASK_EXTRA_314159",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 3600
+        },
+        "end_at": {
+          "$iso_after": 7200
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task2"
+    },
+    {
+      "id": "accepted-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "task2.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "finish-2",
+      "op": "model.call",
+      "user": "生命周期测试第2轮：取消刚才的预约。",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task2.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "本轮预约验证结束"
+      },
+      "bind": "finish2"
+    },
+    {
+      "id": "finished-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "finish2.value.status"
+      },
+      "operator": "equals",
+      "expected": "cancelled"
+    },
+    {
+      "id": "idle-3",
+      "op": "service.observe",
+      "seconds": 10,
+      "bind": "idle3"
+    },
+    {
+      "id": "plan-3",
+      "op": "model.call",
+      "user": "生命周期测试第3轮：预约一小时后的阅读任务。",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "读懂专用测试窗口里的论文文字。",
+        "task_prompt": "TASK_EXTRA_314159",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 3600
+        },
+        "end_at": {
+          "$iso_after": 7200
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task3"
+    },
+    {
+      "id": "accepted-3",
+      "op": "assert",
+      "actual": {
+        "$ref": "task3.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "finish-3",
+      "op": "model.call",
+      "user": "生命周期测试第3轮：取消刚才的预约。",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task3.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "本轮预约验证结束"
+      },
+      "bind": "finish3"
+    },
+    {
+      "id": "finished-3",
+      "op": "assert",
+      "actual": {
+        "$ref": "finish3.value.status"
+      },
+      "operator": "equals",
+      "expected": "cancelled"
+    },
+    {
+      "id": "idle-4",
+      "op": "service.observe",
+      "seconds": 10.5,
+      "bind": "idle4"
+    },
+    {
+      "id": "plan-4",
+      "op": "model.call",
+      "user": "生命周期测试第4轮：预约一小时后的阅读任务。",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "读懂专用测试窗口里的论文文字。",
+        "task_prompt": "TASK_EXTRA_314159",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 3600
+        },
+        "end_at": {
+          "$iso_after": 7200
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task4"
+    },
+    {
+      "id": "accepted-4",
+      "op": "assert",
+      "actual": {
+        "$ref": "task4.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "finish-4",
+      "op": "model.call",
+      "user": "生命周期测试第4轮：取消刚才的预约。",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task4.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "本轮预约验证结束"
+      },
+      "bind": "finish4"
+    },
+    {
+      "id": "finished-4",
+      "op": "assert",
+      "actual": {
+        "$ref": "finish4.value.status"
+      },
+      "operator": "equals",
+      "expected": "cancelled"
+    }
+  ]
+}

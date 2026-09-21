@@ -1,0 +1,19 @@
+{
+  "windows": [
+    {
+      "title": "监工测试记事本 DSH_NOTEPAD",
+      "rect": [
+        40,
+        40,
+        620,
+        360
+      ],
+      "controls": [
+        {
+          "type": "edit",
+          "text": "DSH_NOTEPAD_CONTENT\n这是本轮测试专门打开的可编辑记事本。\n最终仅关闭这个窗口，不操作其他程序。"
+        }
+      ]
+    }
+  ]
+}

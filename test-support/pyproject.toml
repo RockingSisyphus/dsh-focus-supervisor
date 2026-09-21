@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dsh-test-support"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Reusable DSH JSON harness and local fixed response lab"
+dependencies = ["playwright", "PyYAML"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dsh_test_harness*", "dsh_response_lab*"]

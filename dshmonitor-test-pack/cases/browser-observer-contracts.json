@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "browser-observer-contracts",
+  "title": "浏览器只读关联、错误和隔离工作进程契约",
+  "engine": "command",
+  "verification": "contract",
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "evidence",
+    "actions"
+  ],
+  "argv": [
+    "$python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_native_browser.py",
+    "tests/test_browser_skill.py",
+    "tests/test_window_actions.py"
+  ],
+  "timeout": 120,
+  "note": "沿用历史用例 ID 以对应旧报告；本轮改为系统无障碍采集，不加载自有浏览器扩展。"
+}

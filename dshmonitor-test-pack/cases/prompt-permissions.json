@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 1,
+  "id": "prompt-permissions",
+  "title": "三类提示词与UI/AI修改权限",
+  "engine": "dsh",
+  "features": [
+    "prompt-permissions",
+    "settings-ui"
+  ],
+  "preview": true,
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "initial-settings",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "LOCK_TEST_GLOBAL",
+        "heartbeat_prompt": "LOCK_TEST_HEARTBEAT",
+        "protect_task_changes": true
+      },
+      "save": true
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "测试：plan",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "locked-panel",
+      "op": "ui.settings"
+    },
+    {
+      "id": "wait-lock",
+      "op": "ui.wait",
+      "expected": {
+        "locked": true
+      },
+      "bind": "ui"
+    },
+    {
+      "id": "ui-locked",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.locked"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "close-locked",
+      "op": "ui.close"
+    },
+    {
+      "id": "instructions-denied",
+      "op": "model.call",
+      "user": "测试：instructions-denied",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "update",
+        "patch_json": {
+          "$json": {
+            "instructions": "NOT_ALLOWED"
+          }
+        }
+      },
+      "bind": "result"
+    },
+    {
+      "id": "instructions-protected",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.raw"
+      },
+      "operator": "contains",
+      "expected": "不能修改插件使用说明"
+    },
+    {
+      "id": "scheduled-heartbeat",
+      "op": "model.call",
+      "user": "测试：scheduled-heartbeat",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "update",
+        "patch_json": {
+          "$json": {
+            "heartbeat_prompt": "SCHEDULED_UPDATE_ALLOWED"
+          }
+        }
+      },
+      "bind": "result"
+    },
+    {
+      "id": "scheduled-heartbeat-updated",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.changed.heartbeat_prompt"
+      },
+      "operator": "equals",
+      "expected": "SCHEDULED_UPDATE_ALLOWED"
+    },
+    {
+      "id": "activate",
+      "op": "model.call",
+      "user": "测试：activate",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "task.value.id"
+            },
+            "start_at": {
+              "$iso_after": -1
+            },
+            "reason": "立即开始"
+          }
+        ]
+      },
+      "bind": "result"
+    },
+    {
+      "id": "active-heartbeat-denied",
+      "op": "model.call",
+      "user": "测试：active-heartbeat-denied",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "update",
+        "patch_json": {
+          "$json": {
+            "heartbeat_prompt": "NOT_ALLOWED"
+          }
+        }
+      },
+      "bind": "result"
+    },
+    {
+      "id": "heartbeat-protected",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.raw"
+      },
+      "operator": "contains",
+      "expected": "不能修改全局心跳"
+    },
+    {
+      "id": "task-prompt-allowed",
+      "op": "model.call",
+      "user": "测试：task-prompt-allowed",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "update",
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "patch_json": {
+          "$json": {
+            "task_prompt": "TASK_PROMPT_CHANGED",
+            "mascot_size": 240
+          }
+        }
+      },
+      "bind": "result"
+    },
+    {
+      "id": "live-prompt-changed",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.changed.task_prompt"
+      },
+      "operator": "equals",
+      "expected": "TASK_PROMPT_CHANGED"
+    },
+    {
+      "id": "ai-resize",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.changed.mascot_size"
+      },
+      "operator": "equals",
+      "expected": 240
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "测试：finish",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "固定回复只验证软件验收流程。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "unlocked-global",
+      "op": "model.call",
+      "user": "测试：unlocked-global",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "update",
+        "patch_json": {
+          "$json": {
+            "instructions": "AFTER_FINISH_ALLOWED",
+            "heartbeat_prompt": "AFTER_FINISH_ALLOWED"
+          }
+        }
+      },
+      "bind": "result"
+    },
+    {
+      "id": "global-unlocked",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.changed.instructions"
+      },
+      "operator": "equals",
+      "expected": "AFTER_FINISH_ALLOWED"
+    },
+    {
+      "id": "open-unlocked",
+      "op": "ui.settings"
+    },
+    {
+      "id": "wait-unlocked",
+      "op": "ui.wait",
+      "expected": {
+        "locked": false
+      },
+      "bind": "ui"
+    },
+    {
+      "id": "ui-unlocked",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.locked"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "update-full-document",
+      "op": "model.call",
+      "user": "测试：修改完整说明的回执",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "update",
+        "patch_json": "{\"instructions_full\":\"FULL_DOCUMENT_UPDATE_314159\"}"
+      },
+      "bind": "full_update"
+    },
+    {
+      "id": "full-document-receipt",
+      "op": "assert",
+      "actual": {
+        "$ref": "full_update.value.changed.instructions_full"
+      },
+      "operator": "equals",
+      "expected": "FULL_DOCUMENT_UPDATE_314159"
+    }
+  ],
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

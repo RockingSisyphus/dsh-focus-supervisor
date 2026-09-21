@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 1,
+  "id": "sampling-continuity-large-desktop",
+  "title": "故障注入：大桌面多窗口与无响应应用下的真实采样连续性",
+  "engine": "dsh",
+  "features": [
+    "heartbeat",
+    "desktop-gnome",
+    "evidence",
+    "native-tools",
+    "actions",
+    "cleanup"
+  ],
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "custom-prompts",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "GLOBAL_INSTRUCTIONS_271828",
+        "heartbeat_prompt": "GLOBAL_HEARTBEAT_161803"
+      },
+      "save": true
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat-model",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "desktop-load",
+      "op": "fixture.app",
+      "entity": "background-load",
+      "windows": [
+        {
+          "id": "load-0",
+          "title": "Desktop background 0",
+          "rect": [
+            0,
+            410,
+            300,
+            160
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "Background reference 0"
+            }
+          ]
+        },
+        {
+          "id": "load-1",
+          "title": "Desktop background 1",
+          "rect": [
+            320,
+            410,
+            300,
+            160
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "Background reference 1"
+            }
+          ]
+        },
+        {
+          "id": "load-2",
+          "title": "Desktop background 2",
+          "rect": [
+            640,
+            410,
+            300,
+            160
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "Background reference 2"
+            }
+          ]
+        },
+        {
+          "id": "load-3",
+          "title": "Desktop background 3",
+          "rect": [
+            960,
+            410,
+            300,
+            160
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "Background reference 3"
+            }
+          ]
+        },
+        {
+          "id": "load-4",
+          "title": "Desktop background 4",
+          "rect": [
+            0,
+            590,
+            300,
+            160
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "Background reference 4"
+            }
+          ]
+        },
+        {
+          "id": "load-5",
+          "title": "Desktop background 5",
+          "rect": [
+            320,
+            590,
+            300,
+            160
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "Background reference 5"
+            }
+          ]
+        },
+        {
+          "id": "load-6",
+          "title": "Desktop background 6",
+          "rect": [
+            640,
+            590,
+            300,
+            160
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "Background reference 6"
+            }
+          ]
+        },
+        {
+          "id": "load-7",
+          "title": "Desktop background 7",
+          "rect": [
+            960,
+            590,
+            300,
+            160
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "Background reference 7"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "plan-active",
+      "op": "model.call",
+      "user": "测试：plan-active",
+      "tool": "focus_plan",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "start_at": {
+              "$iso_after": -1
+            },
+            "check_interval_seconds": 6
+          }
+        ]
+      },
+      "bind": "task"
+    },
+    {
+      "id": "create-native-fixture",
+      "op": "fixture.app",
+      "entity": "legacy-app",
+      "windows": [
+        {
+          "title": "FocusTest GTK same title",
+          "rect": [
+            30,
+            40,
+            440,
+            320
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "ALPHA_REAL_ATSPI_314159\n真实界面文字：正在核验通用无障碍采集。"
+            },
+            {
+              "type": "edit",
+              "text": "VISIBLE_EDITED_VALUE_0"
+            },
+            {
+              "type": "password",
+              "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+            }
+          ],
+          "id": "legacy-0"
+        },
+        {
+          "title": "FocusTest GTK same title",
+          "rect": [
+            510,
+            40,
+            440,
+            320
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "BETA_REAL_ATSPI_271828\n真实界面文字：正在核验通用无障碍采集。"
+            },
+            {
+              "type": "edit",
+              "text": "VISIBLE_EDITED_VALUE_1"
+            },
+            {
+              "type": "password",
+              "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+            }
+          ],
+          "id": "legacy-1"
+        }
+      ]
+    },
+    {
+      "id": "show-left-native",
+      "op": "fixture.window",
+      "entity": "legacy-0",
+      "action": "activate"
+    },
+    {
+      "id": "show-right-native",
+      "op": "fixture.window",
+      "entity": "legacy-1",
+      "action": "activate"
+    },
+    {
+      "id": "native-identities",
+      "op": "native.accessibility_inventory",
+      "bind": "nativeIdentities"
+    },
+    {
+      "id": "freeze-background",
+      "op": "fixture.process",
+      "entity": "load-0",
+      "action": "suspend"
+    },
+    {
+      "id": "observe-native",
+      "op": "fixture.watch_input",
+      "entity": "legacy-1",
+      "seconds": 40,
+      "chunks": []
+    },
+    {
+      "id": "read-samples",
+      "op": "sample.inspect",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "bind": "samples"
+    },
+    {
+      "id": "resume-background",
+      "op": "fixture.process",
+      "entity": "load-0",
+      "action": "resume"
+    },
+    {
+      "id": "sample-count",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.count"
+      },
+      "operator": "gt",
+      "expected": 3
+    },
+    {
+      "id": "no-sampling-gap",
+      "op": "assert",
+      "actual": {
+        "$ref": "samples.max_interval"
+      },
+      "operator": "lt",
+      "expected": 8
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux"
+  ],
+  "verification": "product",
+  "note": "故障注入：只暂停本轮背景夹具的实际进程，保持前台输入框正常；不伪造产品采样返回。",
+  "present_user": true,
+  "desktop_size": [
+    5120,
+    2160
+  ]
+}

@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 1,
+  "id": "prompt-layering",
+  "title": "常驻摘要、focus_help 按需文档、状态不泄漏与重置",
+  "engine": "dsh",
+  "features": [
+    "prompt-permissions",
+    "settings-ui"
+  ],
+  "preview": true,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "establish-shipped-prompts",
+      "op": "ui.reset_prompts"
+    },
+    {
+      "id": "panel",
+      "op": "ui.settings",
+      "bind": "panel"
+    },
+    {
+      "id": "panel-summary-points-at-help",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.instructions"
+      },
+      "operator": "contains",
+      "expected": "focus_help"
+    },
+    {
+      "id": "panel-summary-has-no-api-sections",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.instructions"
+      },
+      "operator": "not_contains",
+      "expected": "### focus_act"
+    },
+    {
+      "id": "panel-ships-full-document",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.instructions_full"
+      },
+      "operator": "contains",
+      "expected": "### focus_act"
+    },
+    {
+      "id": "panel-exposes-threshold",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.away_heartbeats"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "initial_settings.away_heartbeats"
+      }
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "help",
+      "op": "model.call",
+      "user": "测试：读取监工完整说明",
+      "tool": "focus_help",
+      "arguments": {},
+      "bind": "help"
+    },
+    {
+      "id": "help-returns-full-document",
+      "op": "assert",
+      "actual": {
+        "$ref": "help.raw"
+      },
+      "operator": "contains",
+      "expected": "### focus_settings"
+    },
+    {
+      "id": "help-is-plain-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "help.raw"
+      },
+      "operator": "contains",
+      "expected": "### focus_plan"
+    },
+    {
+      "id": "status",
+      "op": "model.call",
+      "user": "测试：查看监工状态",
+      "tool": "focus_status",
+      "arguments": {},
+      "bind": "status"
+    },
+    {
+      "id": "status-does-not-carry-full-document",
+      "op": "assert",
+      "actual": {
+        "$ref": "status.raw"
+      },
+      "operator": "not_contains",
+      "expected": "### focus_act"
+    },
+    {
+      "id": "status-has-no-full-document-field",
+      "op": "assert",
+      "actual": {
+        "$ref": "status.value.settings.instructions_full"
+      },
+      "operator": "exists",
+      "expected": false
+    },
+    {
+      "id": "settings-get",
+      "op": "model.call",
+      "user": "测试：读取设置",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "get"
+      },
+      "bind": "settings-get",
+      "result_fields": [
+        "instructions_full"
+      ]
+    },
+    {
+      "id": "settings-query-keeps-full-document",
+      "op": "assert",
+      "actual": {
+        "$ref": "settings-get.value.instructions_full"
+      },
+      "operator": "contains",
+      "expected": "### focus_act"
+    },
+    {
+      "id": "system-prompt",
+      "op": "model.system",
+      "bind": "system-prompt"
+    },
+    {
+      "id": "system-carries-summary",
+      "op": "assert",
+      "actual": {
+        "$ref": "system-prompt.text"
+      },
+      "operator": "contains",
+      "expected": "大肥鱼监工（摘要）"
+    },
+    {
+      "id": "system-never-carries-full-document",
+      "op": "assert",
+      "actual": {
+        "$ref": "system-prompt.text"
+      },
+      "operator": "not_contains",
+      "expected": "### focus_act"
+    },
+    {
+      "id": "custom",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "E2E_CUSTOM_SUMMARY",
+        "heartbeat_prompt": "E2E_CUSTOM_HEARTBEAT"
+      },
+      "save": true,
+      "bind": "custom"
+    },
+    {
+      "id": "custom-saved",
+      "op": "assert",
+      "actual": {
+        "$ref": "custom.instructions"
+      },
+      "operator": "equals",
+      "expected": "E2E_CUSTOM_SUMMARY"
+    },
+    {
+      "id": "reset",
+      "op": "ui.reset_prompts",
+      "bind": "reset"
+    },
+    {
+      "id": "reset-restores-summary",
+      "op": "assert",
+      "actual": {
+        "$ref": "reset.instructions"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "defaults.instructions"
+      }
+    },
+    {
+      "id": "reset-restores-full-document",
+      "op": "assert",
+      "actual": {
+        "$ref": "reset.instructions_full"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "defaults.instructions_full"
+      }
+    },
+    {
+      "id": "reset-restores-heartbeat",
+      "op": "assert",
+      "actual": {
+        "$ref": "reset.heartbeat_prompt"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "defaults.heartbeat_prompt"
+      }
+    },
+    {
+      "id": "reset-keeps-threshold",
+      "op": "assert",
+      "actual": {
+        "$ref": "reset.away_heartbeats"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "initial_settings.away_heartbeats"
+      }
+    },
+    {
+      "id": "custom-again",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "E2E_CUSTOM_AGAIN"
+      },
+      "save": true,
+      "bind": "custom-again"
+    },
+    {
+      "id": "custom-wins-over-default",
+      "op": "assert",
+      "actual": {
+        "$ref": "custom-again.instructions"
+      },
+      "operator": "equals",
+      "expected": "E2E_CUSTOM_AGAIN"
+    },
+    {
+      "id": "close-final",
+      "op": "ui.close"
+    }
+  ],
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

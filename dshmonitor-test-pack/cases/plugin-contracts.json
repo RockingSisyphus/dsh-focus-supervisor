@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "plugin-contracts",
+  "title": "DSH 工具定义与形象状态映射",
+  "engine": "command",
+  "features": [
+    "chat-transport",
+    "mascot"
+  ],
+  "argv": [
+    "node",
+    "--test",
+    "dsh-plugin/chat-test.mjs",
+    "dsh-plugin/setup-test.mjs",
+    "dsh-plugin/mascot-test.mjs"
+  ],
+  "expect_exit": 0,
+  "timeout": 60,
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "contract",
+  "verification_layer": "protocol"
+}

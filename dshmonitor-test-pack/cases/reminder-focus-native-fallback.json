@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 1,
+  "id": "reminder-focus-native-fallback",
+  "title": "浏览器端点不可发现时真实原生后备唤回",
+  "engine": "dsh",
+  "features": [
+    "live-reminder-delivery",
+    "ui-navigation"
+  ],
+  "preview": true,
+  "present_user": false,
+  "timeout": 420,
+  "live_desktop": true,
+  "note": "生产唤回动作后先独立观察原生窗口，测试器不恢复或反复激活 DSH。",
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "脚本模拟：结合真实采集核对任务，不要求提交文件。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 86400
+      },
+      "end_at": {
+        "$iso_after": 90000
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss",
+      "check_interval_seconds": 6
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "我想预约阅读事务论文，允许提前完成；遇到问题可以商量延期。",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "reminder",
+      "op": "model.call",
+      "user": "请提醒我回到监工聊天。switch-existing-tab",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "start",
+        "message": "任务已建好，点下面的按钮回到监工会话。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "reminder-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "session-b",
+      "op": "ui.new_session"
+    },
+    {
+      "id": "message-b",
+      "op": "model.reply",
+      "user": "焦点回归会话 B",
+      "text": "这是另一个真实会话。"
+    },
+    {
+      "id": "bind-dsh",
+      "op": "fixture.page",
+      "entity": "dsh"
+    },
+    {
+      "id": "editor",
+      "op": "fixture.app",
+      "entity": "editor-app",
+      "windows": [
+        {
+          "id": "editor",
+          "title": "DSH focus regression input",
+          "controls": [
+            {
+              "type": "edit",
+              "text": ""
+            }
+          ],
+          "rect": [
+            80,
+            120,
+            500,
+            350
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cover-tab",
+      "op": "fixture.browser",
+      "entity": "cover",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Background cover</title><input>"
+    },
+    {
+      "id": "other-window",
+      "op": "fixture.browser",
+      "entity": "other",
+      "html": "<title>Other browser window</title><input>"
+    },
+    {
+      "id": "minimize-dsh",
+      "op": "fixture.window",
+      "entity": "dsh",
+      "action": "minimize"
+    },
+    {
+      "id": "minimized-tab-selection",
+      "op": "fixture.browser_state",
+      "entity": "dsh",
+      "bind": "minimized_tabs"
+    },
+    {
+      "id": "before",
+      "op": "fixture.observe",
+      "entity": "dsh",
+      "bind": "before"
+    },
+    {
+      "id": "pre-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.window.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "pre-background",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.visibility"
+      },
+      "operator": "equals",
+      "expected": "hidden"
+    },
+    {
+      "id": "hide-browser-endpoint",
+      "op": "desktop.hide_browser_connection",
+      "bind": "endpoint"
+    },
+    {
+      "id": "tabs-before",
+      "op": "fixture.browser_inventory",
+      "bind": "tabs_before"
+    },
+    {
+      "id": "click-reminder",
+      "op": "desktop.popup_click",
+      "wait_closed": false
+    },
+    {
+      "id": "request-finished",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "completion"
+    },
+    {
+      "id": "completion-within-budget",
+      "op": "assert",
+      "actual": {
+        "$ref": "completion.elapsed_seconds"
+      },
+      "operator": "lt",
+      "expected": 10,
+      "continue_on_failure": true
+    },
+    {
+      "id": "request-succeeded",
+      "op": "assert",
+      "actual": {
+        "$ref": "completion.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed",
+      "continue_on_failure": true
+    },
+    {
+      "id": "native-state",
+      "op": "fixture.wait",
+      "entity": "dsh",
+      "bind": "native",
+      "expected": {
+        "window.minimized": false,
+        "window.focused": true,
+        "visibility": "visible"
+      },
+      "timeout": 10
+    },
+    {
+      "id": "focus-diagnostics",
+      "op": "ui.focus_diagnostics"
+    },
+    {
+      "id": "actually-restored",
+      "op": "assert",
+      "actual": {
+        "$ref": "native.window.minimized"
+      },
+      "operator": "equals",
+      "expected": false,
+      "continue_on_failure": true
+    },
+    {
+      "id": "actually-focused",
+      "op": "assert",
+      "actual": {
+        "$ref": "native.window.focused"
+      },
+      "operator": "equals",
+      "expected": true,
+      "continue_on_failure": true
+    },
+    {
+      "id": "right-session",
+      "op": "ui.wait_focused_session",
+      "session_id": {
+        "$ref": "result.value.session_id"
+      }
+    },
+    {
+      "id": "selected-tab",
+      "op": "assert",
+      "actual": {
+        "$ref": "native.visibility"
+      },
+      "operator": "equals",
+      "expected": "visible"
+    },
+    {
+      "id": "tabs-after",
+      "op": "fixture.browser_inventory",
+      "bind": "tabs_after"
+    },
+    {
+      "id": "no-duplicate-tab",
+      "op": "assert",
+      "actual": {
+        "$ref": "tabs_after.total"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "tabs_before.total"
+      }
+    },
+    {
+      "id": "focus-editor",
+      "op": "fixture.interact",
+      "entity": "editor",
+      "action": "focus"
+    },
+    {
+      "id": "no-focus-steal",
+      "op": "fixture.watch_input",
+      "entity": "editor",
+      "seconds": 30,
+      "chunks": [
+        "alpha",
+        "beta",
+        "gamma"
+      ],
+      "bind": "watch"
+    },
+    {
+      "id": "focus-retained",
+      "op": "assert",
+      "actual": {
+        "$ref": "watch.focus_retained"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "typed-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "watch.input_text"
+      },
+      "operator": "contains",
+      "expected": "alphabetagamma"
+    },
+    {
+      "id": "return-user",
+      "op": "fixture.window",
+      "entity": "dsh",
+      "action": "activate"
+    },
+    {
+      "id": "responding",
+      "op": "model.reply",
+      "user": "恢复后界面响应验证",
+      "text": "消息通道仍正常。"
+    }
+  ],
+  "visible_browser": true,
+  "real_tab_visibility": true,
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "browser_dynamic_port": true
+}

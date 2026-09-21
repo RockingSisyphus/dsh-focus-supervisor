@@ -1,0 +1,325 @@
+{
+  "schemaVersion": 1,
+  "id": "ui-settings",
+  "title": "设置、大小、拖动与透明图片",
+  "engine": "dsh",
+  "features": [
+    "settings-ui",
+    "mascot"
+  ],
+  "preview": true,
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "idle-settings",
+      "op": "ui.settings",
+      "bind": "ui"
+    },
+    {
+      "id": "initial-image",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.kind"
+      },
+      "operator": "equals",
+      "expected": "sleep.png"
+    },
+    {
+      "id": "save-settings",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "GLOBAL_INSTRUCTIONS_271828",
+        "heartbeat_prompt": "GLOBAL_HEARTBEAT_161803",
+        "mascot_size": 200
+      },
+      "save": true
+    },
+    {
+      "id": "reload",
+      "op": "ui.reload"
+    },
+    {
+      "id": "read-persisted",
+      "op": "ui.settings",
+      "bind": "ui"
+    },
+    {
+      "id": "size-persists",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.size"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "instructions-persist",
+      "op": "assert",
+      "actual": {
+        "$ref": "ui.instructions"
+      },
+      "operator": "equals",
+      "expected": "GLOBAL_INSTRUCTIONS_271828"
+    },
+    {
+      "id": "close",
+      "op": "ui.close"
+    },
+    {
+      "id": "drag",
+      "op": "ui.drag",
+      "to": [
+        360,
+        350
+      ],
+      "bind": "drag"
+    },
+    {
+      "id": "drag-x",
+      "op": "assert",
+      "actual": {
+        "$ref": "drag.ball.x"
+      },
+      "operator": "equals",
+      "expected": 260
+    },
+    {
+      "id": "reload-drag",
+      "op": "ui.reload",
+      "bind": "dragged"
+    },
+    {
+      "id": "position-persists",
+      "op": "assert",
+      "actual": {
+        "$ref": "dragged.ball.x"
+      },
+      "operator": "equals",
+      "expected": 260
+    },
+    {
+      "id": "assets",
+      "op": "ui.assets",
+      "names": [
+        "sleep",
+        "scheduled",
+        "watching",
+        "checking",
+        "start",
+        "celebrate",
+        "warning",
+        "question",
+        "gentle",
+        "urgent"
+      ],
+      "bind": "assets"
+    },
+    {
+      "id": "sleep-bundled",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.sleep.status"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "sleep-alpha",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.sleep.transparent"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "scheduled-bundled",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.scheduled.status"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "scheduled-alpha",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.scheduled.transparent"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "watching-bundled",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.watching.status"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "watching-alpha",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.watching.transparent"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "checking-bundled",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.checking.status"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "checking-alpha",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.checking.transparent"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "start-bundled",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.start.status"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "start-alpha",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.start.transparent"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "celebrate-bundled",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.celebrate.status"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "celebrate-alpha",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.celebrate.transparent"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "warning-bundled",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.warning.status"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "warning-alpha",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.warning.transparent"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "question-bundled",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.question.status"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "question-alpha",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.question.transparent"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "gentle-bundled",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.gentle.status"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "gentle-alpha",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.gentle.transparent"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "urgent-bundled",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.urgent.status"
+      },
+      "operator": "equals",
+      "expected": 200
+    },
+    {
+      "id": "urgent-alpha",
+      "op": "assert",
+      "actual": {
+        "$ref": "assets.urgent.transparent"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "screenshot",
+      "op": "ui.screenshot",
+      "name": "settings-and-mascot"
+    }
+  ],
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

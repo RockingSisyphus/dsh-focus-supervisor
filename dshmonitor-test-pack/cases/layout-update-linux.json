@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "layout-update-linux",
+  "title": "目录整理后的正式更新与真实产品回归（linux）",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "linux"
+  ],
+  "installation": "existing-system",
+  "features": [
+    "desktop-setup",
+    "evidence"
+  ],
+  "timeout": 3600,
+  "steps": [
+    {
+      "id": "installer",
+      "op": "vm.command.run",
+      "argv": [
+        "sudo",
+        "bash",
+        "deploy/upgrade-chat.sh",
+        "tester"
+      ],
+      "prepare": true,
+      "bind": "installer"
+    },
+    {
+      "id": "installer-exit",
+      "op": "assert",
+      "actual": {
+        "$ref": "installer.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "use-installed-plugin",
+      "op": "case.run",
+      "cases": [
+        "native-browser-unfocused",
+        "compact-model-input",
+        "task-change-protection",
+        "native-document-close",
+        "reminder-focus-regression"
+      ],
+      "bind": "use"
+    },
+    {
+      "id": "normal-use-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "use.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

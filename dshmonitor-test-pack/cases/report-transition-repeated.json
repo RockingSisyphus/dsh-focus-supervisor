@@ -1,0 +1,547 @@
+{
+  "schemaVersion": 1,
+  "id": "report-transition-repeated",
+  "title": "最小复现：阅读切到游戏后的正式报告与工具返回（同任务连续3次）",
+  "engine": "dsh",
+  "features": [
+    "live-reminder-delivery"
+  ],
+  "preview": true,
+  "present_user": true,
+  "timeout": 360,
+  "variables": {
+    "active_start": {
+      "$iso_after": 0
+    },
+    "contract": {
+      "agreement": "阅读事务论文，能解释提交与回滚；通过聊天讨论验收。",
+      "task_prompt": "此为脚本模拟人工审核场景。结合真实采集和用户解释检查任务，不要求提交文件。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 86400
+      },
+      "end_at": {
+        "$iso_after": 90000
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss",
+      "check_interval_seconds": 6
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "create-native-fixture",
+      "op": "fixture.app",
+      "entity": "legacy-app",
+      "windows": [
+        {
+          "title": "论文阅读 · 人工审核测试",
+          "rect": [
+            30,
+            40,
+            720,
+            430
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "正在阅读论文：事务提交与回滚。\n这是专用测试窗口。"
+            }
+          ],
+          "id": "legacy-0"
+        }
+      ]
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "我想预约阅读事务论文，允许提前完成；遇到问题可以商量延期。",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "start",
+      "op": "model.call",
+      "user": "我准备好了，把预约提前到现在开始，先给我一小时。",
+      "tool": "focus_revise",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "task_id": {
+              "$ref": "task.value.id"
+            },
+            "start_at": {
+              "$ref": "active_start"
+            },
+            "end_at": {
+              "$iso_after": 3600
+            },
+            "reason": "人工审核场景：用户协商提前开工"
+          }
+        ]
+      },
+      "bind": "active"
+    },
+    {
+      "id": "wait-active",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "status": "active"
+    },
+    {
+      "id": "start-check-model",
+      "op": "heartbeat.enable",
+      "decision": "on_task",
+      "reason": "固定测试判断：任务开始，真实窗口显示论文阅读。"
+    },
+    {
+      "id": "start-check-preview",
+      "op": "report.next",
+      "bind": "report",
+      "timeout": 30
+    },
+    {
+      "id": "start-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "start-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "on_task"
+    },
+    {
+      "id": "cycle-1-back-to-work",
+      "op": "desktop.activity",
+      "title": "论文阅读 · 人工审核测试",
+      "text": "正在阅读论文：事务提交与回滚。\n已写下理解：提交使修改生效，回滚恢复先前状态。",
+      "entity": "legacy-0",
+      "bind": "activity_window"
+    },
+    {
+      "id": "cycle-1-returned-check-model",
+      "op": "heartbeat.enable",
+      "decision": "returned",
+      "reason": "固定测试判断：解释后实际窗口已返回论文阅读。"
+    },
+    {
+      "id": "cycle-1-returned-check-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "timeout": 30,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "cycle-1-returned-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "cycle-1-returned-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "returned"
+    },
+    {
+      "id": "cycle-1-confirmed-distraction",
+      "op": "desktop.activity",
+      "title": "小游戏 · 人工审核测试",
+      "text": "小游戏第 2 关：继续游玩（模拟游戏界面）\n用户承认这次与任务无关。",
+      "entity": "legacy-0",
+      "bind": "activity_window"
+    },
+    {
+      "id": "cycle-1-admission",
+      "op": "model.reply",
+      "user": "这次确实是在玩，跟论文没关系。（第1轮小测试）",
+      "text": "演示判断：这次属于分心。我会记录本轮观察，并发出明确提醒。（第1轮小测试）"
+    },
+    {
+      "id": "cycle-1-off-task-check-model",
+      "op": "heartbeat.enable",
+      "decision": "off_task",
+      "reason": "固定测试判断：用户明确承认与任务无关，窗口也显示小游戏。"
+    },
+    {
+      "id": "cycle-1-off-task-check-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "timeout": 30,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "cycle-1-off-task-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "cycle-1-off-task-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "off_task"
+    },
+    {
+      "id": "cycle-1-off-task-check-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "target_title": "小游戏 · 人工审核测试",
+      "bind": "material"
+    },
+    {
+      "id": "cycle-1-off-task-check-real-game-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "小游戏 · 人工审核测试"
+    },
+    {
+      "id": "cycle-2-back-to-work",
+      "op": "desktop.activity",
+      "title": "论文阅读 · 人工审核测试",
+      "text": "正在阅读论文：事务提交与回滚。\n已写下理解：提交使修改生效，回滚恢复先前状态。",
+      "entity": "legacy-0",
+      "bind": "activity_window"
+    },
+    {
+      "id": "cycle-2-returned-check-model",
+      "op": "heartbeat.enable",
+      "decision": "returned",
+      "reason": "固定测试判断：解释后实际窗口已返回论文阅读。"
+    },
+    {
+      "id": "cycle-2-returned-check-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "timeout": 30,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "cycle-2-returned-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "cycle-2-returned-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "returned"
+    },
+    {
+      "id": "cycle-2-confirmed-distraction",
+      "op": "desktop.activity",
+      "title": "小游戏 · 人工审核测试",
+      "text": "小游戏第 2 关：继续游玩（模拟游戏界面）\n用户承认这次与任务无关。",
+      "entity": "legacy-0",
+      "bind": "activity_window"
+    },
+    {
+      "id": "cycle-2-admission",
+      "op": "model.reply",
+      "user": "这次确实是在玩，跟论文没关系。（第2轮小测试）",
+      "text": "演示判断：这次属于分心。我会记录本轮观察，并发出明确提醒。（第2轮小测试）"
+    },
+    {
+      "id": "cycle-2-off-task-check-model",
+      "op": "heartbeat.enable",
+      "decision": "off_task",
+      "reason": "固定测试判断：用户明确承认与任务无关，窗口也显示小游戏。"
+    },
+    {
+      "id": "cycle-2-off-task-check-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "timeout": 30,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "cycle-2-off-task-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "cycle-2-off-task-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "off_task"
+    },
+    {
+      "id": "cycle-2-off-task-check-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "target_title": "小游戏 · 人工审核测试",
+      "bind": "material"
+    },
+    {
+      "id": "cycle-2-off-task-check-real-game-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "小游戏 · 人工审核测试"
+    },
+    {
+      "id": "cycle-3-back-to-work",
+      "op": "desktop.activity",
+      "title": "论文阅读 · 人工审核测试",
+      "text": "正在阅读论文：事务提交与回滚。\n已写下理解：提交使修改生效，回滚恢复先前状态。",
+      "entity": "legacy-0",
+      "bind": "activity_window"
+    },
+    {
+      "id": "cycle-3-returned-check-model",
+      "op": "heartbeat.enable",
+      "decision": "returned",
+      "reason": "固定测试判断：解释后实际窗口已返回论文阅读。"
+    },
+    {
+      "id": "cycle-3-returned-check-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "timeout": 30,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "cycle-3-returned-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "cycle-3-returned-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "returned"
+    },
+    {
+      "id": "cycle-3-confirmed-distraction",
+      "op": "desktop.activity",
+      "title": "小游戏 · 人工审核测试",
+      "text": "小游戏第 2 关：继续游玩（模拟游戏界面）\n用户承认这次与任务无关。",
+      "entity": "legacy-0",
+      "bind": "activity_window"
+    },
+    {
+      "id": "cycle-3-admission",
+      "op": "model.reply",
+      "user": "这次确实是在玩，跟论文没关系。（第3轮小测试）",
+      "text": "演示判断：这次属于分心。我会记录本轮观察，并发出明确提醒。（第3轮小测试）"
+    },
+    {
+      "id": "cycle-3-off-task-check-model",
+      "op": "heartbeat.enable",
+      "decision": "off_task",
+      "reason": "固定测试判断：用户明确承认与任务无关，窗口也显示小游戏。"
+    },
+    {
+      "id": "cycle-3-off-task-check-preview",
+      "op": "report.wait",
+      "bind": "report",
+      "timeout": 30,
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "window_id": {
+        "$ref": "activity_window.id"
+      },
+      "detail_after": {
+        "$ref": "activity_window.established_at"
+      },
+      "metadata_after": {
+        "$ref": "activity_window.established_at"
+      }
+    },
+    {
+      "id": "cycle-3-off-task-check-release",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "bind": "reviewed"
+    },
+    {
+      "id": "cycle-3-off-task-check-decision",
+      "op": "assert",
+      "actual": {
+        "$ref": "reviewed.decision"
+      },
+      "operator": "equals",
+      "expected": "off_task"
+    },
+    {
+      "id": "cycle-3-off-task-check-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "target_title": "小游戏 · 人工审核测试",
+      "bind": "material"
+    },
+    {
+      "id": "cycle-3-off-task-check-real-game-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "小游戏 · 人工审核测试"
+    },
+    {
+      "id": "finish-early",
+      "op": "model.call",
+      "user": "请按刚才的验收结论结束任务。",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "固定演示：通过口头讨论确认理解，无成果文件要求；延期一次后提前完成。"
+      },
+      "bind": "finished"
+    },
+    {
+      "id": "completed",
+      "op": "assert",
+      "actual": {
+        "$ref": "finished.value.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    }
+  ],
+  "live_desktop": true,
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "note": "从 review-lifecycle-live 缩减；仅一个原生夹具、阅读到游戏两次变化；保留原30秒报告条件和真实模型工具链，不运行浏览器夹具、弹窗或关闭。 唯一新增条件：同一任务、同一页面连续执行3次；每次维持原超时。"
+}

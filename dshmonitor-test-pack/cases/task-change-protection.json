@@ -1,0 +1,328 @@
+{
+  "schemaVersion": 1,
+  "id": "task-change-protection",
+  "title": "防任务中修改模式：预约及进行中任务的设置与手动结束",
+  "engine": "dsh",
+  "verification": "product",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "features": [
+    "settings-ui",
+    "prompt-permissions"
+  ],
+  "timeout": 420,
+  "steps": [
+    {
+      "id": "unprotected",
+      "op": "ui.settings",
+      "values": {
+        "protect_task_changes": false
+      },
+      "save": true
+    },
+    {
+      "id": "close-settings",
+      "op": "ui.close"
+    },
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "open-scheduled-plan",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "open-scheduled 创建专用任务",
+      "arguments": {
+        "agreement": "设置模式测试专用任务",
+        "task_prompt": "等待设置模式验证",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 180
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "allow_early_finish": false,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "open-scheduled-settings",
+      "op": "ui.settings"
+    },
+    {
+      "id": "open-scheduled-lock",
+      "op": "ui.wait",
+      "expected": {
+        "locked": false,
+        "protection_disabled": false
+      },
+      "bind": "ui"
+    },
+    {
+      "id": "open-scheduled-edit",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "open-scheduled settings",
+        "heartbeat_prompt": "open-scheduled heartbeat",
+        "sampling": {
+          "text_chars": 777
+        }
+      },
+      "save": true
+    },
+    {
+      "id": "open-scheduled-reopen-close",
+      "op": "ui.close"
+    },
+    {
+      "id": "open-scheduled-reopen",
+      "op": "ui.settings"
+    },
+    {
+      "id": "open-scheduled-persist",
+      "op": "ui.wait",
+      "expected": {
+        "instructions": "open-scheduled settings"
+      }
+    },
+    {
+      "id": "open-scheduled-expand",
+      "op": "ui.click",
+      "selector": "article[data-task-id] [data-dafeiyu-toggle]"
+    },
+    {
+      "id": "open-scheduled-manual-end",
+      "op": "ui.click",
+      "selector": "button:has-text(\"手动结束任务\")"
+    },
+    {
+      "id": "open-scheduled-empty",
+      "op": "ui.wait",
+      "expected": {
+        "task_groups": {
+          "active": [],
+          "scheduled": []
+        }
+      }
+    },
+    {
+      "id": "open-scheduled-close",
+      "op": "ui.close"
+    },
+    {
+      "id": "open-active-plan",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "open-active 创建专用任务",
+      "arguments": {
+        "agreement": "设置模式测试专用任务",
+        "task_prompt": "等待设置模式验证",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -2
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "allow_early_finish": false,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "open-active-settings",
+      "op": "ui.settings"
+    },
+    {
+      "id": "open-active-lock",
+      "op": "ui.wait",
+      "expected": {
+        "locked": false,
+        "protection_disabled": false
+      },
+      "bind": "ui"
+    },
+    {
+      "id": "open-active-edit",
+      "op": "ui.settings",
+      "values": {
+        "instructions": "open-active settings",
+        "heartbeat_prompt": "open-active heartbeat",
+        "sampling": {
+          "text_chars": 777
+        }
+      },
+      "save": true
+    },
+    {
+      "id": "open-active-reopen-close",
+      "op": "ui.close"
+    },
+    {
+      "id": "open-active-reopen",
+      "op": "ui.settings"
+    },
+    {
+      "id": "open-active-persist",
+      "op": "ui.wait",
+      "expected": {
+        "instructions": "open-active settings"
+      }
+    },
+    {
+      "id": "open-active-manual-end",
+      "op": "ui.click",
+      "selector": "button:has-text(\"手动结束任务\")"
+    },
+    {
+      "id": "open-active-empty",
+      "op": "ui.wait",
+      "expected": {
+        "task_groups": {
+          "active": [],
+          "scheduled": []
+        }
+      }
+    },
+    {
+      "id": "open-active-close",
+      "op": "ui.close"
+    },
+    {
+      "id": "enable-protection",
+      "op": "ui.settings",
+      "values": {
+        "protect_task_changes": true
+      },
+      "save": true
+    },
+    {
+      "id": "close-protection",
+      "op": "ui.close"
+    },
+    {
+      "id": "protected-scheduled-plan",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "protected-scheduled 创建专用任务",
+      "arguments": {
+        "agreement": "设置模式测试专用任务",
+        "task_prompt": "等待设置模式验证",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 180
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "allow_early_finish": false,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "protected-scheduled-settings",
+      "op": "ui.settings"
+    },
+    {
+      "id": "protected-scheduled-lock",
+      "op": "ui.wait",
+      "expected": {
+        "locked": true,
+        "protection_disabled": true,
+        "manual_finish_buttons": 0
+      },
+      "bind": "ui"
+    },
+    {
+      "id": "protected-scheduled-close",
+      "op": "ui.close"
+    },
+    {
+      "id": "protected-scheduled-finish",
+      "op": "model.call",
+      "tool": "focus_finish",
+      "user": "protected-scheduled 测试结束",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "测试完成"
+      }
+    },
+    {
+      "id": "protected-active-plan",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "protected-active 创建专用任务",
+      "arguments": {
+        "agreement": "设置模式测试专用任务",
+        "task_prompt": "等待设置模式验证",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -2
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "allow_early_finish": false,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "protected-active-settings",
+      "op": "ui.settings"
+    },
+    {
+      "id": "protected-active-lock",
+      "op": "ui.wait",
+      "expected": {
+        "locked": true,
+        "protection_disabled": true,
+        "manual_finish_buttons": 0
+      },
+      "bind": "ui"
+    },
+    {
+      "id": "protected-active-close",
+      "op": "ui.close"
+    },
+    {
+      "id": "protected-active-finish",
+      "op": "model.call",
+      "tool": "focus_finish",
+      "user": "protected-active 测试结束",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "测试完成"
+      }
+    },
+    {
+      "id": "disable-after-tasks",
+      "op": "ui.settings",
+      "values": {
+        "protect_task_changes": false
+      },
+      "save": true
+    }
+  ]
+}

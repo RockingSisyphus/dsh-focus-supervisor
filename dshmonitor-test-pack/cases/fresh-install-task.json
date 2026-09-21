@@ -1,0 +1,524 @@
+{
+  "schemaVersion": 1,
+  "id": "fresh-install-task",
+  "title": "新机安装后首次真实取证、提醒与动作，并保留任务跨重启",
+  "engine": "dsh",
+  "features": [
+    "heartbeat",
+    "desktop-gnome",
+    "evidence",
+    "native-tools",
+    "actions",
+    "cleanup"
+  ],
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "TASK_EXTRA_314159",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 180
+      },
+      "end_at": {
+        "$iso_after": 900
+      },
+      "allow_early_finish": true,
+      "deadline_policy": "discuss"
+    }
+  },
+  "steps": [
+    {
+      "id": "choose-workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat-model",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan-active",
+      "op": "model.call",
+      "user": "测试：plan-active",
+      "tool": "focus_plan",
+      "arguments": {
+        "$merge": [
+          {
+            "$ref": "contract"
+          },
+          {
+            "start_at": {
+              "$iso_after": -1
+            },
+            "check_interval_seconds": 6
+          }
+        ]
+      },
+      "bind": "task"
+    },
+    {
+      "id": "observer-page",
+      "op": "fixture.browser",
+      "entity": "installation-article",
+      "html": "<title>Install browser observer</title><h1>OBSERVER_BEFORE_REBOOT_314159</h1><label>Install control<input value=\"INSTALL_VALUE_314159\"></label>"
+    },
+    {
+      "id": "observer-layout",
+      "op": "fixture.window",
+      "entity": "installation-article",
+      "action": "layout",
+      "rect": [
+        30,
+        400,
+        760,
+        320
+      ]
+    },
+    {
+      "id": "keep-browser-extension",
+      "op": "native.dialog",
+      "title": "Turn off extensions in developer mode",
+      "button": "Not now",
+      "optional": true,
+      "timeout": 5,
+      "menu_item": "Remind in 2 weeks"
+    },
+    {
+      "id": "observer-visible",
+      "op": "fixture.window",
+      "entity": "installation-article",
+      "action": "activate"
+    },
+    {
+      "id": "create-native-fixture",
+      "op": "fixture.app",
+      "entity": "legacy-app",
+      "windows": [
+        {
+          "title": "FocusTest GTK same title",
+          "rect": [
+            30,
+            40,
+            440,
+            320
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "ALPHA_REAL_ATSPI_314159\n真实界面文字：正在核验通用无障碍采集。"
+            },
+            {
+              "type": "edit",
+              "text": "VISIBLE_EDITED_VALUE_0"
+            },
+            {
+              "type": "password",
+              "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+            }
+          ],
+          "id": "legacy-0"
+        },
+        {
+          "title": "FocusTest GTK same title",
+          "rect": [
+            510,
+            40,
+            440,
+            320
+          ],
+          "controls": [
+            {
+              "type": "label",
+              "text": "BETA_REAL_ATSPI_271828\n真实界面文字：正在核验通用无障碍采集。"
+            },
+            {
+              "type": "edit",
+              "text": "VISIBLE_EDITED_VALUE_1"
+            },
+            {
+              "type": "password",
+              "text": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+            }
+          ],
+          "id": "legacy-1"
+        }
+      ]
+    },
+    {
+      "id": "show-native-input",
+      "op": "fixture.window",
+      "entity": "legacy-1",
+      "action": "activate"
+    },
+    {
+      "id": "focus-native-input",
+      "op": "fixture.interact",
+      "entity": "legacy-1",
+      "action": "focus"
+    },
+    {
+      "id": "native-identities",
+      "op": "native.accessibility_inventory",
+      "bind": "nativeIdentities"
+    },
+    {
+      "id": "start-preview",
+      "op": "report.next",
+      "bind": "first"
+    },
+    {
+      "id": "start-phase",
+      "op": "assert",
+      "actual": {
+        "$ref": "first.phase"
+      },
+      "operator": "equals",
+      "expected": "start"
+    },
+    {
+      "id": "release-start",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "first.id"
+      }
+    },
+    {
+      "id": "interval-preview",
+      "op": "report.wait",
+      "bind": "second",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "minimum_samples": 2,
+      "sampled_from_after": {
+        "$time_after": 0
+      }
+    },
+    {
+      "id": "release-monitor",
+      "op": "report.reviewed",
+      "report_id": {
+        "$ref": "second.id"
+      }
+    },
+    {
+      "id": "inspect-material",
+      "op": "evidence.inspect",
+      "report_id": {
+        "$ref": "second.id"
+      },
+      "bind": "material",
+      "target_title": "FocusTest GTK same title",
+      "target_entity": "legacy-0"
+    },
+    {
+      "id": "browser-body-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.browser_semantic_text"
+      },
+      "operator": "contains",
+      "expected": "OBSERVER_BEFORE_REBOOT_314159"
+    },
+    {
+      "id": "read-browser-file",
+      "op": "model.call",
+      "user": "读取本轮安装验收浏览器证据",
+      "tool": "read",
+      "arguments": {
+        "file_path": {
+          "$concat": [
+            {
+              "$ref": "material.folder"
+            },
+            "/browser-snapshots.json"
+          ]
+        }
+      },
+      "bind": "observer_file"
+    },
+    {
+      "id": "browser-file-readable",
+      "op": "assert",
+      "actual": {
+        "$ref": "observer_file.raw"
+      },
+      "operator": "contains",
+      "expected": "OBSERVER_BEFORE_REBOOT_314159"
+    },
+    {
+      "id": "real-duration-unmodified",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.effective_seconds"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "material.raw_seconds"
+      }
+    },
+    {
+      "id": "real-duration-positive",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.raw_seconds"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "images-present",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.image_count"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "full-desktop-image",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.full_desktop_image"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "both-native-window-images",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.fixture_window_ids"
+      },
+      "operator": "count",
+      "expected": 2
+    },
+    {
+      "id": "program-details-present",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.fixture_program_files"
+      },
+      "operator": "count",
+      "expected": 1
+    },
+    {
+      "id": "focus-observed",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.has_focus"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "native-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "contains",
+      "expected": "REAL_ATSPI_"
+    },
+    {
+      "id": "password-hidden",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.evidence"
+      },
+      "operator": "not_contains",
+      "expected": "TEST_PASSWORD_MUST_NOT_LEAK_98765"
+    },
+    {
+      "id": "image-at-model",
+      "op": "assert",
+      "actual": {
+        "$ref": "material.model_image_valid"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "native-read",
+      "op": "model.call",
+      "user": "测试：native-read",
+      "tool": "read",
+      "arguments": {
+        "file_path": {
+          "$ref": "material.overview_file"
+        }
+      },
+      "bind": "result"
+    },
+    {
+      "id": "native-read-has-window",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.raw"
+      },
+      "operator": "contains",
+      "expected": "FocusTest GTK same title"
+    },
+    {
+      "id": "verify-original",
+      "op": "model.call",
+      "user": "测试：verify-original",
+      "tool": "focus_report",
+      "arguments": {
+        "report_id": {
+          "$ref": "second.id"
+        },
+        "operation": "verify_files"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "verified",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.verified"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "minimize-window",
+      "op": "model.call",
+      "user": "测试：minimize-window",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "minimize_window",
+        "report_id": {
+          "$ref": "second.id"
+        },
+        "target_ref": {
+          "$ref": "material.target_ref"
+        }
+      },
+      "bind": "result"
+    },
+    {
+      "id": "window-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "remind",
+      "op": "model.call",
+      "user": "测试：remind",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "question",
+        "message": "功能测试：请解释当前活动。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "popup-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "capture-popup",
+      "op": "desktop.popup",
+      "title": "大肥鱼监工提醒",
+      "bind": "popup"
+    },
+    {
+      "id": "popup-is-real",
+      "op": "assert",
+      "actual": {
+        "$ref": "popup.title"
+      },
+      "operator": "equals",
+      "expected": "大肥鱼监工提醒"
+    },
+    {
+      "id": "minimized-native-state",
+      "op": "fixture.observe",
+      "entity": "legacy-0",
+      "bind": "minimized"
+    },
+    {
+      "id": "really-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "minimized.window.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "click-reminder",
+      "op": "desktop.popup_click",
+      "wait_closed": false
+    },
+    {
+      "id": "focus-finished",
+      "op": "ui.wait_focus_result",
+      "timeout": 10,
+      "bind": "completion"
+    },
+    {
+      "id": "focus-succeeded",
+      "op": "assert",
+      "actual": {
+        "$ref": "completion.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "right-session",
+      "op": "ui.wait_focused_session",
+      "session_id": {
+        "$ref": "task.value.session_id"
+      }
+    },
+    {
+      "id": "before-reboot-report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "bind": "before_report",
+      "timeout": 90
+    },
+    {
+      "id": "checkpoint",
+      "op": "session.save",
+      "keys": [
+        "task",
+        "before_report",
+        "initial_settings"
+      ]
+    }
+  ],
+  "group": "manual",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product",
+  "note": "正式后台按真实时间生成报告；时长覆盖算法仅由契约测试覆盖。",
+  "verification_layer": "dsh",
+  "timeout": 360,
+  "present_user": true
+}

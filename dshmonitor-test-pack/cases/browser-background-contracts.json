@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "browser-background-contracts",
+  "title": "BrowserSkill 后台只读采集、失败与冻结报告",
+  "engine": "command",
+  "features": [
+    "browser-background"
+  ],
+  "argv": [
+    "$python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_browser_skill.py"
+  ],
+  "expect_exit": 0,
+  "timeout": 90,
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "contract",
+  "verification_layer": "unit"
+}

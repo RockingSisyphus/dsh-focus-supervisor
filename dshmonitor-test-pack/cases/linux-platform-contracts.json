@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "linux-platform-contracts",
+  "title": "Linux 原生总线及部署契约",
+  "engine": "command",
+  "features": [
+    "application-capture"
+  ],
+  "argv": [
+    "$python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_native_dbus.py",
+    "tests/test_capture_contracts.py",
+    "tests/test_native_browser.py"
+  ],
+  "expect_exit": 0,
+  "timeout": 30,
+  "group": "regular",
+  "platforms": [
+    "linux"
+  ],
+  "verification": "contract",
+  "verification_layer": "unit"
+}

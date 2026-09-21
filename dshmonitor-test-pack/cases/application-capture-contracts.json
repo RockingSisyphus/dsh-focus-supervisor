@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "application-capture-contracts",
+  "title": "通用应用关联和自然日志回归",
+  "engine": "command",
+  "features": [
+    "application-capture"
+  ],
+  "argv": [
+    "$python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_application_capture.py",
+    "tests/test_capture_freshness.py",
+    "tests/test_windows_service.py"
+  ],
+  "expect_exit": 0,
+  "timeout": 30,
+  "group": "regular",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "contract",
+  "verification_layer": "unit"
+}

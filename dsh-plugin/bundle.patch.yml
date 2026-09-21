@@ -1,0 +1,10 @@
+# 大肥鱼监工的市场安装层。
+#
+# `dsh plugin --profile web add dsh-focus-supervisor` 装完后，DSH 按 dsh.bundle.patch
+# 把这一层并入 profile：下面这行 insert 就是悬浮球与十个 focus_* 工具的宿主半边。
+# 行 id 固定为 focus-supervisor-chat，profile 自己的 cordis.patch.yml 可以用同 id
+# 覆盖 config（例如把后端 socket 指到别处）。install.sh 同样通过正式包注册。
+- insert:
+    - id: focus-supervisor-chat
+      name: dsh-focus-supervisor
+      config: {}
