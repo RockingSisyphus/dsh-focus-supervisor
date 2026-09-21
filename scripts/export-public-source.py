@@ -22,4 +22,6 @@ for name in dict.fromkeys(names):
     target=a.destination/name
     target.parent.mkdir(parents=True,exist_ok=True)
     shutil.copy2(source,target)
+for source in (root/'docs/public').glob('*.md'):
+    shutil.copy2(source,a.destination/'docs'/source.name)
 print(a.destination)
