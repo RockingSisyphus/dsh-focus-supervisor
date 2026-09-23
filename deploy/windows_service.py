@@ -76,18 +76,29 @@ def main():
     import ctypes
     core.execution={'platform':'windows','elevated':bool(ctypes.windll.shell32.IsUserAnAdmin()),'force_close_executor':'elevated desktop supervisor'}
     if not core.execution['elevated']:raise PermissionError('Install/start the supervisor with the Highest scheduled-task privilege')
+    from focus_demo.status_writer import StatusWriter
+    core.publisher=StatusWriter()
     server.core=core;core.publish_settings();core.publish();stop=threading.Event()
     threading.Thread(target=server.serve_forever,daemon=True).start()
     startup_event('listening')
     def sample():
+        next_sample=next_presence=0
         while not stop.is_set():
-            core.poll_presence();core.capture();stop.wait(5 if any(t.get('standby') for t in core.live()) else core.sample)
+            now=time.monotonic()
+            if now>=next_presence:
+                core.poll_presence();next_presence=now+(5 if core.capture_state()=='away' else 2)
+            if core.capture_state()!='collecting':
+                core.capture()  # Suspend immediately, even with a long sampling interval.
+                next_sample=0
+            elif now>=next_sample:
+                core.capture();next_sample=time.monotonic()+core.sample
+            stop.wait(.25)
     worker=threading.Thread(target=sample,daemon=True);worker.start();wake_at=0
     try:
         while not stop.wait(1):
             core.tick()
             with core.lock:
-                if core.live() or core.needs_dsh():
+                if core.live():
                     if core.needs_dsh() and time.time()>=wake_at:
                         try:lifecycle.wake_dsh();core.notices_woken()
                         except Exception as e:core.store.log('dsh_wake_failed',{'error':str(e)})
@@ -96,6 +107,6 @@ def main():
                     startup_event('idle_exit')
                     core.shutting_down=True;lifecycle.disable();break
     finally:
-        stop.set();server.shutdown();server.server_close();worker.join(timeout=35);sensor.collector.suspend();core.store.close()
+        stop.set();server.shutdown();server.server_close();worker.join(timeout=35);sensor.collector.suspend();core.publisher.close();core.store.close()
 
 if __name__=='__main__':main()

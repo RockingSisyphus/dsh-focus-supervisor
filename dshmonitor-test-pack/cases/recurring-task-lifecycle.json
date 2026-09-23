@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "id": "recurring-task-lifecycle",
+  "title": "真实 DSH 循环预约：单卡片、冲突、跳过本轮与重启恢复",
+  "engine": "dsh",
+  "verification": "product",
+  "verification_layer": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "features": [
+    "scheduling",
+    "settings-ui",
+    "lifecycle"
+  ],
+  "timeout": 360,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan-series",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "创建每天三次的专用循环任务",
+      "arguments": {
+        "agreement": "每天阅读测试材料",
+        "task_prompt": "核对阅读进度",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 120
+        },
+        "end_at": {
+          "$iso_after": 300
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "stop",
+        "repeat_json": "{\"frequency\":\"daily\",\"count\":3}"
+      },
+      "bind": "first"
+    },
+    {
+      "id": "series-reference",
+      "op": "assert",
+      "actual": {
+        "$ref": "first.value.series_id"
+      },
+      "operator": "contains",
+      "expected": "series_"
+    },
+    {
+      "id": "open-panel",
+      "op": "ui.open"
+    },
+    {
+      "id": "one-card",
+      "op": "ui.wait_tasks",
+      "count": 1,
+      "bind": "panel"
+    },
+    {
+      "id": "one-scheduled-card",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.task_groups.scheduled"
+      },
+      "operator": "count",
+      "expected": 1
+    },
+    {
+      "id": "conflict",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "尝试创建冲突的一次性任务",
+      "arguments": {
+        "agreement": "冲突测试任务",
+        "task_prompt": "核对",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 150
+        },
+        "end_at": {
+          "$iso_after": 180
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "stop"
+      },
+      "bind": "collision"
+    },
+    {
+      "id": "conflict-reported",
+      "op": "assert",
+      "actual": {
+        "$ref": "collision.raw"
+      },
+      "operator": "contains",
+      "expected": "任务时间冲突"
+    },
+    {
+      "id": "skip-first",
+      "op": "model.call",
+      "tool": "focus_finish",
+      "user": "明确只跳过本轮",
+      "arguments": {
+        "task_id": {
+          "$ref": "first.value.id"
+        },
+        "scope": "current_only",
+        "verdict": "cancelled",
+        "reason": "测试跳过第一轮"
+      },
+      "bind": "skipped"
+    },
+    {
+      "id": "after-skip",
+      "op": "ui.plugin_state",
+      "bind": "state"
+    },
+    {
+      "id": "count-consumed",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.series.0.consumed"
+      },
+      "operator": "equals",
+      "expected": 1
+    },
+    {
+      "id": "next-occurrence",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live.0.occurrence_index"
+      },
+      "operator": "equals",
+      "expected": 1
+    },
+    {
+      "id": "still-one-card",
+      "op": "ui.wait_tasks",
+      "count": 1
+    },
+    {
+      "id": "restart-dsh",
+      "op": "ui.restart_dsh",
+      "bind": "restart"
+    },
+    {
+      "id": "after-restart",
+      "op": "ui.plugin_state",
+      "bind": "resumed"
+    },
+    {
+      "id": "same-series",
+      "op": "assert",
+      "actual": {
+        "$ref": "resumed.live.0.series_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "first.value.series_id"
+      }
+    },
+    {
+      "id": "same-index",
+      "op": "assert",
+      "actual": {
+        "$ref": "resumed.live.0.occurrence_index"
+      },
+      "operator": "equals",
+      "expected": 1
+    },
+    {
+      "id": "end-series",
+      "op": "model.call",
+      "tool": "focus_finish",
+      "user": "明确结束整个循环",
+      "arguments": {
+        "series_id": {
+          "$ref": "first.value.series_id"
+        },
+        "scope": "entire_series",
+        "verdict": "cancelled",
+        "reason": "测试结束循环"
+      }
+    },
+    {
+      "id": "open-after-finish",
+      "op": "ui.open"
+    },
+    {
+      "id": "empty",
+      "op": "ui.wait_tasks",
+      "count": 0
+    }
+  ]
+}

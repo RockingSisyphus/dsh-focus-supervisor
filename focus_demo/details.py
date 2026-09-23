@@ -1,5 +1,5 @@
 """截图、可见文字和显式授权日志的采集；不录音、不录像、不记录按键。"""
-from .desktop_setup import snapshot_path
+from .desktop_bridge import runtime_directory
 import copy
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -137,6 +137,7 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
             pending = self.pending
             if pending is None or not self.refresh_due(pending):continue
             started = time.monotonic()
+            desktop = None
             try:
                 desktop = self.desktop_provider() if self.desktop_provider else copy.deepcopy(pending)
                 if not desktop.get('available',True):raise RuntimeError('; '.join(desktop.get('limitations',[])))
@@ -149,6 +150,11 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
                              'timings':{'desktop_wait':waited,'processing':time.monotonic()-started-waited}}
             except Exception as error:
                 published = {'windows':{},'screen':None,'limitations':['窗口细节采集失败：'+str(error)]}
+            finally:
+                if desktop and desktop.get('backend')=='gnome' and desktop.get('screen_capture'):
+                    from .desktop_bridge import call
+                    try:call('release')
+                    except Exception:pass
             if not self.stop_event.is_set():self.published = published
 
     def publish_details(self, desktop):
@@ -176,7 +182,7 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
             metadata = desktop.get("screen_capture")  # 读取与截图关联的元数据。
             if not metadata or metadata.get("captured_at",0) < self.started_at or time.time()-metadata.get("captured_at", 0) > max(15,self.options["native_screenshot_interval_seconds"]*3,self.options["screenshot_interval_seconds"]*3):  # 不复用无限陈旧的画面。
                 raise ValueError("GNOME 截图未就绪或已过期")  # 报告真实能力缺口。
-            root = snapshot_path().parent.resolve()  # 固定扩展缓存根。
+            root = runtime_directory().resolve()  # 固定扩展缓存根。
             path = (root/metadata["file"]).resolve()  # 截图文件名由扩展给出。
             if not path.is_relative_to(root) or not path.is_file():  # 拒绝扩展快照中的越界路径。
                 raise ValueError("GNOME 截图路径无效")  # 不读取任意文件。
@@ -219,7 +225,7 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
         self.last = time.monotonic()  # 记录本轮细节开始时间。
         self.last_details_at = time.time()
         image, screen, metadata = None, None, {}  # 无截图时仍可读取文字。
-        image_due=self.channel_due("image",desktop) or self.desktop_shot is None
+        image_due=(self.channel_due("image",desktop) or self.desktop_shot is None) and not desktop.get("native_image_throttled",False)
         text_due=self.channel_due("text",desktop)
         browser_due=self.channel_due("browser",desktop)
         logs_due=self.channel_due("logs",desktop)
@@ -330,9 +336,11 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
             buffer = io.BytesIO();region.save(buffer,format="PNG");raw=buffer.getvalue()  # 使用真实像素重编码。
         fingerprint = hashlib.sha256(raw).hexdigest()  # 按实际图片内容去重。
         path = self.directory/"screenshots"/(fingerprint+".png")  # 固定目录，不接受模型提供路径。
-        path.parent.mkdir(parents=True, exist_ok=True)  # 私有运行目录由入口设置 umask。
-        if not path.exists(): path.write_bytes(raw)  # 同一画面不重复占用空间。
-        os.utime(path, None)  # 最近重新使用的旧像素不会在提交采样前被过期清理回收。
+        from .common import screenshot_files
+        with screenshot_files:
+            path.parent.mkdir(parents=True, exist_ok=True)  # 私有运行目录由入口设置 umask。
+            if not path.exists(): path.write_bytes(raw)  # 同一画面不重复占用空间。
+            os.utime(path, None)  # 最近重新使用的旧像素不会在提交采样前被过期清理回收。
         return {**metadata, "path": path.relative_to(self.directory).as_posix(), "sha256": fingerprint, "width": region.width, "height": region.height, "original_size": list(original)}  # 来源时间与图像大小都保留。
 
     def native_shot(self, desktop, window, deadline):  # 功能：按系统实现独立窗口取证，不为任何软件写专用代码。
@@ -342,7 +350,7 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
             meta = window.get("native_capture")  # 扩展返回绑定原生窗口的文件。
             if not meta or meta.get("captured_at",0) < self.started_at or abs(time.time()-meta.get("captured_at", 0)) > max(15,self.options["native_screenshot_interval_seconds"]*3,self.options["screenshot_interval_seconds"]*3):  # 拒绝无图或过期数据。
                 raise ValueError("GNOME 未提供新鲜的窗口图")  # 上层可用桌面区域补充。
-            root = snapshot_path().parent.resolve()  # 只读固定缓存。
+            root = runtime_directory().resolve()  # 只读固定缓存。
             path = (root/meta["file"]).resolve()  # 不信任任意路径。
             if not path.is_relative_to(root) or meta.get("pid")!=window.get("pid") or meta.get("window_id")!=window["id"] or meta.get("rect")!=window["rect"] or meta.get("title")!=window["title"]:  # 验证截图对象。
                 raise ValueError("GNOME 窗口图关联不一致")  # 不把旧图挂到新窗口。

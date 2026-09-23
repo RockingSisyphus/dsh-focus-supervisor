@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "task-change-protection-update-windows",
-  "title": "正式更新及任务修改模式测试（windows）",
+  "title": "正式更新并验证循环预约与严苛任务（windows）",
   "engine": "command",
   "execution": "vm-orchestration",
   "verification": "product",
@@ -53,7 +53,9 @@
       "op": "case.run",
       "cases": [
         "task-change-protection",
-        "prompt-permissions"
+        "prompt-permissions",
+        "recurring-task-lifecycle",
+        "recurring-override-conflict"
       ],
       "bind": "use"
     },

@@ -55,6 +55,8 @@ const agreement = {
   check_interval_seconds:{type:'integer',description:'常规检查间隔，单位秒。预约时省略默认600秒；修订时省略保留当前间隔。'},
   allow_early_finish:{type:'boolean',required:true},
   deadline_policy:{type:'string',required:true,enum:['stop','discuss','continue']},
+  strictness:{type:'string',enum:['normal','strict'],description:'任务严苛度；省略为普通任务'},
+  repeat_json:str('循环规则 JSON：{frequency:"daily"} 或 {frequency:"weekly",weekdays:[1,3,7]}，可加 until:"YYYY-MM-DD" 或 count:5；省略为单次任务',false),
 };
 function dates(args) {
   for (const k of ['start_at','end_at']) {
@@ -88,6 +90,7 @@ export function formatReport(data) {
   return `[大肥鱼心跳：${data.phase||'monitor'}]
 ${data.test_mode?'【测试模式】'+(data.test_time_override?`时长已模拟覆盖；真实采集 ${data.real_observed_seconds}s。`:'未覆盖采集时长。'):''}
 任务编号：${task.id}；报告编号：${data.report_id}
+${task.series_id?`循环编号：${task.series_id}；第 ${task.occurrence_index+1} 轮。`:''}严苛度：${task.strictness==='strict'?'严苛':'普通'}。
 采集时间范围：${data.window_start??'未知'} 至 ${data.window_end??'未知'}。
 观察时长 ${overview.effective_observed_seconds}s，采集缺口 ${overview.unobserved_gap_seconds}s。
 ${inputActivityLine(data)}
@@ -251,9 +254,9 @@ export async function apply(ctx,config={}) {
     // diagnosable instead of guessed from a click that appeared to do nothing.
     const pages=[...pageSightings.values()].map(p=>({page:p.page,visible:p.visible,seen_at:p.at}));
     const saved=value.settings||configuredPrompts();
-    const protectedLive=saved.protect_task_changes?live:[];
+    const strictLive=live.some(t=>t.strictness==='strict')||(value.series||[]).some(s=>s.status==='active'&&s.template?.strictness==='strict');
     return {...value,delivery_errors:Object.fromEntries(deliveryErrors),poll_error:pollError,focus_request:lastOpenRequest,pages,setup:installed?{installed:true,required:false}:cachedSetupStatus(),setup_install:installState,
-      settings:value.settings||{...saved,ui_locked:!!protectedLive.length,instructions_locked:!!protectedLive.length,heartbeat_locked:protectedLive.some(t=>['active','awaiting_extension','verified_waiting'].includes(t.status))},mascot:mascotState(value)};
+      settings:value.settings||{...saved,ui_locked:strictLive},mascot:mascotState(value)};
   }
   async function ensureFullAccess(agentOrId) {
     const resolved=typeof agentOrId==='string'?await ctx.sessionController.resolveAgent(agentOrId):{agent:agentOrId};
@@ -305,14 +308,14 @@ export async function apply(ctx,config={}) {
   // The model reads the full document only through focus_help; status replies stay small.
   tool('focus_status','查看监工任务、采集状态与待处理报告；不唤醒空闲服务。detail=full 返回完整状态，默认紧凑事实。',{detail:{type:'string',enum:['compact','full']}},async(a,e)=>{const value=await state();delete value.delivery_errors;return {...value,delivery_error:deliveryErrors.get(session(e))??null};});
   tool('focus_help','读取大肥鱼监工的完整使用说明与 API 文档：每个 focus_* 接口的使用时机、参数、示例与限制。在用户确定要被监督、准备创建任务，或需要核对某个接口的准确用法时调用；不读取文档就不要直接创建任务。',{},()=>({_text:'大肥鱼监工 · 完整使用说明（全局设置，可用 focus_settings 修改；创建任务前请先读本说明）\n\n'+(configuredPrompts().instructions_full||defaults.instructions_full)}));
-  tool('focus_plan','将已在本会话协商确定的任务挂上独立监工服务，并开启有任务期间的系统自启动。首次使用或不确定参数时先调用 focus_help 阅读完整说明。',agreement,async(a,e)=>{ dates(a); await ensureFullAccess(e.agent); await wake();return {...await request('/plan',{...a,task_id:'task_'+createHash('sha256').update(session(e)+':'+e.callId).digest('hex').slice(0,24),session_id:session(e)}),desktop_setup:await desktopStatus()};});
-  tool('focus_revise','讨论后修订本会话的任务约定或延期；记录实际理由。',{...agreement,task_prompt:str('任务附加提示词；省略保留当前值',false),project_dir:str('旧任务补充项目目录；已有目录不迁移',false),task_id:str('任务编号'),reason:str('讨论与修订理由')},(a,e)=>request('/revise',{...dates(a),session_id:session(e)}));
-  tool('focus_finish','根据约定和实际审核结果结束本会话任务，并记录判断依据。',{task_id:str('任务编号'),verdict:{type:'string',required:true,enum:['completed','cancelled','not_completed']},reason:str('实际审核证据、讨论结论或取消理由')},(a,e)=>request('/finish',{...a,session_id:session(e)}));
+  tool('focus_plan','创建普通或严苛的单次／循环监督任务。循环规则写入 repeat_json；首次使用先读 focus_help。',agreement,async(a,e)=>{ dates(a);if(a.repeat_json)a.repeat=JSON.parse(a.repeat_json);delete a.repeat_json;await ensureFullAccess(e.agent); await wake();return {...await request('/plan',{...a,task_id:'task_'+createHash('sha256').update(session(e)+':'+e.callId).digest('hex').slice(0,24),session_id:session(e)}),desktop_setup:await desktopStatus()};});
+  tool('focus_revise','修订任务；循环默认影响当前及未来轮次，scope=current_only 仅改本轮。',{...agreement,task_prompt:str('任务附加提示词；省略保留当前值',false),project_dir:str('旧任务补充项目目录；已有目录不迁移',false),task_id:str('任务编号；也可改用 series_id',false),series_id:str('循环编号；预约间隙可用',false),scope:{type:'string',enum:['current_only','current_and_future']},reason:str('讨论与修订理由')},(a,e)=>{dates(a);if(a.repeat_json)a.repeat=JSON.parse(a.repeat_json);delete a.repeat_json;return request('/revise',{...a,session_id:session(e)});});
+  tool('focus_finish','结束单次任务；循环必须明确 scope=current_only 或 entire_series。',{task_id:str('任务编号；也可改用 series_id',false),series_id:str('循环编号',false),scope:{type:'string',enum:['current_only','entire_series']},verdict:{type:'string',required:true,enum:['completed','cancelled','not_completed']},reason:str('实际审核证据、讨论结论或取消理由')},(a,e)=>request('/finish',{...a,session_id:session(e)}));
   tool('focus_check','获取此任务当前待处理报告，或立即创建检查报告（整屏直接返回）。',{task_id:str('任务编号'),detail:{type:'string',enum:['compact','full']}},(a,e)=>{const {detail,...requestArgs}=a;return request('/check',{...requestArgs,session_id:session(e)});});
   tool('focus_report','按需阅读冻结报告中的程序分支、文本、日志或单窗口截图。',{report_id:str('报告编号'),operation:{type:'string',required:true,enum:['get_overview','read_activity_changes','list_programs','read_program_report','inspect_evidence','read_evidence_text','view_screenshot','verify_files']},arguments_json:str('对应取证参数 JSON；program_id、reference、references、offset 等',false)},a=>request('/report',{...a,arguments:JSON.parse(a.arguments_json||'{}')}));
   tool('focus_observe','记录本轮观察结论，不执行提醒或关闭。',{report_id:str('报告编号'),decision:{type:'string',required:true,enum:['on_task','uncertain','suspect','returned','off_task']},presence:{type:'string',enum:['away','present','unknown'],description:'记录你观察到的情况，仅作证据，不触发待机（待机由插件按真实输入活动自动判定）；默认 unknown'},reason:str('证据、用户解释与本次判断'),target_ref:str('相关窗口证据编号',false)},(a,e)=>request('/observe',{...a,session_id:session(e)}));
   tool('focus_act','统一执行提醒或窗口动作，由你根据情境选择。动手前应先用 focus_check 获取最新窗口数据，并用它的 report_id 与 target_ref。minimize_window 把目标窗口最小化（只要求它尚未最小化；不结束进程、不丢数据，门禁与强杀一致）；force_close 按 target_kind 关闭进程、窗口或浏览器标签；精细关闭失败会结束相关进程树，目标已不在时视为已关闭，可能丢失未保存内容，仅作为持续分心的最后手段。remind 自动同时弹窗、提示音和系统通知；返回各通道的实际结果。',{task_id:str('任务编号'),action:{type:'string',required:true,enum:['remind','minimize_window','force_close']},target_kind:{type:'string',enum:['process','window','browser_tab'],description:'force_close 的目标类型，默认 process；精细关闭失败会升级结束相关进程'},message:str('要对用户说的话；remind 必填',false),image:{type:'string',enum:['question','gentle','warning','urgent','start','celebrate','sleep','scheduled','watching','checking']},report_id:str('窗口动作所依据的新报告',false),target_ref:str('报告中的窗口证据编号',false)},(a,e)=>request('/act',{...a,chat_url:`http://127.0.0.1:${ctx.webServer.port}/focus/open?session=${encodeURIComponent(session(e))}`,chat_registry:chatRegistry,session_id:session(e),action_id:createHash('sha256').update(session(e)+':'+e.callId).digest('hex')}));
-  tool('focus_settings','读取设置，或修改提示词和形象大小。防任务中修改模式默认关闭，关闭时允许任务期间修改；开启时插件说明仅无任务可改、全局心跳仅无进行中任务可改，任务附加提示词仍在原会话修改。',{operation:{type:'string',required:true,enum:['get','update']},task_id:str('修改 task_prompt 时填写任务编号',false),patch_json:str('JSON 对象，可含 protect_task_changes（布尔值，默认false）、instructions、instructions_full、heartbeat_prompt、task_prompt、mascot_size、sampling（采集间隔、图片尺寸与正文/日志上限）、reporting（摘要及分页长度）；两组支持局部更新。away_heartbeats（连续无输入心跳上限，2–10）',false)},async(a,e)=>{if(a.operation==='get')return (await state()).settings||configuredPrompts();await wake();const result=await request('/settings/ai',{task_id:a.task_id,patch:JSON.parse(a.patch_json||'{}'),session_id:session(e)});return result;});
+  tool('focus_settings','读取或修改提示词、形象和采样设置；AI 可与用户商量后修改严苛任务期间的设置。',{operation:{type:'string',required:true,enum:['get','update']},task_id:str('修改 task_prompt 时填写任务编号',false),patch_json:str('JSON 对象，可含 instructions、instructions_full、heartbeat_prompt、strict_heartbeat_prompt、task_prompt、mascot_size、away_heartbeats、sampling、reporting',false)},async(a,e)=>{if(a.operation==='get')return (await state()).settings||configuredPrompts();await wake();const result=await request('/settings/ai',{task_id:a.task_id,patch:JSON.parse(a.patch_json||'{}'),session_id:session(e)});return result;});
   ctx.effect(()=>ctx.webServer.register({kind:'exact',path:'/focus/setup',async handler(req,res){
     const local=['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
     const send=(code,value)=>{res.writeHead(code,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(value));};
@@ -352,7 +355,7 @@ export async function apply(ctx,config={}) {
     const local=['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
     if(req.method!=='POST'||!local||req.headers['x-focus-token']!==uiToken){res.writeHead(403);res.end();return;}
     try{let body='';for await(const chunk of req)body+=chunk;
-      const {task_id}=JSON.parse(body);await wake();const task=await request('/finish/ui',{task_id});
+      const {task_id,scope}=JSON.parse(body);await wake();const task=await request('/finish/ui',{task_id,scope});
       res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({task}));
     }catch(e){res.writeHead(400,{'content-type':'application/json'});res.end(JSON.stringify({error:e.message}));}
   }}));
@@ -363,7 +366,7 @@ export async function apply(ctx,config={}) {
       const input=JSON.parse(body);
       // Resetting restores the prompts shipped with this plugin package; a saved
       // custom value still wins on later writes.
-      const patch=input?.resetSampling?samplingDefaults:input?.reset?{instructions:defaults.instructions,instructions_full:defaults.instructions_full,heartbeat_prompt:defaults.heartbeat_prompt}:(input?.patch??input);
+      const patch=input?.resetSampling?samplingDefaults:input?.reset?{instructions:defaults.instructions,instructions_full:defaults.instructions_full,heartbeat_prompt:defaults.heartbeat_prompt,strict_heartbeat_prompt:defaults.strict_heartbeat_prompt}:(input?.patch??input);
       await wake();const result=await request('/settings/ui',{patch});
       res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify(result));
     }catch(e){res.writeHead(400,{'content-type':'application/json'});res.end(JSON.stringify({error:e.message}));}

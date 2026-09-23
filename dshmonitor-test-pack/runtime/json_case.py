@@ -11,9 +11,7 @@ PACK=Path(__file__).resolve().parents[1]
 MISSING=object()
 
 def inject_input():
-    if os.environ.get('DSH_TEST_DESKTOP_DRIVER')=='host':
-        subprocess.run(['ydotool','key','185:1','185:0'],check=True,capture_output=True,timeout=5)
-    elif os.environ.get('DSH_TEST_GUEST'):
+    if os.environ.get('DSH_TEST_GUEST'):
         from dsh_test_harness.vm.input import request
         request('keys',keys='f15')
     else:
@@ -146,11 +144,10 @@ class Scenario(ScenarioEngine):
         return {**controls,'ball':self.ball.bounding_box(),'kind':img.get_attribute('src').split('/')[-1] if img.count() else None,
             'size':int(slider.input_value()) if slider.count() else None,'locked':slider.is_disabled() if slider.count() else None,
             'manual_finish_buttons':self.page.get_by_role('button',name='手动结束任务',exact=True).count(),
-            'protection_disabled':self.page.get_by_label('防任务中修改模式',exact=True).is_disabled() if slider.count() else None,
-            'protect_task_changes':self.page.get_by_label('防任务中修改模式',exact=True).is_checked() if slider.count() else None,
             'instructions':self.page.get_by_label('插件使用说明（全局）').input_value() if slider.count() else None,
             'instructions_full':self.page.get_by_label('完整 API 文档（focus_help 返回，全局）').input_value() if slider.count() else None,
             'heartbeat_prompt':self.page.get_by_label('每次心跳的监工要求（全局）').input_value() if slider.count() else None,
+            'strict_heartbeat_prompt':self.page.get_by_label('严苛任务附加要求').input_value() if slider.count() else None,
             'away_heartbeats':int(self.page.get_by_label('离席判定次数').input_value()) if slider.count() else None,
             'task_groups':self.task_groups(),
             'setup_card':self.setup_card(),

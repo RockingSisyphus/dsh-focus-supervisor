@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-bridge-io-delay",
+  "title": "真实 DSH 采集时 GNOME 主线程 fsync 延迟注入",
+  "engine": "dsh",
+  "platforms": [
+    "linux"
+  ],
+  "group": "extended",
+  "verification": "product",
+  "timeout": 360,
+  "features": [
+    "application-capture",
+    "desktop-gnome"
+  ],
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "fixture",
+      "op": "fixture.app",
+      "entity": "editor",
+      "windows": [
+        {
+          "id": "target",
+          "title": "真实监工动作测试",
+          "rect": [
+            50,
+            100,
+            480,
+            320
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "初始内容，必须通过真实控件修改"
+            }
+          ]
+        }
+      ],
+      "bind": "fixture"
+    },
+    {
+      "id": "edit-real-control",
+      "op": "fixture.interact",
+      "entity": "target",
+      "action": "fill",
+      "text": "REAL_WAYLAND_OR_WINDOWS_CAPTURE_20260919"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "slow-main-thread-fsync",
+      "op": "fault.desktop_io_delay",
+      "delay_ms": 250,
+      "duration_seconds": 240
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "建立真实桌面闭环任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "阅读测试文字，分心时提醒",
+        "task_prompt": "只验证测试夹具",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "check_interval_seconds": 6,
+        "allow_early_finish": true,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "activate",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "activate"
+    },
+    {
+      "id": "report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "timeout": 70,
+      "bind": "report",
+      "minimum_samples": 1,
+      "detail_after": {
+        "$ref": "task.value.start_at"
+      },
+      "window_id": {
+        "$ref": "fixture.target.window_id"
+      }
+    },
+    {
+      "id": "target",
+      "op": "report.target",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "entity": "target",
+      "bind": "target"
+    },
+    {
+      "id": "sample-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "target.evidence"
+      },
+      "operator": "contains",
+      "expected": "REAL_WAYLAND_OR_WINDOWS_CAPTURE_20260919",
+      "continue_on_failure": true
+    },
+    {
+      "id": "native-pixels",
+      "op": "assert",
+      "actual": {
+        "$ref": "target.evidence.screenshot.scope"
+      },
+      "operator": "equals",
+      "expected": "native_window_surface"
+    },
+    {
+      "id": "latency",
+      "op": "desktop.latency",
+      "seconds": 60,
+      "bind": "latency"
+    },
+    {
+      "id": "no-desktop-timeouts",
+      "op": "assert",
+      "actual": {
+        "$ref": "latency.errors"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "bounded-response",
+      "op": "assert",
+      "actual": {
+        "$ref": "latency.max_seconds"
+      },
+      "operator": "lt",
+      "expected": 3
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "结束测试任务",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "结束本轮测试"
+      }
+    }
+  ],
+  "present_user": true
+}

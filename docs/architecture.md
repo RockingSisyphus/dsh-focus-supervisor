@@ -18,7 +18,7 @@
 
 ## 后台模块边界
 
-- 任务和通信：supervisor、control、http_api、store、lifecycle、presence。
+- 任务和通信：supervisor、recurrence、control、http_api、store、lifecycle、presence。recurrence 只计算日历轮次和冲突；每轮仍是已有 task，系列约定单独保存。
 - 采集与内容：collectors、details、ui_probe、atspi_dbus、ui_structure、native_browser、generic_logs、sampling_settings。
 - 证据与活动：prompts、reports、activity、evidence_export、windows_evidence、materials。
 - 动作和平台：actions、close_actions、browser_targets、native_close、window_probe、platforms、native_dbus、process_worker、desktop_setup。

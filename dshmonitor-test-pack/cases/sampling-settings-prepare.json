@@ -60,8 +60,7 @@
           "preview_chars": 90,
           "text_page_chars": 100,
           "overview_chars": 120
-        },
-        "protect_task_changes": true
+        }
       },
       "save": true
     },
@@ -92,6 +91,9 @@
               "$iso_after": -1
             },
             "check_interval_seconds": 18
+          },
+          {
+            "strictness": "strict"
           }
         ]
       },

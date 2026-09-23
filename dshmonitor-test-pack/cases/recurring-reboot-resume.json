@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "id": "recurring-reboot-resume",
+  "title": "循环严苛任务整机重启后：原轮次与锁定恢复",
+  "engine": "dsh",
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "scheduling",
+    "persistence",
+    "settings-ui"
+  ],
+  "timeout": 300,
+  "steps": [
+    {
+      "id": "load",
+      "op": "session.load"
+    },
+    {
+      "id": "same-task",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "status": "active",
+      "bind": "restored"
+    },
+    {
+      "id": "same-series",
+      "op": "assert",
+      "actual": {
+        "$ref": "restored.series_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "task.value.series_id"
+      }
+    },
+    {
+      "id": "same-round",
+      "op": "assert",
+      "actual": {
+        "$ref": "restored.occurrence_index"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "open-settings",
+      "op": "ui.settings"
+    },
+    {
+      "id": "locked",
+      "op": "ui.wait",
+      "expected": {
+        "locked": true
+      },
+      "bind": "panel"
+    },
+    {
+      "id": "return-to-original-chat",
+      "op": "ui.task_chat",
+      "task_id": {
+        "$ref": "task.value.id"
+      }
+    },
+    {
+      "id": "status",
+      "op": "model.call",
+      "tool": "focus_status",
+      "user": "重启后读取原循环状态",
+      "arguments": {},
+      "bind": "status"
+    },
+    {
+      "id": "status-series",
+      "op": "assert",
+      "actual": {
+        "$ref": "status.value.live.0.series_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "task.value.series_id"
+      }
+    },
+    {
+      "id": "context",
+      "op": "model.messages",
+      "contains": "[严苛任务附加要求]",
+      "latest": false,
+      "selection": "last",
+      "bind": "context"
+    },
+    {
+      "id": "strict-context",
+      "op": "assert",
+      "actual": {
+        "$ref": "context.text"
+      },
+      "operator": "contains",
+      "expected": {
+        "$ref": "initial_settings.strict_heartbeat_prompt"
+      }
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "tool": "focus_finish",
+      "user": "测试结束整个循环",
+      "arguments": {
+        "series_id": {
+          "$ref": "task.value.series_id"
+        },
+        "scope": "entire_series",
+        "verdict": "cancelled",
+        "reason": "跨重启验收已完成"
+      }
+    },
+    {
+      "id": "open-after-finish",
+      "op": "ui.open"
+    },
+    {
+      "id": "unlocked",
+      "op": "ui.wait",
+      "expected": {
+        "locked": false
+      }
+    }
+  ]
+}

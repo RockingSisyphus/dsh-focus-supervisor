@@ -28,12 +28,10 @@ def ui_use_claimant(self,step):
 def ui_restart_dsh(self,step):
     previous=self.page.evaluate('globalThis.__DAFEIYU__?.token')
     result=self.backend.restart_dsh()
-    def renewed():
-        current=self.page.evaluate('globalThis.__DAFEIYU__?.token')
-        return current and current!=previous
-    try:until(renewed,step.get('timeout',30));changed=True
-    except TimeoutError:changed=False
-    return {**result,'page_token_changed':changed}
+    self.page.reload(wait_until='domcontentloaded')
+    self.ball.wait_for(timeout=step.get('timeout',30)*1000)
+    current=self.page.evaluate('globalThis.__DAFEIYU__?.token')
+    return {**result,'page_token_changed':bool(current and current!=previous)}
 
 def ui_wait_focus_result(self,step):
     deadline=self.popup_click_started+step.get('timeout',10)
@@ -91,15 +89,13 @@ def ui_use_page(self,step):
 def ui_settings(self,step):
     op=step["op"];p=self.page;b=self.backend
     self.open_settings()
-    targets = {'mascot_size': p.get_by_role('slider', name='形象大小'), 'instructions': p.get_by_label('插件使用说明（全局）'), 'instructions_full': p.get_by_label('完整 API 文档（focus_help 返回，全局）'), 'heartbeat_prompt': p.get_by_label('每次心跳的监工要求（全局）'), 'away_heartbeats': p.get_by_label('离席判定次数')}
+    targets = {'mascot_size': p.get_by_role('slider', name='形象大小'), 'instructions': p.get_by_label('插件使用说明（全局）'), 'instructions_full': p.get_by_label('完整 API 文档（focus_help 返回，全局）'), 'heartbeat_prompt': p.get_by_label('每次心跳的监工要求（全局）'), 'strict_heartbeat_prompt': p.get_by_label('严苛任务附加要求'), 'away_heartbeats': p.get_by_label('离席判定次数')}
     schema=p.evaluate('globalThis.__DAFEIYU__.samplingSchema')
     for group in step.get('reset_groups',[]):
         section=p.locator('details').filter(has=p.locator('summary',has_text='采集设置' if group=='sampling' else '模型输出'))
         if section.get_attribute('open') is None:section.locator('summary').click()
         section.get_by_role('button',name='恢复本组默认值').click()
     for key, value in step.get('values', {}).items():
-        if key=='protect_task_changes':
-            p.get_by_label('防任务中修改模式',exact=True).set_checked(value);continue
         if key not in ('sampling','reporting'):
             targets[key].fill(str(value));continue
         section=p.locator('details').filter(has=p.locator('summary',has_text='采集设置' if key=='sampling' else '模型输出'))
@@ -119,6 +115,15 @@ def ui_open(self,step):
         self.ball.click()
     self.page.get_by_role('button', name='收起监工', exact=True).wait_for()
     return self.ui_state()
+
+def ui_task_chat(self,step):
+    """Use the task card's real button to return to its original DSH session."""
+    ui_open(self,step)
+    task_id=self.resolve(step['task_id'])
+    card=self.page.locator(f'article[data-task-id="{task_id}"]')
+    if card.get_attribute('data-expanded')!='1':card.locator('[data-dafeiyu-toggle="1"]').click()
+    card.get_by_role('button',name='回到监工聊天').click()
+    return {'task_id':task_id}
 
 def ui_click(self,step):
     op=step["op"];p=self.page;b=self.backend
@@ -148,6 +153,8 @@ def ui_wait_plugin_state(self,step):
 def ui_wait_tasks(self,step):
     op=step["op"];p=self.page;b=self.backend
     def ready():
+        if not self.ball.count():
+            return None
         groups = self.task_groups()
         return self.ui_state() if len(groups['active']) + len(groups['scheduled']) == step['count'] else None
     return until(ready, step.get('timeout', 40))
@@ -311,6 +318,7 @@ def registry(scenario):return {
     'ui.wait_focus_result':lambda step:ui_wait_focus_result(scenario,step),
     'ui.settings': lambda step: ui_settings(scenario,step),
     'ui.open': lambda step: ui_open(scenario,step),
+    'ui.task_chat': lambda step: ui_task_chat(scenario,step),
     'ui.click': lambda step: ui_click(scenario,step),
     'ui.wait_card': lambda step: ui_wait_card(scenario,step),
     'ui.wait_plugin_state': lambda step: ui_wait_plugin_state(scenario,step),

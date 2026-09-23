@@ -32,7 +32,8 @@ def _close_window(collector, expected):
     backend=snapshot.get('backend')
     if backend=='gnome':
         request={'id':uuid.uuid4().hex,'window_id':identifier,'pid':window['pid'],'expires_at':time.time()+2}
-        write_json(collector.desktop.path.parent/'close-request.json',request)
+        from .desktop_bridge import call
+        call('close',request)
     elif backend=='windows':
         from ctypes import wintypes as w
         user=ctypes.WinDLL('user32',use_last_error=True)
@@ -51,7 +52,7 @@ def _close_window(collector, expected):
 
 def close_window(collector, expected, operation='close'):
     try:
-        payload={'operation':operation,'expected':expected,'snapshot_path':str(collector.desktop.path) if hasattr(collector.desktop,'path') else None}
+        payload={'operation':operation,'expected':expected,'backend':getattr(collector.desktop,'__class__',type(None)).__name__}
         result=run_worker([sys.executable,'-I',str(Path(__file__).with_name('native_close.py'))],input=json.dumps(payload),capture_output=True,text=True,timeout=3)
         if result.returncode:raise RuntimeError(result.stderr[-400:])
         return json.loads(result.stdout)

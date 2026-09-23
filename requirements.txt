@@ -3,6 +3,8 @@ websocket-client>=1.7,<2
 python-xlib>=0.33,<1; sys_platform == "linux"
 psutil>=5.9,<8
 Pillow>=10,<13
+tzlocal>=5,<7
+tzdata>=2026.1; sys_platform == "win32"
 pywinauto>=0.6.9,<0.7; sys_platform == "win32"
 pywin32>=306; sys_platform == "win32"
 pyobjc-framework-Quartz>=10,<13; sys_platform == "darwin"

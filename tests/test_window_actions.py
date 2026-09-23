@@ -36,19 +36,32 @@ EVIDENCE = {
 
 
 class FakeDesktop:
-    """gnome 后端的极简替身：请求文件一出现，就当作扩展已把它最小化。"""
+    """契约替身：记录 D-Bus 请求与独立的窗口状态。"""
+
+    instances = []
 
     def __init__(self, root, window, backend="gnome"):
-        self.path = root / "gnome-snapshot.json"
+        self.last_request = None
+        FakeDesktop.instances.append(self)
         self.window = window
         self.backend = backend
         self.minimized = False
 
     def capture(self):
-        if self.backend == "gnome":
-            self.minimized = (self.path.parent / "minimize-request.json").is_file()
         window = {**self.window, "minimized": self.minimized or self.window.get("minimized",False), "mapped": False if self.minimized else self.window.get("mapped", True)}
         return {"available": True, "backend": self.backend, "windows": [window]}
+
+
+@pytest.fixture(autouse=True)
+def desktop_wire(monkeypatch):
+    FakeDesktop.instances=[]
+    def call(operation,request):
+        assert operation=='minimize'
+        desktop=next(d for d in reversed(FakeDesktop.instances) if d.window['id']==request['window_id'])
+        desktop.last_request=request
+        desktop.minimized=True
+        return {'minimized':True}
+    monkeypatch.setattr('focus_demo.desktop_bridge.call',call)
 
 
 class FakeCollector:
@@ -97,7 +110,7 @@ def test_minimize_ignores_title_and_content_changes(tmp_path, sleeper):
     collector = FakeCollector([current], tmp_path, target=current)
     outcome = request_window_minimize(collector, expected)
     assert outcome["minimized"] is True
-    assert (tmp_path / "minimize-request.json").is_file()
+    assert collector.desktop.last_request['window_id']==current['id']
 
 
 def test_minimize_reports_already_minimized(tmp_path, sleeper):
@@ -106,7 +119,7 @@ def test_minimize_reports_already_minimized(tmp_path, sleeper):
     collector = FakeCollector([current], tmp_path, target=current)
     outcome = request_window_minimize(collector, live_window(process))
     assert outcome["minimized"] is True and outcome["already_minimized"] is True
-    assert not (tmp_path / "minimize-request.json").exists()  # 已经最小化就不发请求。
+    assert collector.desktop.last_request is None  # 已经最小化就不发请求。
 
 
 def test_minimize_reports_already_gone(tmp_path, sleeper):
@@ -123,7 +136,7 @@ def test_minimize_refuses_changed_process_identity(tmp_path, sleeper):
     expected = {**live_window(process), "process": {**process_info(process.pid), "identity": "stale"}}
     outcome = request_window_minimize(collector, expected)
     assert outcome["minimized"] is False
-    assert not (tmp_path / "minimize-request.json").exists()  # 与强杀同一条身份门禁。
+    assert collector.desktop.last_request is None  # 与强杀同一条身份门禁。
 
 
 def test_minimize_refuses_supervisor_owned_window(tmp_path, sleeper):
@@ -140,7 +153,7 @@ def test_minimize_request_is_bounded_and_expiring(tmp_path, sleeper):
     current = live_window(process)
     collector = FakeCollector([current], tmp_path, target=current)
     request_window_minimize(collector, live_window(process))
-    request = json.loads((tmp_path / "minimize-request.json").read_text(encoding="utf-8"))
+    request = collector.desktop.last_request
     assert set(request) == {"id", "window_id", "pid", "title", "expires_at"}
     assert request["window_id"] == "gnome:328" and request["pid"] == process.pid
     assert time.time() < request["expires_at"] <= time.time() + 3

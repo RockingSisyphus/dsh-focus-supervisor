@@ -79,57 +79,27 @@ class X11Desktop:  # 封装当前组件的状态与接口。
 
 
 class GnomeDesktop:  # 封装当前组件的状态与接口。
-    """读取 GNOME Shell 扩展产生的真实桌面快照；过期时明确报告缺失。"""
-    def __init__(self, path=None):  # 定义当前功能的处理入口。
-        from .desktop_setup import snapshot_path
-        self.path = Path(path) if path else snapshot_path()  # 保存文件路径。
-
+    """按需向 GNOME 查询真实桌面，不读取缓存文件。"""
     def request_capture(self, screenshots, wait=False, timeout=7.0):
-        """Authorize before reading; wait only when a new detail sample is due."""
-        from .common import write_json
-        requested_at = time.time()
-        write_json(self.path.parent / "capture-request.json",
-                   {"expires_at": requested_at + max(8, getattr(self,"sampling",{}).get("interval_seconds",2)*4), "screenshots": screenshots, "sampling":getattr(self,"sampling",{})})
-        # Shell throttles shots to five seconds and publishes on a 500 ms tick.
-        deadline = time.monotonic() + timeout
-        while True:
-            desktop = self.capture()
-            if not wait or not screenshots:
-                return desktop
-            meta = desktop.get("screen_capture") or {}
-            root = self.path.parent.resolve()
-            path = (root / meta.get("file", "")).resolve()
-            if meta.get("captured_at", 0) >= requested_at and path.is_relative_to(root) and path.is_file():
-                return desktop
-            if time.monotonic() >= deadline:
-                desktop["screen_capture"] = None
-                desktop.setdefault("limitations", []).append("等待本次 GNOME 截图超时；未使用请求前的旧图。")
-                return desktop
-            time.sleep(.05)
+        # The metadata loop never waits for pixels; the detail worker requests them.
+        return self.capture(screenshots=screenshots and wait, timeout=timeout)
 
-    def capture(self):  # 定义当前功能的处理入口。
-        try:  # 捕获当前操作可能出现的异常。
-            data = json.loads(self.path.read_text(encoding="utf-8"))  # 保存结构化数据。
-            if abs(time.time() - data["ts"]) > 4:  # 仅在当前条件成立时处理。
-                raise ValueError("GNOME 快照已过期：请检查扩展是否启用或屏幕是否锁定")  # 拒绝无效操作并给出原因。
-            if data.get("stacking_order") == "bottom_to_top":
-                mark_visibility(data["windows"], data["screen"])
-                data["limitations"] = ["可见面积按不透明矩形近似；透明和不规则窗口可能有误差。"]
-            else:
-                data.setdefault("limitations", []).append("GNOME 扩展未提供层叠顺序；无法判断完全遮挡，请更新扩展并重新登录。")
-                for window in data.get("windows", []):
-                    if window.get("mapped") and window.get("visible"):
-                        window["visible"] = None
-                        window["visibility_status"] = "unknown_stacking_order"
-            data["available"] = True  # 保存结构化数据。
-            return data  # 返回本步骤的结果。
+    def capture(self, screenshots=False, timeout=7.0):
+        from .desktop_bridge import call
+        try:
+            data=call('capture' if screenshots else 'snapshot',timeout=int(timeout*1000))
+            mark_visibility(data['windows'],data['screen'])
+            data.setdefault('limitations',[]).append('可见面积按不透明矩形近似；透明和不规则窗口可能有误差。')
+            return data
         except Exception as error:
-            if isinstance(error, FileNotFoundError):
-                from .desktop_setup import status
-                message = status()["message"]
-            else:
-                message = str(error)
-            return {"backend": "gnome", "available": False, "windows": [], "limitations": [message]}  # 返回本步骤的结果。
+            if screenshots:
+                try:call('release')
+                except Exception:pass
+            return {'backend':'gnome','available':False,'windows':[],'limitations':[str(error)]}
+
+    def release(self):
+        from .desktop_bridge import call
+        return call('release')
 
 
 class MissingDesktop:  # 封装当前组件的状态与接口。
@@ -196,7 +166,16 @@ class Collector:  # 封装当前组件的状态与接口。
 
     def detail_desktop(self):
         if isinstance(self.desktop,GnomeDesktop):
-            return self.desktop.request_capture(self.details.enabled)
+            desktop=self.desktop.capture()
+            if not desktop.get('available'):return desktop
+            identity=[(w['id'],w.get('title'),w.get('rect')) for w in desktop['windows'] if w.get('visible')]
+            due=time.monotonic()-getattr(self,'last_native_capture',0)>=self.details.options['native_screenshot_interval_seconds'] or identity!=getattr(self,'native_identity',None)
+            if self.details.enabled and self.details.channel_due('image',desktop) and due:
+                desktop=self.desktop.request_capture(True,wait=True)
+                self.last_native_capture=time.monotonic();self.native_identity=identity
+            elif self.details.enabled:
+                desktop['native_image_throttled']=True
+            return desktop
         return self.desktop.capture()
 
     def capture(self):  # 定义当前功能的处理入口。
@@ -214,9 +193,11 @@ class Collector:  # 封装当前组件的状态与接口。
 
     def suspend(self):  # 功能：任务不在执行期时撤销 GNOME 取图授权，不再发起新采集。
         if self.details: self.details.suspend()
-        if getattr(self.desktop, "path", None) is not None:  # 仅 GNOME 固定适配缓存。
-            from .common import write_json  # 固定请求文件，防止残留授权继续取图。
-            write_json(self.desktop.path.parent/"capture-request.json", {"expires_at": 0, "screenshots": False})  # 已经在途的系统截图只能等待结束。
+        self.last_native_capture=0
+        self.native_identity=None
+        if isinstance(self.desktop,GnomeDesktop):
+            try:self.desktop.release()
+            except Exception:pass  # A disabled compositor has already revoked this client.
 
     def _capture(self):  # 定义当前功能的处理入口。
         metadata_started = time.time()

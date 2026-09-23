@@ -124,6 +124,8 @@ def report_wait(self,step):
                      and len(r.get('raw',{}).get('source_sample_ids',[]))>=step.get('minimum_samples',0)
                      and r.get('raw',{}).get('unobserved_gap_seconds',0)>=step.get('minimum_gap_seconds',0)
                      and (not step.get('metadata_after') or any(e.get('id')==step['window_id'] and (e.get('metadata_captured_at') or 0)>step['metadata_after'] for e in r.get('raw',{}).get('evidence',{}).values()))
+                     and (not step.get('text_contains') or any(e.get('id')==step['window_id'] and step['text_contains'] in (e.get('ui_text') or '') for e in r.get('raw',{}).get('evidence',{}).values()))
+                     and (not step.get('screenshot_scope') or any(e.get('id')==step['window_id'] and (e.get('screenshot') or {}).get('scope')==step['screenshot_scope'] for e in r.get('raw',{}).get('evidence',{}).values()))
                      and (not step.get('detail_after') or any(e.get('id')==step['window_id'] and (e.get('details_captured_at') or 0)>step['detail_after'] for e in r.get('raw',{}).get('evidence',{}).values()))),None)
     try:return until(observed,step.get('timeout',60),wait=lambda seconds:self.page.wait_for_timeout(seconds*1000))
     except TimeoutError:
@@ -133,7 +135,7 @@ def report_wait(self,step):
             evidence.append({'id':r['id'],'status':r.get('status'),'phase':r.get('phase'),
                 'created_at':r.get('created_at'),'real_end':raw.get('real_end'),
                 'samples':len(raw.get('source_sample_ids',[])),
-                'windows':[{k:e.get(k) for k in ('id','title','visible','focused','metadata_captured_at','details_captured_at','ui_text_error','screenshot_error')}
+                'windows':[{**{k:e.get(k) for k in ('id','title','visible','focused','metadata_captured_at','details_captured_at','ui_text_error','screenshot_error')},'screenshot_scope':(e.get('screenshot') or {}).get('scope')}
                            for e in raw.get('evidence',{}).values() if not step.get('window_id') or e.get('id')==step['window_id']]})
         diagnostic={'expected':step,'reports':evidence,'state':self.backend.state()}
         diagnostic['state_observation']=getattr(self.backend,'state_observation',None)
@@ -190,19 +192,32 @@ def service_observe(self,step):
         row={'elapsed':round(time.monotonic()-started,3),'at':time.time()}
         try:
             state=self.backend.request('/state',{})
-            row.update(reachable=True,live_tasks=[t['id'] for t in state.get('live',[])])
+            row.update(reachable=True,live_tasks=[t['id'] for t in state.get('live',[])],capture_state=state.get('capture_state'),capture_error=state.get('capture_error'),last_sample_at=state.get('last_sample_at'))
         except (OSError,RuntimeError,http.client.HTTPException) as error:
             row.update(reachable=False,error=f'{type(error).__name__}: {error}')
+        row['status_files']={}
+        for name in ('status.json','settings.json'):
+            try:
+                stat=(self.backend.directory/name).stat()
+                row['status_files'][name]=[stat.st_mtime_ns,stat.st_ctime_ns,stat.st_size]
+            except FileNotFoundError:row['status_files'][name]=None
         processes=[]
         for process in psutil.process_iter(['pid','create_time','cmdline']):
             command=process.info['cmdline'] or []
-            if any(Path(arg).name in ('chat_service.py','windows_service.py') for arg in command):
+            if any(Path(arg).name in ('chat_service.py','windows_service.py','chat_sensor.py') for arg in command):
                 processes.append({'pid':process.pid,'created_at':process.info['create_time']})
-        row['processes']=processes;samples.append(row)
+        row['processes']=processes
+        if sys.platform!='win32':
+            from focus_demo.desktop_bridge import call
+            try:row['bridge']=call('status')
+            except Exception as error:row['bridge']={'error':str(error)}
+        samples.append(row)
         remaining=step.get('seconds',0)-(time.monotonic()-started)
         if remaining<=0:break
         time.sleep(min(step.get('interval',.25),remaining))
-    return {'samples':samples,'last':samples[-1]}
+    captures=[r.get('last_sample_at') for r in samples if r.get('reachable')]
+    bridge_delta=({key:samples[-1]['bridge'][key]-samples[0]['bridge'][key] for key in ('snapshots','screenshots')} if all(key in row.get('bridge',{}) for row in (samples[0],samples[-1]) for key in ('snapshots','screenshots')) else None) if sys.platform!='win32' else {}
+    return {'samples':samples,'last':samples[-1],'status_file_changes':sum(a['status_files']!=b['status_files'] for a,b in zip(samples,samples[1:])),'sample_changes':sum(a!=b for a,b in zip(captures,captures[1:])),'bridge_delta':bridge_delta,'capture_changes':max([sum(a!=b for a,b in zip(captures,captures[1:])),*(bridge_delta or {}).values()])}
 
 def sample_inspect(self,step):
     samples=self.backend.core.store.read('samples',step['task_id'])
@@ -232,7 +247,16 @@ def sample_inspect(self,step):
             'browser_observations':[{'sample_id':r['sample_id'],'ts':r['ts'],**{key:r.get('browser',{}).get('semantic',{}).get(key) for key in ('captured_at','cache_age_seconds','limitations')}} for r in samples],
             'capture_timings':[{'sample_id':r['sample_id'],**r.get('capture_timings',{})} for r in samples]}
 
-def registry(scenario):return {
+def registry(scenario):
+    from io_observation import delay,latency,runtime_storage,bridge_rpc,extension_state,stop_delay,disconnect_capture
+    return {
+    'fault.runtime_storage':lambda step:runtime_storage(scenario,step),
+    'fault.io_restore':lambda step:stop_delay(scenario,step),
+    'desktop.disconnect_capture':lambda step:disconnect_capture(scenario,step),
+    'desktop.rpc':lambda step:bridge_rpc(scenario,step),
+    'desktop.extension':lambda step:extension_state(scenario,step),
+    'fault.desktop_io_delay':lambda step:delay(scenario,step),
+    'desktop.latency':lambda step:latency(scenario,step),
     'sample.inspect':lambda step:sample_inspect(scenario,step),
     'service.observe':lambda step:service_observe(scenario,step),
     'session.save':lambda step:session_save(scenario,step),

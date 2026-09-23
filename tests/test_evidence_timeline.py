@@ -89,8 +89,10 @@ def test_sleep_gap_is_not_counted_as_activity():  # 定义当前功能的处理�
     assert value["unobserved_gap_seconds"] == 100  # 验证实际结果符合预期。
 
 
-def test_gnome_stale_snapshot_is_not_live(tmp_path):  # 定义当前功能的处理入口。
-    from focus_demo.collectors import GnomeDesktop  # 导入本模块需要的接口。
-    path = tmp_path / "snapshot.json"  # 保存文件路径。
-    path.write_text(json.dumps({"ts":time.time()-100, "windows":[], "backend":"gnome"}))  # 执行当前步骤并保留既定边界。
-    assert GnomeDesktop(path).capture()["available"] is False  # 验证实际结果符合预期。
+def test_gnome_disconnection_is_not_live(monkeypatch):
+    from focus_demo.collectors import GnomeDesktop
+    def disconnected(*args, **kwargs):raise RuntimeError('Desktop disconnected')
+    monkeypatch.setattr('focus_demo.desktop_bridge.call', disconnected)
+    result=GnomeDesktop().capture()
+    assert result['available'] is False
+    assert not result['windows']

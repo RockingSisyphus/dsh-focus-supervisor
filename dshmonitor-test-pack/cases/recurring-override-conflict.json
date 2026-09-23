@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "id": "recurring-override-conflict",
+  "title": "真实 DSH 本轮时间覆盖后的冲突与空闲时段",
+  "engine": "dsh",
+  "verification": "product",
+  "verification_layer": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "features": [
+    "scheduling",
+    "tool.focus_plan",
+    "tool.focus_revise",
+    "tool.focus_finish"
+  ],
+  "timeout": 360,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "series",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "创建冲突检查专用每日循环",
+      "arguments": {
+        "agreement": "每天读一段测试材料",
+        "task_prompt": "只监督测试材料",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 120
+        },
+        "end_at": {
+          "$iso_after": 240
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "stop",
+        "repeat_json": "{\"frequency\":\"daily\",\"count\":2}"
+      },
+      "bind": "series"
+    },
+    {
+      "id": "extend-current",
+      "op": "model.call",
+      "tool": "focus_revise",
+      "user": "仅延长本轮",
+      "arguments": {
+        "task_id": {
+          "$ref": "series.value.id"
+        },
+        "scope": "current_only",
+        "agreement": "本轮延长的测试材料",
+        "start_at": {
+          "$iso_after": 110
+        },
+        "end_at": {
+          "$iso_after": 360
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "stop",
+        "reason": "本轮增加阅读时段"
+      },
+      "bind": "extended"
+    },
+    {
+      "id": "blocked",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "尝试在本轮延长时段创建冲突任务",
+      "arguments": {
+        "agreement": "与延长部分重叠",
+        "task_prompt": "只用于冲突验证",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 280
+        },
+        "end_at": {
+          "$iso_after": 300
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "stop"
+      },
+      "bind": "blocked"
+    },
+    {
+      "id": "overlap-detected",
+      "op": "assert",
+      "actual": {
+        "$ref": "blocked.raw"
+      },
+      "operator": "contains",
+      "expected": "任务时间冲突"
+    },
+    {
+      "id": "shorten-current",
+      "op": "model.call",
+      "tool": "focus_revise",
+      "user": "仅缩短本轮",
+      "arguments": {
+        "task_id": {
+          "$ref": "series.value.id"
+        },
+        "scope": "current_only",
+        "agreement": "本轮缩短的测试材料",
+        "start_at": {
+          "$iso_after": 100
+        },
+        "end_at": {
+          "$iso_after": 180
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "stop",
+        "reason": "本轮提早完成"
+      },
+      "bind": "shortened"
+    },
+    {
+      "id": "free-slot",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "在缩短后的空闲时段创建单次任务",
+      "arguments": {
+        "agreement": "可用的本轮空闲时段",
+        "task_prompt": "只用于冲突验证",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 210
+        },
+        "end_at": {
+          "$iso_after": 230
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "stop"
+      },
+      "bind": "free"
+    },
+    {
+      "id": "free-created",
+      "op": "assert",
+      "actual": {
+        "$ref": "free.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "finish-free",
+      "op": "model.call",
+      "tool": "focus_finish",
+      "user": "结束专用单次任务",
+      "arguments": {
+        "task_id": {
+          "$ref": "free.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "冲突边界验收完成"
+      }
+    },
+    {
+      "id": "finish-series",
+      "op": "model.call",
+      "tool": "focus_finish",
+      "user": "结束专用整个循环",
+      "arguments": {
+        "series_id": {
+          "$ref": "series.value.series_id"
+        },
+        "scope": "entire_series",
+        "verdict": "cancelled",
+        "reason": "冲突边界验收完成"
+      }
+    },
+    {
+      "id": "open-after-finish",
+      "op": "ui.open"
+    },
+    {
+      "id": "empty",
+      "op": "ui.wait_tasks",
+      "count": 0
+    }
+  ]
+}

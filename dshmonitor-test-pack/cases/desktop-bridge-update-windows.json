@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-bridge-update-windows",
+  "title": "windows 正式更新并验证桌面生命周期",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "windows"
+  ],
+  "installation": "existing-system",
+  "features": [
+    "desktop-setup",
+    "evidence"
+  ],
+  "timeout": 2400,
+  "steps": [
+    {
+      "id": "installer",
+      "op": "vm.command.start",
+      "argv": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "deploy/install-windows.ps1"
+      ]
+    },
+    {
+      "id": "authorize",
+      "op": "vm.authorize"
+    },
+    {
+      "id": "installed",
+      "op": "vm.command.wait",
+      "command": "installer",
+      "timeout": 1200,
+      "bind": "installer"
+    },
+    {
+      "id": "installer-exit",
+      "op": "assert",
+      "actual": {
+        "$ref": "installer.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "use-installed-plugin",
+      "op": "case.run",
+      "cases": [
+        "desktop-idle-lifecycle",
+        "application-native-desktop",
+        "desktop-standby-lifecycle"
+      ],
+      "bind": "use"
+    },
+    {
+      "id": "normal-use-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "use.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"desktop-idle-observer","title":"无采集请求时桌面扩展不持续写文件","engine":"command","platforms":["linux"],"group":"extended","verification":"desktop-contract","features":["lifecycle"],"argv":["$python","tests/observe_desktop_idle.py","--output","$output","--seconds","60"],"timeout":90}

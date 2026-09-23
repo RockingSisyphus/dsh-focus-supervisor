@@ -18,15 +18,11 @@ def plan(c,scheduled=True):
         'allow_early_finish':True,'deadline_policy':'discuss'},'chat')
 
 def test_settings_permission_matrix(core):
-    core.configure({"patch":{"protect_task_changes":True}},"ui")
     core.configure({'patch':{'instructions':'我的使用说明','heartbeat_prompt':'我的心跳','mascot_size':200}},'ui')
     task=plan(core)
-    for actor in ['ui','ai']:
-        with pytest.raises(ValueError):core.configure({'patch':{'instructions':'改说明'}},actor,'chat')
-    with pytest.raises(ValueError):core.configure({'patch':{'heartbeat_prompt':'UI修改'}},'ui')
-    core.configure({'patch':{'heartbeat_prompt':'AI预约期间修改'}},'ai','chat')
+    core.configure({'patch':{'instructions':'改说明','heartbeat_prompt':'UI修改'}},'ui')
     task['status']='active';core.store.save('task',task)
-    with pytest.raises(ValueError):core.configure({'patch':{'heartbeat_prompt':'进行中修改'}},'ai','chat')
+    core.configure({'patch':{'heartbeat_prompt':'进行中修改'}},'ai','chat')
     core.configure({'task_id':'t','patch':{'task_prompt':'新的任务附加要求','mascot_size':240}},'ai','chat')
     assert core.store.get('task','t')['task_prompt']=='新的任务附加要求'
     with pytest.raises(ValueError):core.configure({'task_id':'t','patch':{'task_prompt':'越权'}},'ai','other')
@@ -50,14 +46,11 @@ def test_full_instructions_fall_back_to_defaults_and_stay_locked_like_instructio
     assert core.settings()['instructions_full']=='自定义完整说明'
     core.configure({'patch':{'instructions_full':DEFAULTS['instructions_full']}},'ai','chat')
     assert core.settings()['instructions_full']==DEFAULTS['instructions_full']
-    core.configure({'patch':{'protect_task_changes':True}},'ui')
     plan(core)
-    with pytest.raises(ValueError):
-        core.configure({'patch':{'instructions_full':'有预约时不能改'}},'ai','chat')
+    core.configure({'patch':{'instructions_full':'有预约时也可改'}},'ai','chat')
     task=core.store.get('task','t');task['status']='active';core.store.save('task',task)
-    with pytest.raises(ValueError):
-        core.configure({'patch':{'instructions_full':'任务进行中不能改'}},'ui')
-    assert core.settings()['instructions_full']==DEFAULTS['instructions_full']
+    core.configure({'patch':{'instructions_full':'任务进行中也可改'}},'ui')
+    assert core.settings()['instructions_full']=='任务进行中也可改'
 
 def test_export_real_files_detect_tampering_and_cleanup(core):
     task=plan(core,False);report=core.make_report(task)
@@ -168,7 +161,6 @@ def test_documents_require_check_before_close():  # 文档不能与关闭判据�
 
 @pytest.mark.parametrize('scheduled',[True,False])
 def test_unprotected_live_settings_and_manual_finish(core,scheduled):
-    assert core.settings()['protect_task_changes'] is False
     task=plan(core,scheduled)
     assert not core.settings()['ui_locked']
     core.configure({'patch':{'instructions':'changed','heartbeat_prompt':'changed','sampling':{'text_chars':123}}},'ui')
@@ -176,18 +168,6 @@ def test_unprotected_live_settings_and_manual_finish(core,scheduled):
     assert core.finish_ui({'task_id':task['id']})['status']=='cancelled'
     assert not core.live()
 
-@pytest.mark.parametrize('scheduled',[True,False])
-def test_protection_cannot_be_disabled_during_task(core,scheduled):
-    core.configure({'patch':{'protect_task_changes':True}},'ui')
-    task=plan(core,scheduled)
-    assert core.settings()['ui_locked']
-    with pytest.raises(ValueError):core.finish_ui({'task_id':task['id']})
-    for actor in ['ui','ai']:
-        with pytest.raises(ValueError):core.configure({'patch':{'protect_task_changes':False}},actor,'chat')
-    core.finish({'task_id':task['id'],'verdict':'cancelled','reason':'test'},'chat')
-    core.configure({'patch':{'protect_task_changes':False}},'ui')
-    assert not core.settings()['protect_task_changes']
-
-def test_protection_boolean_validation(core):
-    for value in [1,'false',None]:
-        with pytest.raises(ValueError):core.configure({'patch':{'protect_task_changes':value}},'ui')
+def test_removed_global_protection_switch_is_not_reintroduced(core):
+    with pytest.raises(ValueError,match='未知设置字段'):
+        core.configure({'patch':{'protect_task_changes':True}},'ui')

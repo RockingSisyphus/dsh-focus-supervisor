@@ -11,10 +11,11 @@ class TaskLifecycle:
         return item
 
     def invalidate(self, task, kind, message, now):
-        task.update(status='invalidated',ended_at=now,review=message,standby=False)
+        task.update(status='invalidated',ended_at=now,review=message,standby=False,missed=(kind=='missed'))
         self.store.save('task',task)
         self.cancel_reports(task['id'])
         self.cleanup_task(task)
+        self._advance_series(task)
         self.notice(task,kind,message)
         self.store.log('task_invalidated',{'task_id':task['id'],'reason':kind})
 
@@ -98,7 +99,7 @@ class TaskLifecycle:
         """Return True when this task needs no further tick processing."""
         restored=task['id'] in self.restored_tasks
         self.restored_tasks.discard(task['id'])
-        if task.get('standby'):return True  # Keep input detection even beyond end_at, per agreement.
+        if task.get('standby'):return False
         if task['status']=='scheduled':
             if now>=task['end_at']:
                 self.invalidate(task,'missed','预约期间一直未开工，整个任务时段已经过去；任务已作废，资料已清理。',now)

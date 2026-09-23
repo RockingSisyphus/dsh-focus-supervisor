@@ -3,9 +3,6 @@ import json,time,os
 from .wait import until
 
 def call(operation,arguments=None):
-    if os.environ.get("DSH_TEST_DESKTOP_DRIVER")=="host":
-        from .host_desktop import call as host_call
-        return host_call(operation,arguments)
     from focus_demo.native_dbus import NativeBus
     bus=NativeBus()
     try:result=bus.call('org.dsh.TestDesktop','/org/dsh/TestDesktop','org.dsh.TestDesktop','Call','s',[json.dumps({'op':operation,**(arguments or {})})],5000)

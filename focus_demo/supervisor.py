@@ -11,8 +11,10 @@ from .control import Control, ACTIVE
 from .lifecycle import TaskLifecycle
 from .common import write_json
 from .store import Store
+from .control_lock import ControlLock
 from .prompts import timeline, apply_time_patch
 from .reports import EvidenceTools, overview
+from . import recurrence
 
 LIVE = {"scheduled", "active", "awaiting_extension", "verified_waiting"}
 
@@ -24,7 +26,10 @@ class Supervisor(TaskLifecycle, Control):
         self.store = Store(self.directory / "events.sqlite3")
         self.lifecycle, self.sensor = lifecycle, sensor
         self.interval, self.sample, self.test_mode = interval, sample, test_mode
-        self.lock = threading.RLock()
+        self.lock = ControlLock()
+        self.action_lock = threading.RLock()
+        self.evidence_lock = threading.RLock()
+        self.cleaning=set()
         self.capture_error = None
         self.last_sample = None
         self.empty_since = time.time()
@@ -32,10 +37,57 @@ class Supervisor(TaskLifecycle, Control):
         self.status_gid = None
         self.hold_reports = False
         self.presence = {"available": False}
+        self._migrate_task_strictness()
+        inactive={s['id'] for s in self.store.all('series') if s['status']!='active'}
+        for task in self.live():
+            if task.get('series_id') in inactive:
+                task.update(status='cancelled',ended_at=time.time(),review='所属循环已经结束',cleanup_pending=True)
+                self.store.save('task',task)
+                self.cancel_reports(task['id'])
         self.restored_tasks = {t["id"] for t in self.live()}
+        for series in self.live_series():
+            task=self.store.get('task',series['current_task_id']) if series.get('current_task_id') else None
+            if task and task['status'] not in LIVE:
+                if task.get('missed') and series['consumed']<=task['occurrence_index']:
+                    series['missed']=series.get('missed',0)+1
+                series['consumed']=max(series['consumed'],task['occurrence_index']+1)
+                series['current_task_id']=None
+                series['last_result']={'task_id':task['id'],'status':task['status'],'ended_at':task.get('ended_at')}
+                self.store.save('series',series)
+                task=None
+            if not task:
+                orphan=next((t for t in self.live() if t.get('series_id')==series['id']),None)
+                if orphan:
+                    series['current_task_id']=orphan['id']
+                    series['next_start_at']=orphan['start_at']
+                    series['next_end_at']=orphan['end_at']
+                    self.store.save('series',series)
+                else:
+                    self._materialize_series(series)
 
     def live(self):
         return [t for t in self.store.all("task") if t["status"] in LIVE]
+
+    def live_series(self):
+        return [s for s in self.store.all('series') if s['status'] == 'active']
+
+    def _migrate_task_strictness(self):
+        stored = self.store.get('settings', 'global') or {}
+        legacy = stored.get('protect_task_changes')
+        for task in self.store.all('task'):
+            if task['status'] in LIVE and 'strictness' not in task:
+                task['strictness'] = 'strict' if legacy else 'normal'
+                self.store.save('task', task)
+        if legacy is not None:
+            stored.pop('protect_task_changes')
+            self.store.save('settings', {'id': 'global', **stored})
+
+    def capture_state(self):
+        live=self.live()
+        if any(t['status'] in {'active','awaiting_extension'} and not t.get('standby') for t in live):return 'collecting'
+        if any(t.get('standby') for t in live):return 'away'
+        if any(t['status']=='verified_waiting' for t in live):return 'verified_waiting'
+        return 'scheduled' if live else 'idle'
 
     def ensure(self):
         # Explicit task admission, not polling, resets the existing idle timer.
@@ -47,17 +99,30 @@ class Supervisor(TaskLifecycle, Control):
             return self.state()
 
     def state(self):
-        with self.lock:
+        with self.store.read_lock:
             tasks = self.store.all("task")
-            return {"server_time": time.time(), "tasks": tasks[-50:], "live": self.live(), "capture_error": self.capture_error,
-                    "presence": self.presence, "notices": self.store.all("notice"), "needs_dsh": self.needs_dsh(),
+            return {"server_time": time.time(), "tasks": tasks[-50:], "live": self.live(), "series": self.live_series(), "capture_error": self.capture_error,
+                    "status_write_error":getattr(getattr(self,"publisher",None),"error",None), "capture_state":self.capture_state(), "presence": self.presence, "notices": self.store.all("notice"), "needs_dsh": self.needs_dsh(),
                     "last_sample_at": self.last_sample, "effective_sampling":getattr(self,"effective_sampling",None), "test_mode": self.test_mode, "shutting_down": self.shutting_down,
                     "execution": getattr(self,"execution",{}), "interval": self.interval, "settings": self.settings(), "alerts": self.store.all("alert")[-20:], "events": self.store.logs(12),
                     "reports": [{k: r.get(k) for k in ("id", "task_id", "phase", "status", "created_at", "reason")}
                                 for r in self.store.all("report")[-15:]]}
 
     def publish(self):
-        write_json(self.directory / "status.json", self.state())
+        state=self.state()
+        comparable={k:v for k,v in state.items() if k!='server_time'}
+        if state['capture_state']!='collecting':
+            # Idle counters remain live in /state; their clock advancing is not
+            # a durable state change and must not cause writes while away.
+            comparable['presence']={k:v for k,v in self.presence.items() if k in ('available','error')}
+        publisher=getattr(self,'publisher',None)
+        if comparable==getattr(self,'_published_state',None) and not getattr(publisher,'error',None):return
+        import copy
+        self._published_state=copy.deepcopy(comparable)
+        if publisher:
+            publisher.submit(self.directory/'status.json',state,self.status_gid)
+            return
+        write_json(self.directory / "status.json", state)
         if self.status_gid is not None:
             os.chown(self.directory / "status.json", 0, self.status_gid)
             os.chmod(self.directory / "status.json", 0o640)
@@ -81,7 +146,13 @@ class Supervisor(TaskLifecycle, Control):
         if request.get("deadline_policy") not in {"stop", "discuss", "continue"}:
             raise ValueError("到时策略须为 stop、discuss 或 continue")
         return {"agreement": text.strip(), "start_at": start, "end_at": end,
-                "allow_early_finish": request["allow_early_finish"], "deadline_policy": request["deadline_policy"]}
+                "allow_early_finish": request["allow_early_finish"], "deadline_policy": "stop"}
+
+    @staticmethod
+    def strictness(request, default='normal'):
+        value=request.get('strictness',default)
+        if value not in {'normal','strict'}:raise ValueError('任务严苛度须为 normal 或 strict')
+        return value
 
     def task_interval(self, task):
         return task.get("check_interval_seconds", self.interval)
@@ -92,26 +163,66 @@ class Supervisor(TaskLifecycle, Control):
             raise ValueError("检查间隔必须为正整数秒")
         return value
 
-    def check_conflicts(self, contract, exclude_id=None):
-        now = time.time()
-        conflicts = []
-        for task in self.live():
-            if task["id"] == exclude_id:
-                continue
-            overlap = contract["start_at"] < task["end_at"] and task["start_at"] < contract["end_at"]
-            ongoing = (task["status"] in {"active", "awaiting_extension"}
-                       and task["end_at"] <= now and task["deadline_policy"] != "stop"
-                       and contract["start_at"] <= now < contract["end_at"])
-            if overlap or ongoing:
-                conflicts.append((task, ongoing))
-        if conflicts:
-            def describe(item):
-                task, ongoing = item
-                start = datetime.fromtimestamp(task["start_at"]).astimezone().isoformat()
-                end = datetime.fromtimestamp(task["end_at"]).astimezone().isoformat()
-                return (f'{task["id"]}：{task["agreement"]}；{start} 至 {end}；状态 {task["status"]}'
-                        + ('（已超时但仍在监督）' if ongoing else ''))
-            raise ValueError("任务时间冲突，未保存。冲突任务：\n" + "\n".join(map(describe, conflicts)))
+    def check_conflicts(self, candidate, exclude_id=None, exclude_series=None, own_future=None):
+        # A current_only revision changes this occurrence without changing its
+        # series. Compare the actual live task and the untouched future rule.
+        targets=[t for t in self.live() if t['id']!=exclude_id]
+        for series in self.live_series():
+            if series['id']==exclude_series:continue
+            task=self.store.get('task',series['current_task_id']) if series.get('current_task_id') else None
+            index=task['occurrence_index']+1 if task and task['status'] in LIVE else series['consumed']
+            item=recurrence.occurrence(series,index)
+            if item:targets.append({**series,'anchor_date':item['date'],'anchor_index':index})
+        if own_future:targets.append(own_future)
+        for target in targets:
+            pair=recurrence.conflict(candidate,target)
+            if pair:
+                first=max(pair[0]['start_at'],pair[1]['start_at'])
+                when=datetime.fromtimestamp(first).astimezone().isoformat()
+                agreement=target.get('agreement') or target.get('template',{}).get('agreement','')
+                raise ValueError(f"任务时间冲突，未保存。冲突任务：{target['id']}：{agreement}；首次重叠 {when}")
+
+    def _materialize_series(self, series):
+        if series['status']!='active' or series.get('current_task_id'):return None
+        item, skipped=recurrence.next_occurrence(series,time.time(),series['consumed'])
+        if skipped:
+            series['consumed']+=skipped
+            series['missed']=series.get('missed',0)+skipped
+            self.store.log('series_missed',{'series_id':series['id'],'count':skipped})
+        if item is None:
+            series['status']='completed';series['ended_at']=time.time()
+            series['template'].pop('task_prompt',None)
+            self.store.save('series',series)
+            return None
+        task_id=series['first_task_id'] if item['index']==0 else f"task_{series['id'][7:]}_{item['index']}"
+        task=self.store.get('task',task_id)
+        if not task:
+            contract={**series['template'],'start_at':item['start_at'],'end_at':item['end_at']}
+            task={**contract,'id':task_id,'series_id':series['id'],'occurrence_index':item['index'],
+                  'occurrence_date':item['date'],'session_id':series['session_id'],'revision':1,
+                  'status':'scheduled' if item['start_at']>time.time() else 'active',
+                  'created_at':time.time(),'next_check':max(time.time(),item['start_at'])+contract['check_interval_seconds'],
+                  'cursor':0,'incident':None}
+            self.store.save('task',task)
+        series['current_task_id']=task_id
+        series['next_start_at']=item['start_at']
+        series['next_end_at']=item['end_at']
+        self.store.save('series',series)
+        self.lifecycle.enable()
+        return task
+
+    def _advance_series(self,task):
+        series_id=task.get('series_id')
+        if not series_id:return
+        series=self.store.get('series',series_id)
+        if not series or series.get('current_task_id')!=task['id']:return
+        if task.get('missed') and series['consumed']<=task['occurrence_index']:
+            series['missed']=series.get('missed',0)+1
+        series['consumed']=max(series['consumed'],task['occurrence_index']+1)
+        series['current_task_id']=None
+        series['last_result']={'task_id':task['id'],'status':task['status'],'ended_at':task.get('ended_at')}
+        self.store.save('series',series)
+        self._materialize_series(series)
 
     def plan(self, request, session_id):
         with self.lock:
@@ -119,6 +230,7 @@ class Supervisor(TaskLifecycle, Control):
                 raise ValueError("服务正在退出，请稍后重试创建任务")
             contract = self.agreement(request)
             contract["check_interval_seconds"] = self.configured_interval(request, self.interval)
+            contract['strictness']=self.strictness(request)
             # One durable ID supplied by the tool makes admission retries harmless.
             task_id = request["task_id"]
             old = self.store.get("task", task_id)
@@ -130,6 +242,18 @@ class Supervisor(TaskLifecycle, Control):
             project=request.get("project_dir")
             if not isinstance(project,str) or not Path(project).is_absolute() or not Path(project).is_dir():raise ValueError("project_dir 必须为当前会话已存在的项目绝对目录")
             contract.update(task_prompt=prompt,project_dir=str(Path(project).resolve()))
+            if request.get('repeat'):
+                series_id='series_'+task_id.removeprefix('task_')
+                series={**recurrence.schedule(contract,request['repeat'],recurrence.local_zone_name()),
+                        'id':series_id,'session_id':session_id,'status':'active','consumed':0,'missed':0,
+                        'current_task_id':None,'first_task_id':task_id,'template':{k:v for k,v in contract.items() if k not in ('start_at','end_at')}}
+                self.check_conflicts(series)
+                self.store.save('series',series)
+                task=self._materialize_series(series)
+                self.empty_since=None
+                self.store.log('series_planned',{'series_id':series_id,'session_id':session_id})
+                self.publish()
+                return task or self.store.get('series',series_id)
             self.check_conflicts(contract)
             task = {**contract, "id": task_id, "session_id": session_id, "revision": 1,
                     "status": "scheduled" if contract["start_at"] > time.time() else "active",
@@ -144,11 +268,20 @@ class Supervisor(TaskLifecycle, Control):
 
     def revise(self, request, session_id):
         with self.lock:
-            task = self.task_for(request["task_id"], session_id)
+            series=self.store.get('series',request['series_id']) if request.get('series_id') else None
+            if request.get('series_id') and not series:raise ValueError('循环不存在')
+            if series and series['session_id']!=session_id:raise ValueError('只能在原监工会话中修改循环')
+            if series and series['status']!='active':raise ValueError('循环已经结束')
+            task = self.task_for(request.get('task_id') or (series or {})['current_task_id'], session_id)
+            if series and task.get('series_id')!=series['id']:raise ValueError('任务不属于指定循环')
+            if task.get('series_id'):
+                if series and task['series_id']!=series['id']:raise ValueError('任务不属于指定循环')
+                series=self.store.get('series',task['series_id'])
             if task["status"] not in LIVE:
                 raise ValueError("任务已经结束")
             contract = self.agreement(request)
             contract["check_interval_seconds"] = self.configured_interval(request, self.task_interval(task))
+            contract['strictness']=self.strictness(request,task.get('strictness','normal'))
             for key in ('task_prompt','project_dir'):
                 if key in request:
                     value=request[key]
@@ -158,13 +291,32 @@ class Supervisor(TaskLifecycle, Control):
                         if not Path(value).is_absolute() or not Path(value).is_dir():raise ValueError('项目目录不存在')
                         value=str(Path(value).resolve())
                     contract[key]=value
-            self.check_conflicts(contract, exclude_id=task["id"])
+            scope=request.get('scope','current_and_future')
+            if scope not in {'current_only','current_and_future'}:raise ValueError('修改范围须为 current_only 或 current_and_future')
+            if series and scope=='current_and_future':
+                candidate={**recurrence.schedule(contract,request.get('repeat') or series['repeat'],series['timezone'],task['occurrence_index']),
+                           'id':series['id']}
+                self.check_conflicts(candidate,exclude_id=task['id'],exclude_series=series['id'])
+            else:
+                if request.get('repeat'):raise ValueError('重复规则只能修改当前及未来轮次')
+                future=None
+                if series:
+                    index=task['occurrence_index']+1
+                    item=recurrence.occurrence(series,index)
+                    if item:
+                        future={**series,'anchor_date':item['date'],'anchor_index':index}
+                self.check_conflicts(contract,exclude_id=task['id'],exclude_series=series['id'] if series else None,own_future=future)
             self.store.log("agreement_revised", {"previous": task, "reason": request["reason"]})
             task.update(contract, revision=task["revision"] + 1,
                         status="scheduled" if contract["start_at"] > time.time() else "active",
                         next_check=max(time.time(), contract["start_at"]) + contract["check_interval_seconds"], incident=None)
             self.cancel_reports(task["id"])
             self.store.save("task", task)
+            if series and scope=='current_and_future':
+                series.update(candidate)
+                series['template']={k:v for k,v in task.items() if k in ('agreement','allow_early_finish','deadline_policy','check_interval_seconds','strictness','task_prompt','project_dir')}
+                series['next_start_at']=task['start_at'];series['next_end_at']=task['end_at']
+                self.store.save('series',series)
             self.publish()
             return task
 
@@ -176,22 +328,37 @@ class Supervisor(TaskLifecycle, Control):
 
     def finish(self, request, session_id):
         with self.lock:
-            task = self.task_for(request["task_id"], session_id)
+            series=self.store.get('series',request['series_id']) if request.get('series_id') else None
+            if request.get('series_id') and not series:raise ValueError('循环不存在')
+            if series and series['session_id']!=session_id:raise ValueError('只能在原监工会话中结束循环')
+            task = self.task_for(request.get('task_id') or (series or {})['current_task_id'], session_id)
+            if series and task.get('series_id')!=series['id']:raise ValueError('任务不属于指定循环')
+            if task.get('series_id'):
+                if series and task['series_id']!=series['id']:raise ValueError('任务不属于指定循环')
+                series=self.store.get('series',task['series_id'])
+                if request.get('scope') not in {'current_only','entire_series'}:
+                    raise ValueError('循环结束须选择 current_only 或 entire_series')
             if task["status"] not in LIVE:
                 return task
             verdict = request["verdict"]
             if verdict not in {"completed", "cancelled", "not_completed"}:
                 raise ValueError("未知的任务结束判断")
             # This is only an explicit timing agreement, never an essay/quiz gate.
-            task["status"] = ("verified_waiting" if verdict == "completed" and
+            task["status"] = ("verified_waiting" if request.get('scope')!='entire_series' and verdict == "completed" and
                               not task["allow_early_finish"] and time.time() < task["end_at"] else verdict)
             task["review"] = request["reason"]
             task["reviewed_at"] = time.time()
             if task["status"] != "verified_waiting":
                 task["ended_at"] = time.time()
+            if series and request.get('scope')=='entire_series':
+                series['status']='cancelled';series['ended_at']=time.time()
+                series['template'].pop('task_prompt',None)
+                self.store.save('series',series)
             self.store.save("task", task)
             self.cancel_reports(task["id"])
-            if task["status"] not in LIVE:self.cleanup_task(task)
+            if task["status"] not in LIVE:
+                self.cleanup_task(task)
+                self._advance_series(task)
             self.store.log("agent_task_decision", {"task_id": task["id"], "verdict": verdict, "reason": request["reason"]})
             self.publish()
             return task
@@ -199,22 +366,26 @@ class Supervisor(TaskLifecycle, Control):
     def capture(self):
         with self.lock:
             active = [t for t in self.live() if t["status"] in {"active", "awaiting_extension"} and not t.get("standby")]
-        if not active or not self.sensor:
+        if not self.sensor:return
+        if not active:
+            if getattr(self,'collecting',False):
+                self.sensor.call('cleanup_capture',{})
+                self.collecting=False
             return
+        self.collecting=True
         try:
             options={k:self.settings()[k] for k in ("sampling","reporting")}
             self.sample=options["sampling"]["interval_seconds"]
             sample = self.sensor.call("capture", options)
             sample["settings"]=options
             self.effective_sampling={"at":sample["ts"],**options}
+            accepted=False
+            for task in active:
+                accepted=self.store.add_live_sample(task['id'],sample) is not None or accepted
             with self.lock:
-                for task in active:
-                    current = self.store.get("task", task["id"])
-                    if current["status"] not in {"active", "awaiting_extension"}:
-                        continue
-                    self.store.add_sample(task["id"], sample)
-                self.last_sample = sample["ts"]
-                self.capture_error = None if sample["desktop"].get("available") else "; ".join(sample["desktop"].get("limitations", []))
+                if accepted:
+                    self.last_sample = sample["ts"]
+                    self.capture_error = None if sample["desktop"].get("available") else "; ".join(sample["desktop"].get("limitations", []))
         except Exception as error:
             self.capture_error = str(error)
 
@@ -254,19 +425,14 @@ class Supervisor(TaskLifecycle, Control):
             for task in self.live():
                 if self.restore_timing(task, now):continue
                 if now >= task["end_at"]:
-                    if task["status"] == "verified_waiting" or task["deadline_policy"] == "stop":
-                        task.update(status="completed" if task["status"] == "verified_waiting" else "not_completed",
-                                    ended_at=now, review="按事先约定在结束时间退出监督")
-                        self.store.save("task", task)
-                        self.cancel_reports(task["id"])
-                        self.cleanup_task(task)
-                        self.store.log("agreed_deadline", {"task_id": task["id"], "status": task["status"]})
-                        continue
-                    if task["status"] != "awaiting_extension":
-                        task["status"] = "awaiting_extension"
-                        self.store.save("task", task)
-                        self.cancel_reports(task["id"])
-                        self.make_report(task, "deadline", count_input=True)
+                    task.update(status="completed" if task["status"] == "verified_waiting" else "not_completed",
+                                ended_at=now, review="按事先约定在结束时间退出监督",standby=False)
+                    self.store.save("task", task)
+                    self.cancel_reports(task["id"])
+                    self.cleanup_task(task)
+                    self._advance_series(task)
+                    self.store.log("agreed_deadline", {"task_id": task["id"], "status": task["status"]})
+                    continue
                 if task["status"] not in {"active", "awaiting_extension"}:
                     continue
                 if not task.get('start_report_sent'):
@@ -301,7 +467,7 @@ class Supervisor(TaskLifecycle, Control):
                 self.store.save("report", report)
 
     def report_tool(self, request):
-        with self.lock:
+        with self.evidence_lock:
             report = self.store.get("report", request["report_id"])
             if not report:raise ValueError("报告不存在或已随任务结束清理")
             task = self.store.get('task',report['task_id'])
@@ -313,7 +479,8 @@ class Supervisor(TaskLifecycle, Control):
                         "presence":report.get("presence",{}),"input_activity":report.get("input_activity",{}),"phase":report['phase'],"capture_error":self.capture_error,"test_mode":self.test_mode,
                         "test_time_override":report['effective'].get('test_time_override',False),
                         "real_observed_seconds":sum(s['real_duration_seconds'] for s in report['raw']['segments']),
-                        "window_start":report["raw"].get("real_start"),"window_end":report["raw"].get("real_end"),"reporting":self.settings()["reporting"],"heartbeat_prompt":self.settings()['heartbeat_prompt'],"evidence_export":export}
+                        "window_start":report["raw"].get("real_start"),"window_end":report["raw"].get("real_end"),"reporting":self.settings()["reporting"],"heartbeat_prompt":self.settings()['heartbeat_prompt'],
+                        "strict_heartbeat_prompt":self.settings()['strict_heartbeat_prompt'] if task.get('strictness')=='strict' else None,"evidence_export":export}
                 for row in result['overview']['programs']:row['detail_file']=export.get('program_files',{}).get(row['id'])
                 images=EvidenceTools(report['effective'],self.directory)
                 try:result.update(images.initial_desktop())
@@ -384,6 +551,10 @@ class Supervisor(TaskLifecycle, Control):
 
     def recover(self, reason):
         with self.lock:
+            for series in self.live_series():
+                series.update(status='cancelled',ended_at=time.time())
+                series['template'].pop('task_prompt',None)
+                self.store.save('series',series)
             for task in self.live():
                 task.update(status="recovered_not_completed", ended_at=time.time(), review=reason)
                 self.store.save("task", task)

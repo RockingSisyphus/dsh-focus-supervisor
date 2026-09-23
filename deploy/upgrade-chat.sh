@@ -18,7 +18,7 @@ cp "$source_dir/dsh-plugin/default-prompts.json" /opt/dafeiyu/focus_demo/default
 cp "$source_dir/requirements.txt" /opt/dafeiyu/requirements.txt
 /opt/dafeiyu/venv/bin/pip -q install -r /opt/dafeiyu/requirements.txt
 cp -r "$source_dir/gnome-extension" /opt/dafeiyu/
-cp "$source_dir"/deploy/{chat_service,chat_sensor,desktop_setup,desktop_notify,open_chat,focus_window}.py /opt/dafeiyu/deploy/
+cp "$source_dir"/deploy/{chat_service,chat_sensor,evidence_worker,desktop_setup,desktop_notify,open_chat,focus_window}.py /opt/dafeiyu/deploy/
 cp -r "$source_dir/dsh-plugin/assets" /opt/dafeiyu/
 cp "$source_dir/deploy/retire_legacy.py" /opt/dafeiyu/deploy/
 /usr/bin/python3 -I /opt/dafeiyu/deploy/retire_legacy.py /opt/dafeiyu "$(getent passwd "$account" | cut -d: -f6)"

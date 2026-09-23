@@ -11,26 +11,26 @@ from focus_demo.common import write_json
 
 
 def test_metadata_does_not_wait_for_image_and_resume_uses_new_image(tmp_path, monkeypatch):
-    snapshot = tmp_path/'gnome-snapshot.json'
-    monkeypatch.setenv('FOCUS_GNOME_SNAPSHOT', str(snapshot))
-    def publish(meta=None):
-        write_json(snapshot, dict(ts=time.time(), backend='gnome', windows=[], screen=[0,0,20,20], screen_capture=meta))
-    collector = Collector('gnome',0,0,SimpleNamespace(data_dir=tmp_path/'data',screenshots=True,ui_text=False,detail_interval=60))
-    stop = threading.Event()
-    release = threading.Event()
-    def bridge():
-        while not stop.wait(.02):
-            if not release.is_set():continue
+    monkeypatch.setenv('XDG_RUNTIME_DIR',str(tmp_path))
+    root=tmp_path/'dafeiyu-desktop';root.mkdir()
+    entered,release=threading.Event(),threading.Event()
+    def call(operation, **kwargs):
+        data=dict(ts=time.time(),backend='gnome',available=True,windows=[],screen=[0,0,20,20])
+        if operation=='capture':
+            entered.set();assert release.wait(2)
             filename=f'screen-{time.monotonic_ns()}.png'
-            Image.new('RGB',(20,20),'green').save(tmp_path/filename)
-            publish(dict(file=filename,captured_at=time.time(),screen=[0,0,20,20]))
+            Image.new('RGB',(20,20),'green').save(root/filename)
+            data['screen_capture']=dict(file=filename,captured_at=time.time(),screen=[0,0,20,20])
+        return data
+    monkeypatch.setattr('focus_demo.desktop_bridge.call',call)
+    collector=Collector('gnome',0,0,SimpleNamespace(data_dir=tmp_path/'data',screenshots=True,ui_text=False,detail_interval=60))
+    timestamps=[]
     for _ in range(2):
-        publish()
-        release.clear()
-        worker=threading.Thread(target=bridge);worker.start()
+        entered.clear();release.clear()
         try:
             result=collector.capture()['desktop']
             assert result['available'] and not result.get('desktop_screenshot')
+            assert entered.wait(1)
             release.set()
             deadline=time.monotonic()+3
             while time.monotonic()<deadline:
@@ -38,9 +38,10 @@ def test_metadata_does_not_wait_for_image_and_resume_uses_new_image(tmp_path, mo
                 if result.get('desktop_screenshot'):break
                 time.sleep(.02)
             assert result['desktop_screenshot']['scope']=='full_desktop'
+            timestamps.append(result['desktop_screenshot']['captured_at'])
         finally:
-            collector.suspend()
-            stop.set();worker.join();stop.clear()
+            release.set();collector.suspend()
+    assert timestamps[1]>timestamps[0]
 
 
 def test_accessibility_helper_imports_outside_project(tmp_path, monkeypatch):
@@ -62,23 +63,26 @@ def test_accessibility_helper_imports_outside_project(tmp_path, monkeypatch):
     assert not any('批量读取失败' in n for n in result.get('limitations', []))
 
 
-def test_missing_bridge_times_out_without_reusing_old_screen(tmp_path):
+def test_missing_bridge_times_out_without_reusing_old_screen(tmp_path,monkeypatch):
     from focus_demo.collectors import GnomeDesktop
-    snapshot = tmp_path/'gnome-snapshot.json'
-    Image.new('RGB', (20,20)).save(tmp_path/'old.png')
-    write_json(snapshot, dict(ts=time.time(), windows=[], screen_capture=dict(file='old.png', captured_at=time.time()-1)))
-    started = time.monotonic()
-    result = GnomeDesktop(snapshot).request_capture(True, wait=True, timeout=.1)
-    assert time.monotonic()-started < 1
-    assert result['screen_capture'] is None
-    assert any('超时' in item for item in result['limitations'])
+    Image.new('RGB',(20,20)).save(tmp_path/'old.png')
+    def timeout(*args,**kwargs):raise RuntimeError('capture timeout')
+    monkeypatch.setattr('focus_demo.desktop_bridge.call',timeout)
+    result=GnomeDesktop().request_capture(True,wait=True,timeout=.1)
+    assert not result['available']
+    assert not result.get('screen_capture')
+    assert any('timeout' in item for item in result['limitations'])
 
 
-def test_disabled_screenshots_do_not_wait_or_authorize(tmp_path):
+def test_disabled_screenshots_only_request_metadata(monkeypatch):
     from focus_demo.collectors import GnomeDesktop
-    result = GnomeDesktop(tmp_path/'missing.json').request_capture(False, wait=True)
-    assert result['available'] is False
-    assert json.loads((tmp_path/'capture-request.json').read_text())['screenshots'] is False
+    calls=[]
+    def call(operation,**kwargs):
+        calls.append(operation)
+        return {'windows':[],'screen':[0,0,20,20],'available':True}
+    monkeypatch.setattr('focus_demo.desktop_bridge.call',call)
+    assert GnomeDesktop().request_capture(False,wait=True)['available']
+    assert calls==['snapshot']
 
 
 def test_new_window_and_changed_page_are_not_throttled_as_cached(tmp_path):

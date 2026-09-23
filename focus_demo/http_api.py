@@ -58,7 +58,7 @@ class Handler(BaseHTTPRequestHandler):
                         core.delivered(stale['id'])  # 新数据取代尚未处理的心跳报告，避免挡住下一次心跳。
                     result = core.make_report(core.store.get('task', task['id']), 'check', advance=False)
                     core.delivered(result['id'])  # 检查报告不当心跳再次投递。
-                    result = core.report_tool({'report_id': result['id'], 'operation': 'get_overview'})
+                result = core.report_tool({'report_id': result['id'], 'operation': 'get_overview'})
             elif self.path == '/test/preview':
                 if not core.test_mode:
                     raise ValueError('只有测试模式可读取预览时间片')

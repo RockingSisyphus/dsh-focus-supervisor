@@ -19,7 +19,7 @@ const PLUGIN = join(ROOT, 'dsh-plugin');
 const TARGET = join(PLUGIN, 'backend');
 // windows_service.py 是 Windows 计划任务真正执行的那个文件，漏掉它会让装好的
 // 后台永远起不来（Linux 侧对应 chat_service.py）。
-const DEPLOY_FILES = ['chat_service.py', 'chat_sensor.py', 'windows_service.py', 'desktop_setup.py', 'desktop_notify.py', 'desktop_notify_windows.py',
+const DEPLOY_FILES = ['chat_service.py', 'chat_sensor.py', 'evidence_worker.py', 'windows_service.py', 'desktop_setup.py', 'desktop_notify.py', 'desktop_notify_windows.py',
   'retire_legacy.py', 'open_chat.py', 'focus_window.py', 'install-chat.sh', 'upgrade-chat.sh', 'install-windows.ps1'];
 const IGNORE = /(^|[/\\])(__pycache__|node_modules|\.venv|\.pytest_cache)([/\\]|$)|\.pyc$/;
 

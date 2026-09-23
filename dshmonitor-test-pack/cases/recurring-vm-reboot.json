@@ -1,0 +1,13 @@
+{
+  "schemaVersion":1,"id":"recurring-vm-reboot","title":"普通用户的严苛循环任务跨整机重启恢复","engine":"command","execution":"vm-orchestration",
+  "persistent_session":true,"verification":"product","group":"extended","platforms":["linux","windows"],
+  "features":["scheduling","persistence","settings-ui"],"timeout":1200,
+  "steps":[
+    {"id":"prepare","op":"case.run","cases":["recurring-reboot-prepare"],"bind":"before"},
+    {"id":"prepare-passed","op":"assert","actual":{"$ref":"before.status"},"operator":"equals","expected":"passed"},
+    {"id":"reboot","op":"vm.reboot","bind":"boot"},
+    {"id":"different-boot","op":"assert","actual":{"$ref":"boot.after"},"operator":"not_equals","expected":{"$ref":"boot.before"}},
+    {"id":"resume","op":"case.run","cases":["recurring-reboot-resume"],"bind":"after"},
+    {"id":"resume-passed","op":"assert","actual":{"$ref":"after.status"},"operator":"equals","expected":"passed"}
+  ]
+}

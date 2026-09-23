@@ -65,6 +65,13 @@ class Sensor:
         self.process = None
 
     def call(self, operation, expected=None):
+        if operation in {'export','verify_export','cleanup_export'}:
+            account=self.account
+            result=subprocess.run([sys.executable,'-I',str(ROOT/'deploy/evidence_worker.py')],
+                input=json.dumps({'operation':operation,'payload':expected}),text=True,capture_output=True,timeout=30,
+                user=account.pw_uid,group=account.pw_gid,extra_groups=os.getgrouplist(account.pw_name,account.pw_gid))
+            if result.returncode:raise RuntimeError(result.stderr.strip() or '证据文件操作失败')
+            return json.loads(result.stdout)
         if operation == 'force_close':
             from focus_demo.close_actions import finish_process_fallback
             return finish_process_fallback(self.call('close_target',expected),lambda:self.call('observe_close_target',expected))
@@ -89,13 +96,15 @@ class Sensor:
                 if 'error' in response:
                     raise ValueError(response['error'])
                 result = response['result']
-                if operation == 'capture':
-                    self.save_images(result['images'])
-                    return result['sample']
-                return result
             except Exception:
                 self._stop()
                 raise
+        # The pipe exchange is complete. Persistent screenshot writes must not
+        # monopolize the desktop channel used for stop, presence and actions.
+        if operation == 'capture':
+            self.save_images(result['images'])
+            return result['sample']
+        return result
 
     def save_images(self, images):
         from PIL import Image
@@ -110,8 +119,10 @@ class Sensor:
                     raise ValueError('无效的图片尺寸或格式')
                 picture.verify()
             target = folder / (claimed + '.png')
-            if not target.exists():
-                target.write_bytes(raw)
+            from focus_demo.common import screenshot_files
+            with screenshot_files:
+                if not target.exists():target.write_bytes(raw)
+
 
 
 class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
@@ -138,6 +149,8 @@ def main():
     core.execution={'platform':'linux','elevated':os.geteuid()==0,'force_close_executor':'root supervisor'}
     core.hold_reports = core.test_mode and config.get('preview', True)
     core.status_gid = account.pw_gid
+    from focus_demo.status_writer import StatusWriter
+    core.publisher=StatusWriter()
     core.publish_settings()
     address = Path(config['socket'])
     address.parent.mkdir(parents=True, exist_ok=True)
@@ -146,8 +159,6 @@ def main():
     server.core = core
     os.chown(address, 0, account.pw_gid)
     address.chmod(0o660)
-    # A read-only status snapshot supports the floating ball while this process is idle/off.
-    status_path = directory / 'status.json'
     stop = threading.Event()
 
     def refuse(signum, frame):
@@ -168,10 +179,17 @@ def main():
     signal.signal(signal.SIGINT, refuse)
 
     def sampler():
+        next_sample=next_presence=0
         while not stop.is_set():
-            core.poll_presence()
-            core.capture()
-            stop.wait(5 if any(t.get('standby') for t in core.live()) else core.sample)
+            now=time.monotonic()
+            if now>=next_presence:
+                core.poll_presence();next_presence=now+(5 if core.capture_state()=='away' else 2)
+            if core.capture_state()!='collecting':
+                core.capture()  # Suspend immediately, even with a long sampling interval.
+                next_sample=0
+            elif now>=next_sample:
+                core.capture();next_sample=time.monotonic()+core.sample
+            stop.wait(.25)
     capture_thread = threading.Thread(target=sampler, daemon=True)
     capture_thread.start()
     http_thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -184,10 +202,8 @@ def main():
                 core.recover(json.loads(recovery.read_text())['reason'])
                 recovery.unlink()
             core.tick()
-            os.chown(status_path, 0, account.pw_gid)
-            status_path.chmod(0o640)
             with core.lock:
-                if core.live() or core.needs_dsh():
+                if core.live():
                     if core.needs_dsh() and time.time() >= wake_at:
                         try:
                             lifecycle.wake_dsh()
@@ -208,6 +224,7 @@ def main():
         if sensor:
             sensor.stop()
         capture_thread.join(timeout=5)
+        core.publisher.close()
         core.store.close()
         address.unlink(missing_ok=True)
     return 42

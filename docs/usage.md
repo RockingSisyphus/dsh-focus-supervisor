@@ -1,9 +1,11 @@
 # 使用详情
 
-完整安装、任务设置、权限和数据说明见[README](../README.md)。
+安装环境、正式安装命令和首次授权步骤见 [README](../README.md)。升级时重新运行相同的 `dsh plugin --profile web add <安装包 URL>` 命令，再从插件卡片更新后台；任务和自定义设置会保留。Linux 首次加载 GNOME 桌面扩展时，按安装提示重新登录。
 
-Linux 后台日志：`journalctl -u dafeiyu-supervisor.service`。后台无任务时退出是正常行为。Windows后台由安装器创建的计划任务管理。
+在 DSH 会话里告诉 AI 要做的事、起止时间和验收标准。任务可以立即开始、预约一次，也可以每天或每周指定星期重复；重复任务可设置截止日期或总次数。每轮到约定结束时间就停止监督，完整错过的轮次不补跑。悬浮球将整个循环显示为一张卡片，普通循环可以结束本轮或整个循环。
 
-升级：用新Release包运行同一条 `dsh plugin --profile web add <URL>` 命令更新插件，后台升级使用正式安装入口，保留任务数据库与自定义设置。源码Linux后台可运行 `sudo bash deploy/upgrade-chat.sh 用户名`；Windows使用 `deploy/install-windows.ps1`。GNOME是否需要重新登录，以实际加载提示为准。
+普通任务可以在界面中修改设置和手动结束。严苛任务从预约开始锁定这些用户操作；严苛循环在两轮之间也保持锁定。需要调整约定时，可以回到原监工会话与 AI 商量。插件只在任务进行期间采集桌面；尚未开始的预约只等待时间。
 
-任务保护默认关闭。开启后，预约或进行中任务会锁定UI设置和手动结束；任务需在监工会话中按约定处理。
+采样间隔、图片尺寸和发给 AI 的内容长度可在设置中调整。`focus_status` 和 `focus_check` 默认返回紧凑信息，需要完整详情时可使用 `detail=full`；活动变化和原始证据仍可继续读取。
+
+Linux 后台日志可用 `journalctl -u dafeiyu-supervisor.service` 查看；无任务时后台自动退出是正常行为。Windows 后台由安装器创建的计划任务管理。当前支持边界见 [已知问题](known-issues.md)。

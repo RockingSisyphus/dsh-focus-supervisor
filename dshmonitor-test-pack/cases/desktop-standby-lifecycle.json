@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-standby-lifecycle",
+  "title": "真实离席后停止采集 60 秒并恢复",
+  "engine": "dsh",
+  "features": [
+    "heartbeat",
+    "cleanup"
+  ],
+  "preview": false,
+  "timeout": 420,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "开始一个用于验证自动离席与返回的测试任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "阅读论文并在聊天中讨论",
+        "task_prompt": "本任务用于验证插件自动离席：无输入心跳达到设置阈值即进入待机，检测到真实输入后恢复。",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "discuss",
+        "check_interval_seconds": 5
+      },
+      "bind": "task"
+    },
+    {
+      "id": "threshold",
+      "op": "model.call",
+      "user": "把离席判定阈值设为 2，缩短测试时间",
+      "tool": "focus_settings",
+      "arguments": {
+        "operation": "update",
+        "patch_json": "{\"away_heartbeats\": 2}"
+      },
+      "bind": "settings"
+    },
+    {
+      "id": "counted-once",
+      "op": "state.fields",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "expected": {
+        "no_input_reports": 1
+      },
+      "timeout": 90
+    },
+    {
+      "id": "standby",
+      "op": "state.fields",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "expected": {
+        "standby": true,
+        "no_input_reports": 2
+      },
+      "timeout": 120
+    },
+    {
+      "id": "settle-away",
+      "op": "service.observe",
+      "seconds": 10
+    },
+    {
+      "id": "away-observation",
+      "op": "service.observe",
+      "seconds": 60,
+      "interval": 1,
+      "bind": "away"
+    },
+    {
+      "id": "away-no-periodic-state-writes",
+      "op": "assert",
+      "actual": {
+        "$ref": "away.status_file_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "away-no-content",
+      "op": "assert",
+      "actual": {
+        "$ref": "away.capture_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "away-no-samples",
+      "op": "assert",
+      "actual": {
+        "$ref": "away.sample_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "real-input",
+      "op": "desktop.input"
+    },
+    {
+      "id": "returned-active",
+      "op": "state.fields",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "expected": {
+        "standby": false,
+        "status": "active",
+        "no_input_reports": 0
+      },
+      "timeout": 90
+    },
+    {
+      "id": "notice-in-native-session",
+      "op": "model.notice",
+      "text": "[大肥鱼任务状态：returned]"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "验证结束，取消这个测试任务",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "插件自动离席与返回功能测试完成"
+      }
+    }
+  ],
+  "group": "extended",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "verification": "product"
+}

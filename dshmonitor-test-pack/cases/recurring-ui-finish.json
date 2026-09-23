@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "id": "recurring-ui-finish",
+  "title": "真实插件界面按一张卡片结束本轮或整个普通循环",
+  "engine": "dsh",
+  "verification": "product",
+  "verification_layer": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "features": [
+    "scheduling",
+    "settings-ui",
+    "tool.focus_plan"
+  ],
+  "timeout": 300,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "创建普通每日循环供界面结束范围测试",
+      "arguments": {
+        "agreement": "每天整理测试材料",
+        "task_prompt": "只观察专用测试桌面",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 120
+        },
+        "end_at": {
+          "$iso_after": 240
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "stop",
+        "repeat_json": "{\"frequency\":\"daily\",\"count\":3}"
+      },
+      "bind": "first"
+    },
+    {
+      "id": "open",
+      "op": "ui.open"
+    },
+    {
+      "id": "one-card",
+      "op": "ui.wait_tasks",
+      "count": 1
+    },
+    {
+      "id": "expand",
+      "op": "ui.click",
+      "selector": "article[data-task-id] [data-dafeiyu-toggle=\"1\"]"
+    },
+    {
+      "id": "skip-round",
+      "op": "ui.click",
+      "selector": "button:has-text(\"跳过下一轮\")"
+    },
+    {
+      "id": "next-round",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "first.value.id"
+      },
+      "status": "cancelled",
+      "bind": "skipped"
+    },
+    {
+      "id": "state",
+      "op": "ui.plugin_state",
+      "bind": "state"
+    },
+    {
+      "id": "second-round",
+      "op": "assert",
+      "actual": {
+        "$ref": "state.live.0.occurrence_index"
+      },
+      "operator": "equals",
+      "expected": 1
+    },
+    {
+      "id": "still-one-card",
+      "op": "ui.wait_tasks",
+      "count": 1
+    },
+    {
+      "id": "expand-second",
+      "op": "ui.toggle_task",
+      "task_id": {
+        "$ref": "state.live.0.id"
+      }
+    },
+    {
+      "id": "end-series",
+      "op": "ui.click",
+      "selector": "button:has-text(\"结束整个循环\")"
+    },
+    {
+      "id": "no-card",
+      "op": "ui.wait_tasks",
+      "count": 0
+    },
+    {
+      "id": "closed",
+      "op": "ui.plugin_state",
+      "bind": "closed"
+    },
+    {
+      "id": "no-series",
+      "op": "assert",
+      "actual": {
+        "$ref": "closed.series"
+      },
+      "operator": "count",
+      "expected": 0
+    }
+  ]
+}

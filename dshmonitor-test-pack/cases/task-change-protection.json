@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "task-change-protection",
-  "title": "防任务中修改模式：预约及进行中任务的设置与手动结束",
+  "title": "普通与严苛任务：预约及执行期间的设置与手动结束",
   "engine": "dsh",
   "verification": "product",
   "platforms": [
@@ -15,14 +15,6 @@
   ],
   "timeout": 420,
   "steps": [
-    {
-      "id": "unprotected",
-      "op": "ui.settings",
-      "values": {
-        "protect_task_changes": false
-      },
-      "save": true
-    },
     {
       "id": "close-settings",
       "op": "ui.close"
@@ -61,8 +53,7 @@
       "id": "open-scheduled-lock",
       "op": "ui.wait",
       "expected": {
-        "locked": false,
-        "protection_disabled": false
+        "locked": false
       },
       "bind": "ui"
     },
@@ -147,8 +138,7 @@
       "id": "open-active-lock",
       "op": "ui.wait",
       "expected": {
-        "locked": false,
-        "protection_disabled": false
+        "locked": false
       },
       "bind": "ui"
     },
@@ -199,18 +189,6 @@
       "op": "ui.close"
     },
     {
-      "id": "enable-protection",
-      "op": "ui.settings",
-      "values": {
-        "protect_task_changes": true
-      },
-      "save": true
-    },
-    {
-      "id": "close-protection",
-      "op": "ui.close"
-    },
-    {
       "id": "protected-scheduled-plan",
       "op": "model.call",
       "tool": "focus_plan",
@@ -228,7 +206,8 @@
           "$iso_after": 600
         },
         "allow_early_finish": false,
-        "deadline_policy": "discuss"
+        "deadline_policy": "discuss",
+        "strictness": "strict"
       },
       "bind": "task"
     },
@@ -241,7 +220,6 @@
       "op": "ui.wait",
       "expected": {
         "locked": true,
-        "protection_disabled": true,
         "manual_finish_buttons": 0
       },
       "bind": "ui"
@@ -281,7 +259,8 @@
           "$iso_after": 600
         },
         "allow_early_finish": false,
-        "deadline_policy": "discuss"
+        "deadline_policy": "discuss",
+        "strictness": "strict"
       },
       "bind": "task"
     },
@@ -294,7 +273,6 @@
       "op": "ui.wait",
       "expected": {
         "locked": true,
-        "protection_disabled": true,
         "manual_finish_buttons": 0
       },
       "bind": "ui"
@@ -315,14 +293,6 @@
         "verdict": "cancelled",
         "reason": "测试完成"
       }
-    },
-    {
-      "id": "disable-after-tasks",
-      "op": "ui.settings",
-      "values": {
-        "protect_task_changes": false
-      },
-      "save": true
     }
   ]
 }

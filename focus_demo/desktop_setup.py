@@ -12,13 +12,7 @@ import time
 UUID = 'focus-demo@local.demo'
 # 期望 Shell 里实际运行的扩展代码版本；与 gnome-extension/extension.js 的 CODE_VERSION、
 # deploy/focus_window.py 的 EXTENSION_CODE_VERSION 必须一致（tests 里有契约测试盯着）。
-EXPECTED_EXTENSION_CODE_VERSION = 'dafeiyu-10'
-
-def cache_directory():
-    return Path(os.environ.get('XDG_CACHE_HOME', str(Path.home()/'.cache'))) / 'focus-demo'
-
-def snapshot_path():
-    return Path(os.environ.get('FOCUS_GNOME_SNAPSHOT', str(cache_directory()/'gnome-snapshot.json')))
+EXPECTED_EXTENSION_CODE_VERSION = 'dafeiyu-13'
 
 def command(args):
     return subprocess.run(args, capture_output=True, text=True, timeout=8,
@@ -32,12 +26,10 @@ def setting(key):
     return [] if text=='@as []' else ast.literal_eval(text)
 
 def running_extension_version():
-    """Shell 里真正在跑的那一版扩展（读扩展自己写的自证文件），拿不到就是 None。"""
-    try:
-        state=json.loads((cache_directory()/'extension-state.json').read_text(encoding='utf-8'))
-    except (OSError,ValueError):
-        return None
-    return state.get('code_version')
+    """通过会话 D-Bus 查询实际加载的扩展版本；不可用时返回 None。"""
+    from .desktop_bridge import call
+    try:return call('status').get('code_version')
+    except (OSError,ValueError,RuntimeError):return None
 
 def install(source):
     accessibility=command(['gsettings','set','org.gnome.desktop.interface','toolkit-accessibility','true'])
@@ -87,7 +79,7 @@ def install(source):
     else:
         result['message']=('扩展文件已安装；Shell 里' + ('还是旧版 %s' % running if running else '尚未加载它')
             + '，需要注销并重新登录一次才会生效（GNOME 50.1 上 ReloadExtension 未实现，'
-            + 'Shell 也不会为全新扩展重新扫描）。在此之前仍使用旧版桌面能力，新增原生窗口关闭尚未加载。')
+            + 'Shell 也不会为全新扩展重新扫描）。在此之前新桌面接口不可用，不回退到旧文件通信。')
     return result
 
 def status():
@@ -104,16 +96,12 @@ def status():
     result['installed']=(target/'extension.js').exists()
     if not result['installed']:
         return dict(result,code='not_installed',message='GNOME 采集扩展未安装。请运行插件的 install_gnome_extension.sh，或重新运行后台安装程序。')
-    # Fresh bridge output is direct evidence; CLI diagnostics are only a fallback.
+    from .desktop_bridge import call
     try:
-        snapshot=json.loads(snapshot_path().read_text())
-        fresh=abs(time.time()-snapshot['ts'])<5
-        shot=snapshot.get('screen_capture') or {}
-        result['screenshot_verified']=fresh and abs(time.time()-shot.get('captured_at',0))<15 and (snapshot_path().parent/Path(shot.get('file','')).name).is_file()
-        if fresh:
-            return dict(result,code='ready' if result['screenshot_verified'] else 'bridge_running',message='桌面窗口和整屏采集正常。' if result['screenshot_verified'] else '桌面采集扩展已运行；整屏能力等待实际截图验证。')
-    except (OSError,ValueError,KeyError):
-        pass
+        running=call('status')
+        return dict(result,code='bridge_running',bridge=running,message='桌面接口已就绪；只有执行任务或显式测试时才采集。')
+    except (OSError,ValueError,RuntimeError) as error:
+        result['bridge_error']=str(error)
     if not shutil.which('gnome-extensions'):
         return dict(result,code='missing_gnome_tools',message='缺少 gnome-extensions；请安装当前系统的 GNOME Shell 扩展管理组件。')
     info=command(['gnome-extensions','info',UUID])
@@ -122,31 +110,25 @@ def status():
     state=next((s.split(':',1)[1].strip() for s in info.stdout.splitlines() if s.strip().startswith('State:')),'UNKNOWN')
     result['extension_state']=state
     if state=='UNKNOWN':
-        return dict(result,code='status_unavailable',message='当前桌面快照不可用，扩展管理命令也未返回可识别状态；暂时无法确认采集能力。')
+        return dict(result,code='status_unavailable',message='当前桌面接口不可用，扩展管理命令也未返回可识别状态。')
     if state!='ACTIVE':
         return dict(result,code='extension_inactive',message=f'GNOME 采集扩展状态为 {state}。请在扩展管理器启用“大肥鱼桌面采集”；若报错，查看扩展错误记录。')
-    return dict(result,code='snapshot_unavailable',message='采集扩展已加载，但当前快照不可用。请确认已解锁桌面，并检查 GNOME 扩展错误。')
+    return dict(result,code='bridge_unavailable',message='扩展管理器显示已加载，但当前版本的桌面接口不可用；更新后请重新登录，不回退到旧文件通信。')
 
 def probe():
+    from .desktop_bridge import call,runtime_directory
     initial=status()
-    if initial['code'] not in {'ready','bridge_running','snapshot_unavailable'}:
-        return initial
-    folder=snapshot_path().parent
-    folder.mkdir(parents=True,exist_ok=True)
-    started=time.time()
-    # Same short-lived request as the normal collector; no persistent screenshot grant.
-    from .common import write_json
-    write_json(folder/'capture-request.json',{'screenshots':True,'expires_at':started+12})
-    while time.time()-started<10:
-        time.sleep(.5)
-        try:
-            data=json.loads(snapshot_path().read_text())
-            shot=data.get('screen_capture') or {}
-            if shot.get('captured_at',0)>=started:
-                current=status()
-                if current['screenshot_verified']:return current
-        except (OSError,ValueError):pass
-    return dict(status(),code='screenshot_unavailable',screenshot_verified=False,message='窗口桥接已运行，但本次实际截图没有成功。请检查 GNOME 扩展的截图错误。')
+    if initial['code']!='bridge_running':return initial
+    try:
+        data=call('capture',timeout=10000)
+        shot=data.get('screen_capture') or {}
+        if not shot or not (runtime_directory()/shot['file']).is_file():raise RuntimeError('本次截图未产生图片')
+        return dict(initial,code='ready',screenshot_verified=True,message='本次桌面截图验证成功，采集已结束。')
+    except (OSError,ValueError,RuntimeError) as error:
+        return dict(initial,code='screenshot_unavailable',message=str(error))
+    finally:
+        try:call('release')
+        except (OSError,ValueError,RuntimeError):pass
 
 def main():
     parser=argparse.ArgumentParser()

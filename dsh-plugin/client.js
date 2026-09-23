@@ -123,7 +123,7 @@ window.__ModuleLoader__.load({
       if(selected.popup&&!selected.delivery?.popup)setPopup(selected);
       clearTimeout(noticeTimer.current);noticeTimer.current=setTimeout(()=>setNotice(null),12000);
     },[state]);
-    React.useEffect(()=>{if(state?.settings){const value=state.settings;setDraft({instructions:value.instructions,instructions_full:value.instructions_full,heartbeat_prompt:value.heartbeat_prompt,mascot_size:value.mascot_size,protect_task_changes:value.protect_task_changes??false,away_heartbeats:value.away_heartbeats??3,sampling:value.sampling,reporting:value.reporting});setSize(value.mascot_size);}},[state?.settings?.protect_task_changes,state?.settings?.instructions,state?.settings?.instructions_full,state?.settings?.heartbeat_prompt,state?.settings?.mascot_size,state?.settings?.away_heartbeats,JSON.stringify(state?.settings?.sampling),JSON.stringify(state?.settings?.reporting)]);
+    React.useEffect(()=>{if(state?.settings){const value=state.settings;setDraft({instructions:value.instructions,instructions_full:value.instructions_full,heartbeat_prompt:value.heartbeat_prompt,strict_heartbeat_prompt:value.strict_heartbeat_prompt,mascot_size:value.mascot_size,away_heartbeats:value.away_heartbeats??3,sampling:value.sampling,reporting:value.reporting});setSize(value.mascot_size);}},[state?.settings?.strict_heartbeat_prompt,state?.settings?.instructions,state?.settings?.instructions_full,state?.settings?.heartbeat_prompt,state?.settings?.mascot_size,state?.settings?.away_heartbeats,JSON.stringify(state?.settings?.sampling),JSON.stringify(state?.settings?.reporting)]);
     function samplingFields(){
       const schema=globalThis.__DAFEIYU__?.samplingSchema||{};
       return Object.entries(schema).map(([group,fields])=>h('details',{key:group,style:{marginTop:12}},
@@ -144,7 +144,7 @@ window.__ModuleLoader__.load({
       const result=await r.json();if(!r.ok||result.error)throw Error(result.error||'重置失败');
       const value=result.settings||{};
       setState(s=>({...s,settings:value}));
-      setDraft(d=>({...d,instructions:value.instructions??d.instructions,instructions_full:value.instructions_full??d.instructions_full,heartbeat_prompt:value.heartbeat_prompt??d.heartbeat_prompt}));
+      setDraft(d=>({...d,instructions:value.instructions??d.instructions,instructions_full:value.instructions_full??d.instructions_full,heartbeat_prompt:value.heartbeat_prompt??d.heartbeat_prompt,strict_heartbeat_prompt:value.strict_heartbeat_prompt??d.strict_heartbeat_prompt}));
       setSaveMessage('已重置为插件当前默认提示词；之后保存的自定义内容仍优先。');
     }catch(e){setSaveMessage(e.message);}finally{setSaving(false);}}
     async function startBackendInstall(){setSetupBusy(true);setSetupMessage('');try{
@@ -235,7 +235,7 @@ window.__ModuleLoader__.load({
      refresh();
      holdSwitchChannel();
      const timer=setInterval(refresh,5000);return()=>{mounted=false;controller.abort();markerCleanup?.();clearInterval(timer);};},[]);
-    const live=state?.live||[], labels={scheduled:'已预约',active:'监督中',awaiting_extension:'到时 · 等待商量',verified_waiting:'已通过 · 等待约定结束'};
+    const live=state?.live||[], seriesMap=Object.fromEntries((state?.series||[]).map(s=>[s.id,s])), labels={scheduled:'已预约',active:'监督中',verified_waiting:'已通过 · 等待约定结束'};
     const activeTasks=live.filter(t=>t.status!=='scheduled');
     const scheduledTasks=live.filter(t=>t.status==='scheduled').slice().sort((a,b)=>(a.start_at??0)-(b.start_at??0));
     const [taskOpen,setTaskOpen]=React.useState({});
@@ -247,11 +247,11 @@ window.__ModuleLoader__.load({
     const cardStyle={background:CUTE.card,border:'1px solid '+CUTE.line,borderRadius:18,padding:'12px 14px',marginTop:10,boxShadow:'0 8px 20px rgba(140,160,210,.10)'};
     const fieldStyle={display:'block',boxSizing:'border-box',width:'100%',marginTop:6,padding:'9px 11px',border:'1px solid '+CUTE.line,borderRadius:12,resize:'vertical',color:CUTE.ink,background:'#FCFDFF',font:'inherit',fontSize:12.5,lineHeight:1.6};
     const labelStyle={display:'block',marginTop:12,color:CUTE.sub,fontSize:12,fontWeight:600};
-    const fieldLabels={instructions:'插件使用说明（全局）',heartbeat_prompt:'每次心跳的监工要求（全局）',instructions_full:'完整 API 文档（focus_help 返回，全局）'};
-    const fieldTitles=[['instructions','📝 插件使用说明（全局）'],['instructions_full','📚 完整 API 文档（focus_help 返回，全局）'],['heartbeat_prompt','💓 每次心跳的监工要求（全局）']];
+    const fieldLabels={instructions:'插件使用说明（全局）',heartbeat_prompt:'每次心跳的监工要求（全局）',strict_heartbeat_prompt:'严苛任务附加要求',instructions_full:'完整 API 文档（focus_help 返回，全局）'};
+    const fieldTitles=[['instructions','📝 插件使用说明（全局）'],['instructions_full','📚 完整 API 文档（focus_help 返回，全局）'],['heartbeat_prompt','💓 每次心跳的监工要求（全局）'],['strict_heartbeat_prompt','🔒 严苛任务附加要求']];
     const fieldHints={instructions:'⚠️ 这份说明会随系统提示词发给每一个 AI 会话并一直占用上下文，请保持简短；详细用法写进下面的完整 API 文档。',
      instructions_full:'📖 只在 AI 调用 focus_help 时读取，不占常驻上下文，可以写详细。',
-     heartbeat_prompt:'💓 只在监督任务的心跳消息里下发，平时不占上下文。'};
+     heartbeat_prompt:'💓 只在监督任务的心跳消息里下发，平时不占上下文。',strict_heartbeat_prompt:'🔒 仅严苛任务附加；正常任务不受影响。'};
     const hintStyle={margin:'6px 0 0',color:CUTE.faint,fontSize:11,lineHeight:1.6};
     const setupCard=()=>{
      const setup=state?.setup,install=state?.setup_install;
@@ -280,6 +280,9 @@ window.__ModuleLoader__.load({
     };
     const taskCard=t=>{
      const openTask=isTaskOpen(t), tone=statusTone[t.status]||['#EDF1FF',CUTE.blueDeep];
+     const series=seriesMap[t.series_id];
+     const repeat=series?.repeat;
+     const repeatLabel=repeat?(repeat.frequency==='daily'?'每天':'每周 '+(repeat.weekdays||[]).map(n=>['','一','二','三','四','五','六','日'][n]).join('、'))+' · '+(repeat.count?`共 ${repeat.count} 次`:repeat.until?`至 ${repeat.until}`:'一直重复'):'';
      return h('article',{key:t.id,'data-task-id':t.id,'data-expanded':openTask?'1':'0','data-start-at':String(t.start_at??''),
       style:{...cardStyle,marginTop:8,borderLeft:'4px solid '+tone[0]}},
       h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}},
@@ -288,17 +291,22 @@ window.__ModuleLoader__.load({
        h(CuteButton,{label:openTask?'收起':'展开',tone:'ghost',style:{padding:'4px 10px',flex:'0 0 auto'},attrs:{'data-dafeiyu-toggle':'1'},onClick:()=>toggleTask(t)})),
       openTask&&h('div',null,
        h('p',{style:{whiteSpace:'pre-wrap',lineHeight:1.7,margin:'8px 0 0'}},t.agreement),
+       h('p',{style:{color:CUTE.sub,fontSize:12}},t.strictness==='strict'?'🔒 严苛任务':'🌿 普通任务',series&&` · ${repeatLabel} · 已经过 ${series.consumed||0} 轮${series.missed?`（错过 ${series.missed} 轮）`:''} · 第 ${t.occurrence_index+1} 轮`),
        h('p',{style:{color:CUTE.faint,fontSize:11.5,margin:'8px 0 0'}},'🗓 '+new Date(t.start_at*1000).toLocaleString()+' → '+new Date(t.end_at*1000).toLocaleString()),
        h('details',{style:{marginTop:8}},h('summary',{style:{cursor:'pointer',color:CUTE.blueDeep,fontWeight:600}},'本任务心跳附加提示词'),
         h('p',{style:{whiteSpace:'pre-wrap',color:CUTE.sub,lineHeight:1.7}},t.task_prompt||'旧任务沿用已有约定，可请监工 AI 补充。')),
        h('p',{style:{margin:'8px 0 0',color:CUTE.sub,fontSize:12}},'⏱ 常规检查间隔：'+`${t.check_interval_seconds??state.interval??600} 秒`),
-       h('p',{style:{margin:'4px 0 0',color:CUTE.sub,fontSize:12}},(t.allow_early_finish?'✅ 允许提前完成':'⏳ 按约定时间结束')+' · '+({stop:'到时结束监督',discuss:'到时商量延期',continue:'允许超时继续'}[t.deadline_policy])),
+       h('p',{style:{margin:'4px 0 0',color:CUTE.sub,fontSize:12}},(t.allow_early_finish?'✅ 允许提前完成':'⏳ 按约定时间结束')+' · 到时结束监督'),
        h(CuteButton,{label:'回到监工聊天',tone:'soft',style:{marginTop:10},onClick:()=>{ctx.uiWorkspace.openSession(t.session_id);setOpen(false);}}),
-       !state?.settings?.protect_task_changes&&h(CuteButton,{label:'手动结束任务',tone:'pink',style:{marginTop:10},onClick:()=>finishTask(t)})));
+       t.strictness!=='strict'&&series?.template?.strictness!=='strict'&&(
+         series?h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}},
+           h(CuteButton,{label:t.status==='scheduled'?'跳过下一轮':'结束本轮',tone:'pink',onClick:()=>finishTask(t,'current_only')}),
+           h(CuteButton,{label:'结束整个循环',tone:'pink',onClick:()=>finishTask(t,'entire_series')})):
+         h(CuteButton,{label:'手动结束任务',tone:'pink',style:{marginTop:10},onClick:()=>finishTask(t)}))));
     };
-    async function finishTask(task) {
+    async function finishTask(task,scope) {
       try {
-        const response=await fetch('/focus/finish',{method:'POST',headers:{'content-type':'application/json','x-focus-token':globalThis.__DAFEIYU__?.token||''},body:JSON.stringify({task_id:task.id})});
+        const response=await fetch('/focus/finish',{method:'POST',headers:{'content-type':'application/json','x-focus-token':globalThis.__DAFEIYU__?.token||''},body:JSON.stringify({task_id:task.id,scope})});
         const result=await response.json();if(!response.ok||result.error)throw Error(result.error||'结束失败');
         setState(s=>({...s,live:s.live.filter(t=>t.id!==task.id)}));
       } catch(error) {setError(error.message);}
@@ -324,9 +332,7 @@ window.__ModuleLoader__.load({
       h(CuteButton,{label:settingsOpen?'收起设置':'设置 · 采集与提示词',tone:'soft',expanded:settingsOpen,
        style:{display:'block',width:'100%',marginTop:12,textAlign:'center'},onClick:()=>setSettingsOpen(v=>!v)}),
       settingsOpen&&draft&&h('div',{style:cardStyle},
-       h('label',{style:{display:'block',marginBottom:10}},h('input',{type:'checkbox','aria-label':'防任务中修改模式',checked:!!draft.protect_task_changes,disabled:state?.settings?.ui_locked||saving,onChange:e=>setDraft(d=>({...d,protect_task_changes:e.target.checked}))}),' 防任务中修改模式（默认关闭）'),
-       h('p',{style:{fontSize:12,color:CUTE.sub}},'关闭时可随时修改设置、手动结束任务；开启后有任务或预约时锁定设置及此开关。'),
-       state?.settings?.ui_locked&&h('p',{role:'status',style:{margin:'0 0 10px',padding:'9px 11px',borderRadius:12,background:'#FFF6E6',color:'#A97818',lineHeight:1.6}},'🔒 有任务或预约，界面设置已锁定。可在监工聊天中商量允许修改的项目。'),
+       state?.settings?.ui_locked&&h('p',{role:'status',style:{margin:'0 0 10px',padding:'9px 11px',borderRadius:12,background:'#FFF6E6',color:'#A97818',lineHeight:1.6}},'🔒 有严苛任务或循环预约，界面设置已锁定。可在监工聊天中商量修改。'),
        h('label',{style:{...labelStyle,marginTop:0}},`🎚 形象大小：${size} px`,
         h('input',{type:'range',min:80,max:320,step:8,value:size,disabled:state?.settings?.ui_locked||saving,'aria-label':'形象大小',
          style:{width:'100%',accentColor:CUTE.pink,marginTop:6},
@@ -340,9 +346,9 @@ window.__ModuleLoader__.load({
        h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:14,alignItems:'center'}},
         h(CuteButton,{label:saving?'保存中…':'保存设置',tone:'primary',disabled:state?.settings?.ui_locked||saving,onClick:saveSettings}),
         h(CuteButton,{label:'重置为默认提示词',tone:'pink',disabled:state?.settings?.ui_locked||saving,onClick:resetSettings})),
-       h('p',{style:{color:CUTE.faint,lineHeight:1.6,marginTop:8,marginBottom:0,fontSize:11.5}},'自定义内容优先于插件默认值；重置只恢复三类提示词，不改形象大小与离席判定。'),
+       h('p',{style:{color:CUTE.faint,lineHeight:1.6,marginTop:8,marginBottom:0,fontSize:11.5}},'自定义内容优先于插件默认值；重置只恢复提示词，不改形象大小与离席判定。'),
        saveMessage&&h('p',{role:'status',style:{marginTop:8,marginBottom:0,padding:'8px 10px',borderRadius:12,background:'#F2F8FF',color:CUTE.blueDeep,lineHeight:1.6}},saveMessage)),
-      h('p',{style:{color:CUTE.sub,lineHeight:1.65,marginTop:12,marginBottom:0}},error?'⚠️ 暂时无法读取最新状态，正在重连。':!state?'⏳ 正在连接监工后台…':live.length?`${live.length} 个约定 · ${state.running?'后台常驻':'后台正在恢复'}`:'😴 目前没有任务，监工后台休息中。'),
+      h('p',{style:{color:CUTE.sub,lineHeight:1.65,marginTop:12,marginBottom:0}},error?'⚠️ 暂时无法读取最新状态，正在重连。':!state?'⏳ 正在连接监工后台…':live.length?`${live.length} 个约定 · ${state.running?({collecting:'正在采集',scheduled:'等待预约',away:'离席待机',verified_waiting:'等待约定结束',idle:'等待退出'}[state.capture_state]||'后台运行'):'后台正在恢复'}`:'😴 目前没有任务，监工后台休息中。'),
       state&&!error&&!live.length&&h('p',{style:{lineHeight:1.85,marginTop:8,marginBottom:0}},'直接在聊天里告诉 AI 你想做什么、何时开始和结束，并商量提前完成及延期的安排。'),
       live.length>0&&h('div',{style:{marginTop:12}},
        activeTasks.length>0&&h('div',{'data-dafeiyu-group':'active'},
@@ -351,7 +357,7 @@ window.__ModuleLoader__.load({
        scheduledTasks.length>0&&h('div',{'data-dafeiyu-group':'scheduled',style:{marginTop:12}},
         h('p',{style:{margin:0,color:CUTE.blueDeep,fontWeight:700,fontSize:12}},'💙 已预约 · '+scheduledTasks.length+'（按开始时间排序，默认收起）'),
         ...scheduledTasks.map(taskCard))),
-      state?.desktop_setup&&h('p',{role:'status',style:{marginTop:10,marginBottom:0,color:state.desktop_setup.screenshot_verified?CUTE.mint:CUTE.amber,lineHeight:1.6}},'🖥 桌面采集：'+state.desktop_setup.message),
+      state?.desktop_setup&&h('p',{role:'status',style:{marginTop:10,marginBottom:0,color:(state.desktop_setup.code==='bridge_running'||state.desktop_setup.screenshot_verified)?CUTE.mint:CUTE.amber,lineHeight:1.6}},'🖥 桌面接口：'+state.desktop_setup.message),
       live.length>0&&state?.capture_error&&h('p',{role:'status',style:{marginTop:8,marginBottom:0,color:CUTE.amber,lineHeight:1.6}},'📷 采集提示：'+state.capture_error),
       (error||state?.delivery_error)&&h('p',{role:'alert',style:{marginTop:8,marginBottom:0,color:CUTE.rose,lineHeight:1.6}},'⚠️ '+(error||state.delivery_error)),
       h('p',{style:{fontSize:11.5,color:CUTE.faint,marginTop:12,marginBottom:0,lineHeight:1.6}},'解释、修改约定和完成验收都在聊天中进行。')),

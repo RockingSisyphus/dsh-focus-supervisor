@@ -9,7 +9,7 @@ from focus_demo.close_actions import _close_window,window_state,target_window
 
 if __name__=='__main__':
     request=json.load(sys.stdin)
-    desktop=GnomeDesktop(request['snapshot_path']) if request.get('snapshot_path') else desktop_backend('auto')
+    desktop=GnomeDesktop() if request.get('backend')=='GnomeDesktop' else desktop_backend('auto')
     collector=SimpleNamespace(desktop=desktop)
     expected=request['expected']
     if request.get('operation')=='observe':

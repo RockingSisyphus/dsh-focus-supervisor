@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-bridge-regression-linux",
+  "title": "可丢弃 Linux 实例的按需桌面、I/O 与动作回归",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "linux"
+  ],
+  "installation": "existing-system",
+  "features": [
+    "desktop-setup",
+    "evidence"
+  ],
+  "timeout": 6000,
+  "steps": [
+    {
+      "id": "installer",
+      "op": "vm.command.run",
+      "argv": [
+        "sudo",
+        "bash",
+        "deploy/upgrade-chat.sh",
+        "tester"
+      ],
+      "prepare": true,
+      "bind": "installer"
+    },
+    {
+      "id": "installer-exit",
+      "op": "assert",
+      "actual": {
+        "$ref": "installer.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "reload-desktop",
+      "op": "vm.reboot"
+    },
+    {
+      "id": "use-installed-plugin",
+      "op": "case.run",
+      "cases": [
+        "desktop-idle-lifecycle",
+        "desktop-bridge-pixels",
+        "desktop-bridge-io-delay",
+        "desktop-bridge-faults",
+        "desktop-service-io-delay",
+        "reminder-focus-regression",
+        "force-close-process",
+        "force-close-window",
+        "force-close-tab",
+        "force-close-tab-fallback",
+        "force-close-refuse",
+        "force-close-process-tree",
+        "force-close-already-gone",
+        "force-close-minimized",
+        "desktop-standby-lifecycle"
+      ],
+      "bind": "use"
+    },
+    {
+      "id": "normal-use-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "use.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

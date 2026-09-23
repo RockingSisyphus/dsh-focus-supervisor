@@ -13,7 +13,7 @@ fi
 install -d -m 755 /opt/dafeiyu /opt/dafeiyu/deploy /etc/dafeiyu
 cp -r "$source_dir/focus_demo" /opt/dafeiyu/
 cp "$source_dir/dsh-plugin/default-prompts.json" /opt/dafeiyu/focus_demo/default_prompts.json
-cp "$source_dir/deploy/chat_service.py" "$source_dir/deploy/chat_sensor.py" "$source_dir/deploy/desktop_setup.py" "$source_dir/deploy/desktop_notify.py" "$source_dir/deploy/open_chat.py" "$source_dir/deploy/focus_window.py" /opt/dafeiyu/deploy/
+cp "$source_dir/deploy/chat_service.py" "$source_dir/deploy/chat_sensor.py" "$source_dir/deploy/evidence_worker.py" "$source_dir/deploy/desktop_setup.py" "$source_dir/deploy/desktop_notify.py" "$source_dir/deploy/open_chat.py" "$source_dir/deploy/focus_window.py" /opt/dafeiyu/deploy/
 cp -r "$source_dir/dsh-plugin/assets" /opt/dafeiyu/
 /usr/bin/python3 -c "import gi; gi.require_version('Gtk','3.0'); gi.require_version('GSound','1.0')" || echo "桌面弹窗/声音依赖缺失：请安装 python3-gi、gir1.2-gtk-3.0、gir1.2-gsound-1.0（发行版包名可能不同）。"
 cp -r "$source_dir/gnome-extension" /opt/dafeiyu/

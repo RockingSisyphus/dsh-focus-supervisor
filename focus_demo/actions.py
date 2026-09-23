@@ -56,12 +56,13 @@ def request_window_minimize(collector, expected):  # 功能：最小化一个已
                 user.ShowWindow.restype = ctypes.c_int  # 检查调用结果。
                 hwnd = int(current.get('native_id') or current['id'].split(':', 1)[1])  # 获取核实过的原生 HWND。
                 user.ShowWindow(hwnd, 6)  # 6 = SW_MINIMIZE，系统拒绝时不冒充成功。
-            elif backend == 'gnome':  # Wayland 由合成器内的扩展执行，采集器只写有期限的一次性请求。
+            elif backend == 'gnome':  # Wayland 通过合成器内的固定 D-Bus 方法执行。
                 command = {'id': uuid.uuid4().hex, 'window_id': current['id'], 'pid': current['pid'], 'title': current.get('title', ''), 'expires_at': time.time()+2}  # 有期限的一次性目标。
-                write_json(collector.desktop.path.parent/'minimize-request.json', command)  # 不暴露任意命令或任意路径。
+                from .desktop_bridge import call
+                call('minimize',command)  # 不暴露任意命令或任意路径。
             else:  # 尚未验证的系统动作不假装实现。
                 return {'minimized': False, 'reason': '本系统尚无已实现的最小化后端'}  # macOS 可采集不等于能最小化。
-            deadline = time.monotonic()+2.5  # 扩展每 500ms 处理一次请求，留出两轮以上余量。
+            deadline = time.monotonic()+2.5  # 独立观察实际窗口状态，不能把发送成功当成动作完成。
             while time.monotonic() < deadline:  # 区分请求已发与实际最小化。
                 now = collector.desktop.capture()  # 只读取窗口元数据，不重复截图。
                 record = next((w for w in now.get('windows', []) if w['id'] == current['id']), None)  # 目标可能已经消失。

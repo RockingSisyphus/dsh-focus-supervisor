@@ -2,8 +2,7 @@
 
 Wayland-native windows (Chrome on a Wayland session is one) cannot be enumerated or
 raised by X11 tools, so on Linux the compositor itself has to do it: our GNOME Shell
-extension polls a bounded one-shot request file, exactly like the close request it
-already honours. X11/XWayland windows are raised directly through Xlib, and Windows
+extension accepts a bounded D-Bus request. X11/XWayland windows are raised directly through Xlib, and Windows
 through the top-level window that carries the DSH title.
 
 Every path returns an observed result. The caller reports native failure separately
@@ -21,10 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 MARKER = 'DeepSeek Harness'
-REQUEST_NAME = 'focus-request.json'
-SNAPSHOT_NAME = 'gnome-snapshot.json'
-MAX_SNAPSHOT_BYTES = 256 * 1024
-EXTENSION_CODE_VERSION = 'dafeiyu-10'  # 与 gnome-extension/extension.js 的 CODE_VERSION 必须一致
+EXTENSION_CODE_VERSION = 'dafeiyu-13'  # 与 gnome-extension/extension.js 的 CODE_VERSION 必须一致
 REQUEST_TTL_SECONDS = 2
 FOCUS_WINDOW_SECONDS = 1.5  # how long the tagged window may take to appear in the snapshot
 FOCUS_VERIFY_SECONDS = 2.5  # how long the compositor may take to report it focused
@@ -32,32 +28,14 @@ FOCUS_POLL_SECONDS = .1
 
 
 def desktop_dir():
-    """The extension's own private cache directory; overridable for tests."""
-    override = os.environ.get('DAFEIYU_DESKTOP_DIR')
-    if override:
-        return Path(override)
-    cache = os.environ.get('XDG_CACHE_HOME') or str(Path.home() / '.cache')
-    return Path(cache) / 'focus-demo'
-
-
-def _read_json(directory, name):
-    """One small JSON file from the extension's fixed cache; missing or broken reads as {}."""
-    try:
-        raw = (Path(directory) / name).read_bytes()
-    except OSError:
-        return {}
-    if len(raw) > MAX_SNAPSHOT_BYTES:
-        return {}
-    try:
-        data = json.loads(raw.decode('utf-8', 'replace'))
-    except ValueError:
-        return {}
-    return data if isinstance(data, dict) else {}
+    from focus_demo.desktop_bridge import runtime_directory
+    return runtime_directory()
 
 
 def snapshot_document(directory):
     """The extension's last snapshot document (carries ts/backend), or {}."""
-    return _read_json(directory, SNAPSHOT_NAME)
+    from focus_demo.desktop_bridge import call
+    return call('snapshot')
 
 
 def _snapshot(directory):
@@ -110,21 +88,12 @@ def browser_process_ids():
 
 def extension_health(directory=None):
     """Whether the Shell is really running this version, and why it is not, when it is not."""
-    target = Path(directory) if directory else desktop_dir()
-    stamp = snapshot_document(target).get('ts')
-    age = None
-    if stamp:
-        try:
-            age = max(0.0, time.time() - float(stamp))
-        except (TypeError, ValueError):
-            age = None
-    state = _read_json(target, 'extension-state.json') or {}
-    disabled = _read_json(target, 'extension-disabled.json') or {}
-    version = state.get('code_version')
-    return {'running': age is not None and age < 3.0, 'age': None if age is None else round(age, 1),
-            'code_version': version, 'expected': EXTENSION_CODE_VERSION,
-            'version_matches': version == EXTENSION_CODE_VERSION, 'last_error': state.get('last_error'),
-            'disabled_at': disabled.get('at'), 'disabled_uptime': disabled.get('uptime_seconds')}
+    from focus_demo.desktop_bridge import call
+    try:
+        state=call('status')
+        return {**state,'expected':EXTENSION_CODE_VERSION,'version_matches':True}
+    except Exception as error:
+        return {'running':False,'version_matches':False,'expected':EXTENSION_CODE_VERSION,'last_error':str(error)}
 
 
 def focused_window(directory, window_id):
@@ -139,8 +108,7 @@ def wait_for_focus(directory, window_id, seconds=FOCUS_VERIFY_SECONDS, request_i
     """Wait, bounded, until the compositor reports the window focused."""
     deadline = time.monotonic() + seconds
     while True:
-        acknowledged=not request_id or _read_json(directory,'last-focus.json').get('request_id')==request_id
-        if acknowledged and focused_window(directory, window_id):
+        if focused_window(directory, window_id):
             return True
         if time.monotonic() >= deadline:
             return False
@@ -159,17 +127,12 @@ def request_gnome_focus(directory, window, marker=MARKER, now=None, pid=None):
         'title': window['title'][:120], 'expires_at': now + REQUEST_TTL_SECONDS}
     if pid:
         payload['pid'] = int(pid)
-    target = Path(directory) / REQUEST_NAME
-    temporary = target.with_name(target.name + '.tmp')
+    from focus_demo.desktop_bridge import call
     try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
-        os.chmod(temporary, 0o600)
-        os.replace(temporary, target)
-    except OSError as error:
-        return {'backend': 'gnome', 'raised': False, 'reason': '无法写入扩展请求：' + str(error)}
-    return {'backend': 'gnome', 'raised': True, 'reason': '已请求 GNOME 扩展把窗口置前',
-        'id': payload['id'], 'window_id': window['id'], 'pid': payload.get('pid')}
+        result=call('focus',payload)
+        return {'backend':'gnome','raised':bool(result.get('acted')),'reason':result.get('reason'),'id':payload['id'],'window_id':window['id'],'result':result}
+    except Exception as error:
+        return {'backend':'gnome','raised':False,'reason':str(error)}
 
 
 def raise_x11(marker=MARKER):
@@ -471,7 +434,7 @@ def raise_tagged_tab(directory, marker, pids=None,request_context=None):
 
     Selecting the tab is not evidence: a compositor may refuse the activation, and the GNOME
     extension only acts while the running Shell has code that handles the request. The
-    snapshot the extension writes every half second is the arbiter, and every step is kept
+    fresh compositor snapshot is the arbiter, and every step is kept
     so a failure can be read instead of guessed at.
     """
     steps = []
@@ -509,7 +472,7 @@ def raise_tagged_tab(directory, marker, pids=None,request_context=None):
     if wait_for_focus(directory, window['id'],request_id=request.get('id')):
         steps.append({'step': 'verify', 'ok': True})
         return {'backend': 'gnome', 'raised': True, 'reason': '已把目标窗口置前', 'steps': steps}
-    last = _read_json(directory, 'last-focus.json')
+    last = request.get('result',{})
     acted = bool(last) and last.get('request_id') == request.get('id')
     steps.append({'step': 'verify', 'ok': False, 'extension_acted': acted})
     if not health.get('running'):
@@ -525,13 +488,13 @@ def raise_tagged_tab(directory, marker, pids=None,request_context=None):
 def raise_dsh_window(marker=MARKER, directory=None, pids=None,request_context=None):
     """Select and verify the exact request target; return observed failure details."""
     try:
-        target = Path(directory) if directory else desktop_dir()
         if os.name == 'nt':
             selected=select_browser_tab(marker,request_context) if marker.startswith('[DSH-') else False
             if not _request_current(request_context):return {'raised':False,'reason':'唤回已被替代或结束'}
             result=raise_windows(marker,target=selected if isinstance(selected,dict) else None)
             result['selection']=selected
             return result
+        target = Path(directory) if directory else desktop_dir()
         if marker.startswith('[DSH-'):
             return raise_tagged_tab(target, marker, pids=pids,request_context=request_context)
         # An X11/XWayland window can be raised directly and the result is observable; a

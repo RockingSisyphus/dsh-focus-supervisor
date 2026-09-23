@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-bridge-faults",
+  "title": "真实插件截图存储写满、接口停用与恢复",
+  "engine": "dsh",
+  "platforms": [
+    "linux"
+  ],
+  "group": "extended",
+  "verification": "product",
+  "timeout": 600,
+  "features": [
+    "application-capture",
+    "desktop-gnome"
+  ],
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "fill-runtime",
+      "op": "fault.runtime_storage",
+      "action": "fill",
+      "bind": "full"
+    },
+    {
+      "id": "no-space",
+      "op": "assert",
+      "actual": {
+        "$ref": "full.available_bytes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "capture-failed",
+      "op": "desktop.rpc",
+      "operation": "capture",
+      "bind": "capture"
+    },
+    {
+      "id": "must-fail",
+      "op": "assert",
+      "actual": {
+        "$ref": "capture.result"
+      },
+      "operator": "equals",
+      "expected": null
+    },
+    {
+      "id": "no-stale-images",
+      "op": "assert",
+      "actual": {
+        "$ref": "capture.temporary_images"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "restore-runtime",
+      "op": "fault.runtime_storage",
+      "action": "restore"
+    },
+    {
+      "id": "disable-0",
+      "op": "desktop.extension",
+      "action": "disable",
+      "bind": "disabled"
+    },
+    {
+      "id": "disconnected-0",
+      "op": "assert",
+      "actual": {
+        "$ref": "disabled.connected"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "enable-0",
+      "op": "desktop.extension",
+      "action": "enable",
+      "bind": "enabled"
+    },
+    {
+      "id": "connected-0",
+      "op": "assert",
+      "actual": {
+        "$ref": "enabled.connected"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "disable-1",
+      "op": "desktop.extension",
+      "action": "disable",
+      "bind": "disabled"
+    },
+    {
+      "id": "disconnected-1",
+      "op": "assert",
+      "actual": {
+        "$ref": "disabled.connected"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "enable-1",
+      "op": "desktop.extension",
+      "action": "enable",
+      "bind": "enabled"
+    },
+    {
+      "id": "connected-1",
+      "op": "assert",
+      "actual": {
+        "$ref": "enabled.connected"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "disable-2",
+      "op": "desktop.extension",
+      "action": "disable",
+      "bind": "disabled"
+    },
+    {
+      "id": "disconnected-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "disabled.connected"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "enable-2",
+      "op": "desktop.extension",
+      "action": "enable",
+      "bind": "enabled"
+    },
+    {
+      "id": "connected-2",
+      "op": "assert",
+      "actual": {
+        "$ref": "enabled.connected"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "disconnect-client",
+      "op": "desktop.disconnect_capture",
+      "bind": "disconnected"
+    },
+    {
+      "id": "real-images-existed",
+      "op": "assert",
+      "actual": {
+        "$ref": "disconnected.files_before_disconnect"
+      },
+      "operator": "gt",
+      "expected": 0
+    },
+    {
+      "id": "no-abandoned-images",
+      "op": "assert",
+      "actual": {
+        "$ref": "disconnected.files_after_disconnect"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "fixture",
+      "op": "fixture.app",
+      "entity": "editor",
+      "windows": [
+        {
+          "id": "target",
+          "title": "真实监工动作测试",
+          "rect": [
+            50,
+            100,
+            480,
+            320
+          ],
+          "controls": [
+            {
+              "type": "edit",
+              "text": "初始内容，必须通过真实控件修改"
+            }
+          ]
+        }
+      ],
+      "bind": "fixture"
+    },
+    {
+      "id": "edit-real-control",
+      "op": "fixture.interact",
+      "entity": "target",
+      "action": "fill",
+      "text": "REAL_WAYLAND_OR_WINDOWS_CAPTURE_20260919"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "建立真实桌面闭环任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "阅读测试文字，分心时提醒",
+        "task_prompt": "只验证测试夹具",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "check_interval_seconds": 6,
+        "allow_early_finish": true,
+        "deadline_policy": "discuss"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "activate",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "activate"
+    },
+    {
+      "id": "report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "timeout": 70,
+      "bind": "report",
+      "minimum_samples": 1,
+      "detail_after": {
+        "$ref": "task.value.start_at"
+      },
+      "window_id": {
+        "$ref": "fixture.target.window_id"
+      }
+    },
+    {
+      "id": "target",
+      "op": "report.target",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "entity": "target",
+      "bind": "target"
+    },
+    {
+      "id": "sample-text",
+      "op": "assert",
+      "actual": {
+        "$ref": "target.evidence"
+      },
+      "operator": "contains",
+      "expected": "REAL_WAYLAND_OR_WINDOWS_CAPTURE_20260919",
+      "continue_on_failure": true
+    },
+    {
+      "id": "native-pixels",
+      "op": "assert",
+      "actual": {
+        "$ref": "target.evidence.screenshot.scope"
+      },
+      "operator": "equals",
+      "expected": "native_window_surface"
+    },
+    {
+      "id": "disable-while-active",
+      "op": "desktop.extension",
+      "action": "disable",
+      "bind": "disabled"
+    },
+    {
+      "id": "active-interface-disconnected",
+      "op": "assert",
+      "actual": {
+        "$ref": "disabled.connected"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "observe-unavailable",
+      "op": "service.observe",
+      "seconds": 8,
+      "bind": "unavailable"
+    },
+    {
+      "id": "gap-reported",
+      "op": "assert",
+      "actual": {
+        "$ref": "unavailable.last.capture_error"
+      },
+      "operator": "not_equals",
+      "expected": null
+    },
+    {
+      "id": "enable-while-active",
+      "op": "desktop.extension",
+      "action": "enable",
+      "bind": "enabled"
+    },
+    {
+      "id": "crash-backend",
+      "op": "backend.restart",
+      "bind": "restarted"
+    },
+    {
+      "id": "same-task-restored",
+      "op": "state.fields",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "expected": {
+        "status": "active"
+      }
+    },
+    {
+      "id": "activate-after-restart",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "activate"
+    },
+    {
+      "id": "fresh-evidence-after-restart",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "minimum_samples": 1,
+      "detail_after": {
+        "$ref": "enabled.at"
+      },
+      "window_id": {
+        "$ref": "fixture.target.window_id"
+      },
+      "timeout": 90,
+      "bind": "recovered_report"
+    },
+    {
+      "id": "recovered-target",
+      "op": "report.target",
+      "report_id": {
+        "$ref": "recovered_report.id"
+      },
+      "entity": "target",
+      "bind": "recovered_target"
+    },
+    {
+      "id": "fresh-window-pixels",
+      "op": "assert",
+      "actual": {
+        "$ref": "recovered_target.evidence.screenshot.scope"
+      },
+      "operator": "equals",
+      "expected": "native_window_surface"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "结束测试任务",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "结束本轮测试"
+      }
+    }
+  ],
+  "present_user": true
+}

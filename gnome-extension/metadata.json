@@ -1,7 +1,7 @@
 {
   "uuid": "focus-demo@local.demo",
   "name": "大肥鱼桌面采集",
-  "description": "真实 GNOME 窗口与焦点；显式授权后采集桌面截图。适配原型，须在实际 Shell 版本核验。",
+  "description": "按后台任务请求读取 GNOME 窗口状态和截图，执行窗口动作。",
   "shell-version": [
     "45",
     "46",
@@ -11,7 +11,7 @@
     "50",
     "51"
   ],
-  "version-name": "0.3-visibility",
+  "version-name": "0.4-on-demand",
   "session-modes": [
     "user"
   ]

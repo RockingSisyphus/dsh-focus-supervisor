@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-bridge-recovery-linux",
+  "title": "linux 正式更新后的锁屏与原任务重启恢复",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "persistent_session": true,
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "linux"
+  ],
+  "features": [
+    "persistence",
+    "heartbeat",
+    "desktop-setup",
+    "evidence",
+    "actions",
+    "live-reminder-delivery"
+  ],
+  "timeout": 2400,
+  "steps": [
+    {
+      "id": "installer",
+      "op": "vm.command.run",
+      "argv": [
+        "sudo",
+        "bash",
+        "deploy/upgrade-chat.sh",
+        "tester"
+      ],
+      "prepare": true,
+      "bind": "installer"
+    },
+    {
+      "id": "installer-exit",
+      "op": "assert",
+      "actual": {
+        "$ref": "installer.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "reload-desktop",
+      "op": "vm.reboot"
+    },
+    {
+      "id": "prepare",
+      "op": "case.run",
+      "cases": [
+        "active-reboot-prepare"
+      ],
+      "bind": "before"
+    },
+    {
+      "id": "prepare-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    },
+    {
+      "id": "saved-task",
+      "op": "vm.checkpoint",
+      "bind": "saved"
+    },
+    {
+      "id": "lock",
+      "op": "vm.desktop_session",
+      "action": "lock",
+      "bind": "locked"
+    },
+    {
+      "id": "locked-observation",
+      "op": "vm.desktop_session",
+      "action": "observe",
+      "seconds": 20,
+      "bind": "lock_state"
+    },
+    {
+      "id": "actually-locked",
+      "op": "assert",
+      "actual": {
+        "$ref": "lock_state.locked"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "desktop-unavailable-while-locked",
+      "op": "assert",
+      "actual": {
+        "$ref": "lock_state.service.capture_error"
+      },
+      "operator": "not_equals",
+      "expected": null
+    },
+    {
+      "id": "unlock",
+      "op": "vm.desktop_session",
+      "action": "unlock",
+      "bind": "unlocked"
+    },
+    {
+      "id": "capture-returned",
+      "op": "vm.observe_service",
+      "task_id": {
+        "$ref": "saved.task.value.id"
+      },
+      "sampled_after": {
+        "$ref": "unlocked.at"
+      },
+      "bind": "after_unlock",
+      "capture_error": null
+    },
+    {
+      "id": "capture-recovered",
+      "op": "assert",
+      "actual": {
+        "$ref": "after_unlock.state.capture_error"
+      },
+      "operator": "equals",
+      "expected": null
+    },
+    {
+      "id": "reboot",
+      "op": "vm.reboot",
+      "bind": "boot"
+    },
+    {
+      "id": "different-boot",
+      "op": "assert",
+      "actual": {
+        "$ref": "boot.after"
+      },
+      "operator": "not_equals",
+      "expected": {
+        "$ref": "boot.before"
+      }
+    },
+    {
+      "id": "service-sampled-before-dsh",
+      "op": "vm.observe_service",
+      "task_id": {
+        "$ref": "saved.task.value.id"
+      },
+      "sampled_after": {
+        "$ref": "boot.completed_at"
+      },
+      "timeout": 90,
+      "bind": "recovered_service",
+      "capture_error": null
+    },
+    {
+      "id": "same-task-before-dsh",
+      "op": "assert",
+      "actual": {
+        "$ref": "recovered_service.task.id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "saved.task.value.id"
+      }
+    },
+    {
+      "id": "sampling-without-error",
+      "op": "assert",
+      "actual": {
+        "$ref": "recovered_service.state.capture_error"
+      },
+      "operator": "equals",
+      "expected": null
+    },
+    {
+      "id": "resume",
+      "op": "case.run",
+      "cases": [
+        "active-reboot-resume"
+      ],
+      "bind": "after"
+    },
+    {
+      "id": "resume-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "after.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ],
+  "installation": "existing-system",
+  "verification_layer": "dsh"
+}

@@ -43,12 +43,9 @@ def test_no_early_finish_waits_until_deadline(core):
 @pytest.mark.parametrize('policy',['stop','discuss','continue'])
 def test_deadline_behavior(core,policy):
     t=plan(core,deadline_policy=policy)
+    assert t['deadline_policy']=='stop'
     core.tick(t['end_at']+1)
-    if policy=='stop':
-        assert not core.live() and core.store.get('task','t')['status']=='not_completed'
-    else:
-        assert core.live()[0]['status']=='awaiting_extension'
-        assert core.due()[0]['phase']=='deadline'
+    assert not core.live() and core.store.get('task','t')['status']=='not_completed'
 
 def test_pending_delivery_not_duplicated_but_delivered_heartbeat_recurs(core):
     t=plan(core)
@@ -201,9 +198,9 @@ def test_finished_tasks_do_not_block(core,status):
     assert plan(core,task_id='new')['status']=='active'
 
 
-def test_immediate_task_conflicts_with_overdue_supervision(core):
+def test_overdue_task_does_not_reserve_time_after_end(core):
     plan(core,start_at=time.time()-200,end_at=time.time()-100,deadline_policy='continue')
-    with pytest.raises(ValueError,match='已超时但仍在监督'):plan(core,task_id='new')
+    assert plan(core,task_id='new')['status']=='active'
 
 
 def test_concurrent_conflicting_plans_only_admit_one(core):

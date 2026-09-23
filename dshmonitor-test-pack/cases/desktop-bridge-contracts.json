@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-bridge-contracts",
+  "title": "按需桌面协议与采集生命周期契约",
+  "engine": "command",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "regular",
+  "verification": "contract",
+  "features": [
+    "lifecycle",
+    "desktop-gnome"
+  ],
+  "argv": [
+    "$python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_desktop_bridge.py",
+    "tests/test_extension_contract.py",
+    "tests/test_lifecycle_scenarios.py",
+    "tests/test_control_cleanup.py",
+    "tests/test_agent_control.py"
+  ],
+  "timeout": 90
+}

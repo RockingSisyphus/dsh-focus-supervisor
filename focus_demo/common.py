@@ -1,4 +1,8 @@
 """公共小工具：JSON、摘要和文件写入，不包含业务判断。"""
+import threading
+
+screenshot_files = threading.RLock()
+
 import hashlib  # 导入运行所需模块。
 import json  # 导入运行所需模块。
 import tempfile  # 使用唯一临时文件，避免并发写入互相覆盖。
@@ -16,7 +20,7 @@ def digest(value):  # 对原始数据或成果快照生成摘要。
     return hashlib.sha256(dumps(value).encode()).hexdigest()  # 返回本步骤的结果。
 
 
-def write_json(path, value):  # 以原子替换方式写入仅当前用户可读写的 JSON。
+def write_json(path, value, *, gid=None):  # 以原子替换方式写入仅当前用户可读写的 JSON。
     """以原子替换方式写入仅当前用户可读写的 JSON。"""
     path = Path(path)  # 保存文件路径。
     path.parent.mkdir(parents=True, exist_ok=True)  # 保存文件路径。
@@ -24,6 +28,8 @@ def write_json(path, value):  # 以原子替换方式写入仅当前用户可读
     handle, temporary = tempfile.mkstemp(prefix="."+path.name+".", suffix=".tmp", dir=path.parent)  # 每次写入使用私有唯一临时文件。
     try:  # 原子提交完整文件。
         with os.fdopen(handle, "w", encoding="utf-8") as stream:  # mkstemp 默认只允许当前用户读写。
+            if gid is not None:
+                os.fchown(stream.fileno(),0,gid);os.fchmod(stream.fileno(),0o640)
             stream.write(content)  # 写入经过验证的 JSON。
             stream.flush()  # 将用户态缓冲写出。
             os.fsync(stream.fileno())  # 持久化文件内容。

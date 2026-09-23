@@ -60,17 +60,15 @@ time.sleep(30)
         process.terminate(); process.wait(timeout=5)
 
 
-def test_legacy_gnome_visibility_is_unknown_not_verified(tmp_path):
-    import json
-    import time
+def test_gnome_snapshot_visibility_uses_real_stacking(monkeypatch):
     from focus_demo.collectors import GnomeDesktop
-    path = tmp_path/'snapshot.json'
-    path.write_text(json.dumps({'ts': time.time(), 'screen': [0, 0, 800, 600], 'windows': [
-        {'id':'top','mapped':True,'visible':True}, {'id':'min','mapped':False,'visible':False}]}))
-    result = GnomeDesktop(path).capture()
-    assert result['windows'][0]['visible'] is None
-    assert result['windows'][1]['visible'] is False
-    assert any('层叠顺序' in note for note in result['limitations'])
+    monkeypatch.setattr('focus_demo.desktop_bridge.call', lambda *a, **k: {
+        'screen':[0,0,800,600], 'windows':[
+            {'id':'covered','mapped':True,'rect':[0,0,800,600]},
+            {'id':'top','mapped':True,'rect':[0,0,800,600]},
+            {'id':'min','mapped':False,'rect':[0,0,800,600]}]})
+    result=GnomeDesktop().capture()
+    assert [w['visible'] for w in result['windows']]==[False,True,False]
 
 
 def test_probe_protocol_preserves_unicode_under_gbk():

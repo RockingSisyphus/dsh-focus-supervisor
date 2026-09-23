@@ -28,7 +28,7 @@ for line in sys.stdin:
             from focus_demo.presence import read_presence
             print(json.dumps({'result':read_presence()}),flush=True)
             continue
-        if request['operation'] in {'notify','export','verify_export','cleanup_export','cleanup_capture'}:
+        if request['operation'] in {'notify','cleanup_capture'}:
             payload=request.get('expected') or {}
             if request['operation']=='notify':
                 log=(directory/'notifications.log').open('a')
@@ -40,12 +40,9 @@ for line in sys.stdin:
                 child.stdout.close()
             elif request['operation']=='cleanup_capture':
                 if collector:collector.suspend()
-                for root in [directory/'screenshots',Path(os.environ.get('XDG_CACHE_HOME',str(Path.home()/'.cache')))/'focus-demo']:
+                for root in [directory/'screenshots']:
                     for image in root.glob('*.png'):image.unlink(missing_ok=True)
                 result={'removed':True}
-            else:
-                from focus_demo.evidence_export import user_export,user_verify,user_cleanup
-                result={'export':user_export,'verify_export':user_verify,'cleanup_export':user_cleanup}[request['operation']](payload)
             print(json.dumps({'result':result},ensure_ascii=False),flush=True)
             continue
         current = tuple(os.environ.get(k) for k in ('DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY', 'XDG_SESSION_TYPE'))

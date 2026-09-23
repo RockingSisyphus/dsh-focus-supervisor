@@ -3,7 +3,7 @@ set -euo pipefail
 root=$(pwd)
 sudo cloud-init status --wait
 sudo apt-get update -qq
-sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y python3-venv python3-gi python3-pyatspi python3-tk python3-pil gir1.2-gtk-3.0 gir1.2-gsound-1.0 sound-theme-freedesktop
+sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y strace python3-venv python3-gi python3-pyatspi python3-tk python3-pil gir1.2-gtk-3.0 gir1.2-gsound-1.0 sound-theme-freedesktop
 python3 -m venv --system-site-packages .venv
 .venv/bin/pip install -r requirements.txt playwright PyYAML pytest
 # Real product browser: system Chrome on the logged-in Wayland desktop.
@@ -25,7 +25,9 @@ if [ -n "${HTTPS_PROXY:-${HTTP_PROXY:-}}" ] && [ ! -e "$HOME/.curlrc" ]; then
 fi
 mkdir -p "$HOME/dsh-runtime"
 packages=$(python3 -c "import json;print(' '.join(k+'@'+v for k,v in json.load(open('test-support/runtime.json'))['npm'].items()))")
-(cd "$HOME/dsh-runtime" && npm install --no-audit --no-fund $packages)
+if [ ! -f "$HOME/dsh-runtime/node_modules/@deepseek-ai/dsh/lib/bin.js" ]; then
+ (cd "$HOME/dsh-runtime" && npm install --no-audit --no-fund $packages)
+fi
 # 市场安装路径 dsh plugin add 是一个 pnpm 转发器，来宾里必须有 pnpm。
 command -v pnpm >/dev/null || npm install -g --no-audit --no-fund pnpm
 ln -sfn "$HOME/dsh-runtime/node_modules" "$root/dsh-plugin/node_modules"
@@ -53,12 +55,15 @@ from gi.repository import Gio
 settings=Gio.Settings.new('org.gnome.shell')
 enabled=settings.get_strv('enabled-extensions')
 if 'dsh-test-desktop@local' not in enabled:settings.set_strv('enabled-extensions',enabled+['dsh-test-desktop@local'])
+settings.set_strv('disabled-extensions',[x for x in settings.get_strv('disabled-extensions') if x!='dsh-test-desktop@local'])
 settings.set_boolean('disable-user-extensions',False)
 Gio.Settings.sync()
 PYCODE
 if [ "$changed" = 1 ]; then
  sudo systemctl restart gdm3
 fi
+
+gnome-extensions enable dsh-test-desktop@local
 
 # Wait for the new user's compositor, not just the SSH daemon.
 for attempt in $(seq 1 60); do

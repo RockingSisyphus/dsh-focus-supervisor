@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "prompt-permissions",
-  "title": "三类提示词与UI/AI修改权限",
+  "title": "严苛任务提示词与 UI / AI 设置权限",
   "engine": "dsh",
   "features": [
     "prompt-permissions",
@@ -22,7 +22,8 @@
         "$iso_after": 900
       },
       "allow_early_finish": true,
-      "deadline_policy": "discuss"
+      "deadline_policy": "discuss",
+      "strictness": "strict"
     }
   },
   "steps": [
@@ -31,8 +32,7 @@
       "op": "ui.settings",
       "values": {
         "instructions": "LOCK_TEST_GLOBAL",
-        "heartbeat_prompt": "LOCK_TEST_HEARTBEAT",
-        "protect_task_changes": true
+        "heartbeat_prompt": "LOCK_TEST_HEARTBEAT"
       },
       "save": true
     },
@@ -98,10 +98,10 @@
       "id": "instructions-protected",
       "op": "assert",
       "actual": {
-        "$ref": "result.raw"
+        "$ref": "result.value.changed.instructions"
       },
-      "operator": "contains",
-      "expected": "不能修改插件使用说明"
+      "operator": "equals",
+      "expected": "NOT_ALLOWED"
     },
     {
       "id": "scheduled-heartbeat",
@@ -169,10 +169,10 @@
       "id": "heartbeat-protected",
       "op": "assert",
       "actual": {
-        "$ref": "result.raw"
+        "$ref": "result.value.changed.heartbeat_prompt"
       },
-      "operator": "contains",
-      "expected": "不能修改全局心跳"
+      "operator": "equals",
+      "expected": "NOT_ALLOWED"
     },
     {
       "id": "task-prompt-allowed",

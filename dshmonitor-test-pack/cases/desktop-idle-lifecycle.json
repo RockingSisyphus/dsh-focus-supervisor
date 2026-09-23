@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-idle-lifecycle",
+  "title": "无任务与预约期间停止采集，真实任务执行后退出",
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "verification": "product",
+  "features": [
+    "scheduling",
+    "cleanup",
+    "desktop-gnome"
+  ],
+  "timeout": 600,
+  "present_user": true,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "settle",
+      "op": "service.observe",
+      "seconds": 15
+    },
+    {
+      "id": "idle",
+      "op": "service.observe",
+      "seconds": 60,
+      "interval": 1,
+      "bind": "idle"
+    },
+    {
+      "id": "idle-no-status-file-writes",
+      "op": "assert",
+      "actual": {
+        "$ref": "idle.status_file_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "idle-no-desktop-captures",
+      "op": "assert",
+      "actual": {
+        "$ref": "idle.capture_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "idle-service-exited",
+      "op": "assert",
+      "actual": {
+        "$ref": "idle.last.reachable"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "idle-no-process",
+      "op": "assert",
+      "actual": {
+        "$ref": "idle.last.processes"
+      },
+      "operator": "equals",
+      "expected": []
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "创建用于生命周期验证的预约",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "只观察专用测试环境",
+        "task_prompt": "不操作日常窗口",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": 90
+        },
+        "end_at": {
+          "$iso_after": 400
+        },
+        "allow_early_finish": false,
+        "deadline_policy": "stop",
+        "check_interval_seconds": 10
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled-settle",
+      "op": "service.observe",
+      "seconds": 3
+    },
+    {
+      "id": "scheduled",
+      "op": "service.observe",
+      "seconds": 60,
+      "interval": 1,
+      "bind": "scheduled"
+    },
+    {
+      "id": "scheduled-no-status-file-writes",
+      "op": "assert",
+      "actual": {
+        "$ref": "scheduled.status_file_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "scheduled-no-desktop-captures",
+      "op": "assert",
+      "actual": {
+        "$ref": "scheduled.capture_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "scheduled-no-samples",
+      "op": "assert",
+      "actual": {
+        "$ref": "scheduled.sample_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "scheduled-state",
+      "op": "assert",
+      "actual": {
+        "$ref": "scheduled.last.capture_state"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "active",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "status": "active",
+      "timeout": 60
+    },
+    {
+      "id": "sampled",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "minimum_samples": 2,
+      "timeout": 90,
+      "bind": "report"
+    },
+    {
+      "id": "verified",
+      "op": "model.call",
+      "user": "完成当前验证，但按约定等待结束时间",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "验证待结束状态不采集"
+      }
+    },
+    {
+      "id": "settle-verified",
+      "op": "service.observe",
+      "seconds": 10
+    },
+    {
+      "id": "waiting-settle",
+      "op": "service.observe",
+      "seconds": 3
+    },
+    {
+      "id": "waiting",
+      "op": "service.observe",
+      "seconds": 60,
+      "interval": 1,
+      "bind": "waiting"
+    },
+    {
+      "id": "waiting-no-status-file-writes",
+      "op": "assert",
+      "actual": {
+        "$ref": "waiting.status_file_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "waiting-no-desktop-captures",
+      "op": "assert",
+      "actual": {
+        "$ref": "waiting.capture_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "waiting-no-samples",
+      "op": "assert",
+      "actual": {
+        "$ref": "waiting.sample_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "waiting-state",
+      "op": "assert",
+      "actual": {
+        "$ref": "waiting.last.capture_state"
+      },
+      "operator": "equals",
+      "expected": "verified_waiting"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "取消测试任务",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "cancelled",
+        "reason": "生命周期验证结束"
+      }
+    },
+    {
+      "id": "settle-final",
+      "op": "service.observe",
+      "seconds": 15
+    },
+    {
+      "id": "ended-settle",
+      "op": "service.observe",
+      "seconds": 3
+    },
+    {
+      "id": "ended",
+      "op": "service.observe",
+      "seconds": 60,
+      "interval": 1,
+      "bind": "ended"
+    },
+    {
+      "id": "ended-no-status-file-writes",
+      "op": "assert",
+      "actual": {
+        "$ref": "ended.status_file_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "ended-no-desktop-captures",
+      "op": "assert",
+      "actual": {
+        "$ref": "ended.capture_changes"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "ended-service-exited",
+      "op": "assert",
+      "actual": {
+        "$ref": "ended.last.reachable"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "ended-no-process",
+      "op": "assert",
+      "actual": {
+        "$ref": "ended.last.processes"
+      },
+      "operator": "equals",
+      "expected": []
+    }
+  ]
+}

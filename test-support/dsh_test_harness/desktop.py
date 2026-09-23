@@ -27,6 +27,8 @@ class Desktop:
             (out/'display-mode.json').write_text(json.dumps(response),encoding='utf-8')
         os.environ['GDK_BACKEND']='wayland';os.environ['QT_QPA_PLATFORM']='wayland'
         if os.environ.get('XDG_SESSION_TYPE')!='wayland':raise RuntimeError('Desktop session is not Wayland')
+        from .desktop_driver_session import driver_session
+        self.resources.enter_context(driver_session())
         from .gnome import call
         import json
         from .wait import until
@@ -38,9 +40,6 @@ class Desktop:
         actual=until(ready,30)
         actual['test_settings']=[{'schema':target[0],'key':target[1],'before':before,'actual':subprocess.check_output(['gsettings','get',*target],text=True).strip()} for target,before in self.original_settings]
         (out/'desktop-environment.json').write_text(json.dumps(actual,ensure_ascii=False),encoding='utf-8')
-        if os.environ.get('DSH_TEST_DESKTOP_DRIVER')=='host':
-            from .host_desktop import input_session
-            self.resources.enter_context(input_session(out))
     def set_display(self,request):
         import json
         result=subprocess.run(['/usr/bin/python3',str(Path(__file__).with_name('display_mode.py'))],input=json.dumps(request),text=True,capture_output=True,check=True,timeout=20)

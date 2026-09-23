@@ -19,7 +19,7 @@
 
 ## 运行与测试依赖
 
-Python 依赖见 requirements.txt：psutil（BSD）、Pillow（HPND）、Windows pywinauto（BSD）与 pywin32（PSF）。Linux 使用系统提供的 PyGObject、AT-SPI、GTK、GSound 和 GNOME Shell；这些组件按各自许可安装。macOS 的条件依赖并不代表本插件已验收支持 macOS。
+Python 依赖见 requirements.txt：psutil（BSD）、Pillow（HPND）、tzlocal（MIT）、Windows tzdata（Apache-2.0）、pywinauto（BSD）与 pywin32（PSF）。Linux 使用系统提供的 PyGObject、AT-SPI、GTK、GSound 和 GNOME Shell；这些组件按各自许可安装。macOS 的条件依赖并不代表本插件已验收支持 macOS。
 
 测试使用 Playwright、pytest、QEMU、vncdotool、Pillow、PyYAML 等；依赖安装而非将上游源码副本放进生产包。具体版本约束见 requirements-test.txt。分发这些依赖的副本时，仍需遵守其各自许可和通知要求。
 

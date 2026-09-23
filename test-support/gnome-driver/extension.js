@@ -17,17 +17,18 @@ export default class Driver extends Extension {
  }
  windows(){return global.get_window_actors().map(a=>a.meta_window);}
  async capture(path){
-  const stream=Gio.File.new_for_path(path).replace(null,false,Gio.FileCreateFlags.REPLACE_DESTINATION,null);
-  try{await new Shell.Screenshot().screenshot(false,stream);}finally{stream.close(null);}
+  const file=Gio.File.new_for_path(path);
+  const stream=await new Promise((resolve,reject)=>file.replace_async(null,false,Gio.FileCreateFlags.PRIVATE,GLib.PRIORITY_DEFAULT,null,(f,r)=>{try{resolve(f.replace_finish(r));}catch(e){reject(e);}}));
+  try{const [success]=await new Shell.Screenshot().screenshot(false,stream);if(!success)throw Error('Screenshot output failed');}finally{await new Promise((resolve,reject)=>stream.close_async(GLib.PRIORITY_DEFAULT,null,(s,r)=>{try{resolve(s.close_finish(r));}catch(e){reject(e);}}));}
  }
  snapshot(){return {backend:'gnome-wayland',active_workspace:global.workspace_manager.get_active_workspace_index(),workspace_count:global.workspace_manager.n_workspaces,at:Date.now()/1000,screen:[global.stage.width,global.stage.height],windows:this.windows().map(w=>{
   const r=w.get_frame_rect();return {id:'gnome:'+w.get_stable_sequence(),pid:w.get_pid(),workspace:w.get_workspace()?.index(),title:w.get_title(),focused:global.display.focus_window===w,minimized:w.minimized,mapped:!w.minimized&&w.showing_on_its_workspace(),rect:[r.x,r.y,r.width,r.height],client_type:w.get_client_type()===Meta.WindowClientType.WAYLAND?'wayland':'x11',gtk_window_path:w.get_gtk_window_object_path(),gtk_application_path:w.get_gtk_application_object_path(),gtk_bus_name:w.get_gtk_unique_bus_name()};
  })};}
- Call(raw){
+ async CallAsync([raw],invocation){
   try {
    const r=JSON.parse(raw);let w;
    if(r.window_id){w=this.windows().find(w=>'gnome:'+w.get_stable_sequence()===r.window_id);if(!w)throw Error('Window does not exist: '+r.window_id);}
-   if(r.op==='screenshot')this.capture(r.path).catch(e=>console.error('Test screenshot: '+e.message));
+   if(r.op==='screenshot')await this.capture(r.path);
    else if(r.op==='workspace-move')w.change_workspace_by_index(r.workspace,false);
    else if(r.op==='workspace-switch')global.workspace_manager.get_workspace_by_index(r.workspace).activate(global.get_current_time());
    else if(r.op==='layout'){w.unmaximize(Meta.MaximizeFlags.BOTH);w.move_resize_frame(true,...r.rect);}
@@ -44,8 +45,8 @@ export default class Driver extends Extension {
     for(const k of keys)this.keyboard.notify_keyval(GLib.get_monotonic_time(),k,Clutter.KeyState.PRESSED);
     for(const k of keys.reverse())this.keyboard.notify_keyval(GLib.get_monotonic_time(),k,Clutter.KeyState.RELEASED);
    } else if(r.op!=='snapshot')throw Error('Unknown operation '+r.op);
-   return JSON.stringify(this.snapshot());
-  }catch(e){return JSON.stringify({error:e.message});}
+   invocation.return_value(new GLib.Variant('(s)',[JSON.stringify(this.snapshot())]));
+  }catch(e){invocation.return_value(new GLib.Variant('(s)',[JSON.stringify({error:e.message})]));}
  }
  disable(){this.object?.unexport();if(this.owner)Gio.bus_unown_name(this.owner);this.keyboard=null;this.pointer=null;}
 }

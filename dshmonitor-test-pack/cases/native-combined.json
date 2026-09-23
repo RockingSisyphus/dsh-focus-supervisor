@@ -38,26 +38,14 @@
       },
       "allow_early_finish": true,
       "deadline_policy": "discuss",
-      "check_interval_seconds": 2
+      "check_interval_seconds": 2,
+      "strictness": "strict"
     },
     "extension_end": {
       "$time_after": 360
     }
   },
   "steps": [
-    {
-      "id": "enable-task-protection",
-      "op": "monitor.call",
-      "method": "configure",
-      "args": [
-        {
-          "patch": {
-            "protect_task_changes": true
-          }
-        },
-        "ui"
-      ]
-    },
     {
       "id": "plan",
       "op": "monitor.call",

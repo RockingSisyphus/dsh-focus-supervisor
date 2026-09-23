@@ -92,7 +92,14 @@
       "phase": "monitor",
       "timeout": 70,
       "bind": "report",
-      "minimum_samples": 1
+      "minimum_samples": 1,
+      "text_contains": "REAL_WAYLAND_OR_WINDOWS_CAPTURE_20260919",
+      "detail_after": {
+        "$ref": "task.value.start_at"
+      },
+      "window_id": {
+        "$ref": "fixture.target.window_id"
+      }
     },
     {
       "id": "target",

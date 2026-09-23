@@ -41,21 +41,8 @@ def test_lifecycle(case,tmp_path):
         assert not core.due(),'进入待机的那次心跳不投递给 AI'
         assert any(e['event']=='standby_entered' and e['body'].get('reason')=='no_input_heartbeats' for e in core.store.logs(50))
         core.tick(now+500)
-        assert core.store.get('task','t')['standby']
-        if case['return']=='still-away':
-            core.sensor=SimpleNamespace(call=lambda op:dict(core.presence))
-            core.poll_presence()
-            assert core.store.get('task','t')['standby']
-        else:
-            if case['return']=='after-end':
-                task=core.store.get('task','t');task['end_at']=now-1;core.store.save('task',task)
-            core.sensor=SimpleNamespace(call=lambda op:dict(available=True,last_input_at=now,idle_seconds=0))
-            core.poll_presence()
-            task=core.store.get('task','t')
-            assert not task['standby']
-            if case['return']=='before-end':assert task.get('no_input_reports',0)==0,'返回后计数归零'
-            assert task['status']==('invalidated' if case['return']=='after-end' else 'active')
-            assert core.store.all('notice')[-1]['kind']==('away_until_end' if case['return']=='after-end' else 'returned')
+        assert core.store.get('task','t')['status']=='not_completed'
+        assert not core.live(), '离席也不能超过约定结束时间持续监督'
     finally:core.store.close()
 
 
@@ -143,4 +130,3 @@ def test_report_carries_structured_input_activity(tmp_path):
         assert activity['heartbeats_until_standby']==2
         assert activity['available'] is True and activity['idle_seconds']==60
     finally:core.store.close()
-

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-bridge-update-linux",
+  "title": "linux 正式更新并验证桌面生命周期",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "linux"
+  ],
+  "installation": "existing-system",
+  "features": [
+    "desktop-setup",
+    "evidence"
+  ],
+  "timeout": 2400,
+  "steps": [
+    {
+      "id": "installer",
+      "op": "vm.command.run",
+      "argv": [
+        "sudo",
+        "bash",
+        "deploy/upgrade-chat.sh",
+        "tester"
+      ],
+      "prepare": true,
+      "bind": "installer"
+    },
+    {
+      "id": "installer-exit",
+      "op": "assert",
+      "actual": {
+        "$ref": "installer.code"
+      },
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "reload-desktop",
+      "op": "vm.reboot"
+    },
+    {
+      "id": "use-installed-plugin",
+      "op": "case.run",
+      "cases": [
+        "desktop-idle-lifecycle",
+        "desktop-bridge-pixels",
+        "reminder-focus-regression",
+        "desktop-standby-lifecycle"
+      ],
+      "bind": "use"
+    },
+    {
+      "id": "normal-use-passed",
+      "op": "assert",
+      "actual": {
+        "$ref": "use.status"
+      },
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

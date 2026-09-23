@@ -72,6 +72,7 @@ Linux `installation: fresh` 在可丢弃层执行；不把准备过程当作产�
 - `default_browser: true` 让操作系统的真实 URL 启动命令临时指向本轮 Chrome/Edge profile；测试后恢复原关联。否则最初测试页和随后系统默认页会落入不同 profile，无法等价模拟用户关闭再打开自己的浏览器。
 - `persistent_session: true` 的 VM 编排为其 `case.run` 分配同一临时 DSH profile。`session.save` 保存指定场景值并把该任务的清理交给恢复段；`session.load` 恢复引用，生产任务和会话本身由正式服务与 DSH 持久化。
 - `report.wait` 可用 `created_after` 和 `exclude` 只观察恢复后产生的新报告；`model.tool_result` 按工具名和参数找到真实 DSH 回传的工具消息。
+- 需要独立窗口画面的场景可在 `report.wait` 指定 `window_id` 和 `screenshot_scope: native_window_surface`，等待正式报告真正出现该范围的图片，再运行原有断言。持续观察窗口内容的场景用 `present_user: true` 明确模拟用户在场；否则后台会按设计转入离席并停止正文和图片采集。
 - `vm-active-task-recovery` 结束或失败后，VM 层清理保存的那个测试任务和临时 profile。阶段失败与清理失败分别保留。
 
 BrowserSkill 场景按正常 `dsh plugin add` 安装 0.3.0 插件，并操作 Chrome/Edge 扩展管理页加载真实扩展。VM 需安装对应平台的 `bsk`，并提供 `~/.local/share/dsh-test/browserskill-extension`（或 `BSK_TEST_EXTENSION`）中的真实扩展文件。本轮使用已安装的官方 0.3.0 扩展文件和官方 CLI；不复制浏览器账号、Cookie 或个人 profile。Windows 测试守护进程在普通交互用户下运行，使用本轮独立 `BSK_HOME`；该临时运行目录不打包为产品证据。
@@ -129,7 +130,7 @@ Windows 首次启动 Edge 出现 `Got it` 时，通过真实 UIA Invoke 操作�
 
 ### 本机正式安装验证
 
-本机专项仍使用同一份 JSON 和内部串行调度入口；`--local` 继续只用于契约测试。设置 `DSH_TEST_DESKTOP_DRIVER=host` 时，测试侧使用已经加载的 `tabfocus-demo` 独立状态观察和 Codex WindowControl 原生布局/激活接口。夹具首次使用唯一标题标记关联稳定窗口 ID，后续同标题时沿用该关联；生产关闭、最小化仍经 DSH 调用正式后台，不使用这些测试接口代执行。
+本机专项与 VM 共用 `org.dsh.TestDesktop` 按需测试驱动；`--local` 继续只用于契约测试。测试入口负责启用和退出停用，停用后核对 D-Bus 名称释放。窗口以 GNOME 原生稳定 ID 关联，不再依赖 Tab Focus Demo 或 Codex WindowControl。生产关闭、最小化仍经 DSH 调用正式后台，测试接口只建立前置条件并独立观察。首次安装或驱动代码更新后，需要在测试前完成桌面重新登录。
 
 本机 profile 使用真实 DSH `plugin add` 安装插件，只将模型端点指向固定服务，并显式选择该服务支持的 `chat-completions` 协议，避免新版 DSH 默认协议变化。测试清理仅结束本轮项目目录下创建的任务、已跟踪的提醒进程及独立浏览器 profile；不按“测试期间新出现”清理其他用户任务或提醒。
 
@@ -174,3 +175,20 @@ Windows `native.dialog.menu_item` 可在点击按钮展开菜单后，按同进�
 - `native.accessibility_inventory`：观察原生窗口与系统无障碍身份。Linux 同时记录 GTK 标识、AT-SPI属性、屏幕/局部坐标及 MDI 序号；只观察，不修正产品状态。
 
 `native-window-group` 按用户新增边界验证同进程歧义正文，包括隐藏成员；这不是通用隐藏窗口采集开关。`native-visibility-boundaries` 仍验证正常关联时后台标签、完全遮挡和最小化不出现新正文/窗口截图/日志。`native-document-close` 验证没有调试连接时，正式文档引用经真实 DSH 关闭所属窗口。
+
+
+### 桌面空闲与 I/O 观察
+
+- `service.observe`：不启动后台，观察真实服务、采集子进程、最后采样时间、状态文件修改时间及 GNOME `status` 计数，返回 `sample_changes`、`status_file_changes`、`bridge_delta`、`capture_changes`。Windows 的内容变化证据来自真实采样时间；Linux 另有合成器采集计数。
+- `desktop.latency`：按 JSON 指定秒数测量真实 D-Bus 状态响应，返回错误数、最大值及 P95；逐次证据单独保存。它不是帧时间测量。
+- `fault.desktop_io_delay`：仅 Linux 测试来宾，向 GNOME 主线程实际 `fsync` syscall 注入指定等待，跟踪记录并在结束时解除。明确属于系统调用故障注入，不冒充自然硬盘故障，也不在真机执行。
+- `desktop-bridge-pixels`：除正文外，要求报告中的图片确实来自原生窗口表面，桌面裁剪后备不能填补这一断言。
+
+本轮新增生命周期组合：`desktop-idle-lifecycle` 核对无任务、预约、确认完成等待及结束退出；`desktop-standby-lifecycle` 通过真实输入空闲触发离席，持续观察 60 秒后用真实输入恢复。`desktop-bridge-recovery-linux/windows` 沿用现有 `vm.desktop_session`、`vm.observe_service` 和跨重启 checkpoint 验证同一任务；恢复观察使用 `capture_error: null` 等待实际可用的新样本，而非收到任意一次失败样本就判定恢复。
+
+- `fault.runtime_storage`：在 Linux VM 的插件私有截图目录挂载本轮拥有的小型 tmpfs 并填满；`restore` 或场景收尾卸载。不会填满整个用户 runtime，也不用于真机。
+- `desktop.rpc`：直接记录生产桌面协议的结果／错误及临时文件数，仅用于故障观察；不替代 DSH 产品调用。
+- `desktop.extension`：真实启停生产扩展并查询 D-Bus 接口，结束时恢复启用。
+- `desktop.disconnect_capture`：真实子进程获取截图后异常退出，独立记录断连前后图片数。
+- `fault.desktop_io_delay` 的 `target: service` 对正式 Linux 后台及其线程注入 fsync/fdatasync 延迟；`fault.io_restore` 解除本轮注入并返回实际 DELAYED 调用数。`desktop.latency` 同样可选择 `target: service` 测量只读状态响应。
+- `desktop-bridge-faults` 在故障清除后仍须经真实 DSH 创建任务、读取新正文及原生窗口图片；任务进行中启停扩展和杀掉后台后，核对原任务与新采样恢复。

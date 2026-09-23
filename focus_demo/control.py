@@ -17,26 +17,21 @@ class Control:
         # Saved custom values win; a field missing from an older stored row falls
         # back to the shipped default instead of disappearing or raising.
         value={'id':'global',**DEFAULTS,**{key:stored[key] for key in DEFAULTS if key in stored},**sampling_settings(stored)}
-        live=self.live() if value['protect_task_changes'] else []
-        return {**value,'ui_locked':bool(live),'instructions_locked':bool(live),
-                'heartbeat_locked':any(t['status'] in ACTIVE for t in live)}
+        strict_tasks=any(t.get('strictness')=='strict' for t in self.live())
+        strict_series=any(s['template'].get('strictness')=='strict' for s in self.live_series())
+        return {**value,'ui_locked':strict_tasks or strict_series}
 
     def configure(self,request,actor='ai',session_id=''):
         with self.lock:
             value=self.settings();patch=request.get('patch',{})
-            if actor=='ui' and value['ui_locked']:raise ValueError('有任务或预约时，界面设置已锁定；请在监工聊天中商量修改。')
+            if actor=='ui' and value['ui_locked']:raise ValueError('有严苛任务或循环预约时，界面设置已锁定；请在监工聊天中商量修改。')
             if not isinstance(patch,dict) or not patch:raise ValueError('请提供需要修改的设置')
-            allowed={'instructions','instructions_full','heartbeat_prompt','mascot_size','task_prompt','away_heartbeats','sampling','reporting','protect_task_changes'}
+            allowed={'instructions','instructions_full','heartbeat_prompt','strict_heartbeat_prompt','mascot_size','task_prompt','away_heartbeats','sampling','reporting'}
             if set(patch)-allowed:raise ValueError('未知设置字段')
-            if value['instructions_locked'] and ({'instructions','instructions_full'} & set(patch)):raise ValueError('有任务或预约时，任何人都不能修改插件使用说明。')
-            if 'heartbeat_prompt' in patch and value['heartbeat_locked']:raise ValueError('有进行中任务时不能修改全局心跳要求。')
-            for key in ('instructions','instructions_full','heartbeat_prompt','task_prompt'):
+            for key in ('instructions','instructions_full','heartbeat_prompt','strict_heartbeat_prompt','task_prompt'):
                 if key in patch and (not isinstance(patch[key],str) or not patch[key].strip()):raise ValueError(f'{key} 不能为空')
             if 'mascot_size' in patch and (type(patch['mascot_size']) is not int or not 80<=patch['mascot_size']<=320):raise ValueError('图片大小范围为80至320像素')
             if 'away_heartbeats' in patch and (type(patch['away_heartbeats']) is not int or not 2<=patch['away_heartbeats']<=10):raise ValueError('离席判定次数须为 2 至 10 的整数')
-            if 'protect_task_changes' in patch:
-                if type(patch['protect_task_changes']) is not bool:raise ValueError('防任务中修改模式必须是布尔值')
-                if value['ui_locked'] and patch['protect_task_changes'] is not True:raise ValueError('有任务或预约时不能关闭防任务中修改模式')
             task=None
             if 'task_prompt' in patch:
                 if actor!='ai':raise ValueError('任务附加提示词通过监工会话修改')
@@ -45,6 +40,11 @@ class Control:
             options=sampling_settings(value,{k:v for k,v in patch.items() if k in ('sampling','reporting')})
             if task:
                 task['task_prompt']=patch['task_prompt'];self.store.save('task',task)
+                if task.get('series_id'):
+                    series=self.store.get('series',task['series_id'])
+                    if series and series['status']=='active':
+                        series['template']['task_prompt']=patch['task_prompt']
+                        self.store.save('series',series)
             global_patch={k:v for k,v in patch.items() if k!='task_prompt'}
             global_patch.update(options)
             if global_patch:
@@ -56,20 +56,26 @@ class Control:
 
     def finish_ui(self, request):
         with self.lock:
-            if self.settings()['protect_task_changes']:
-                raise ValueError('防任务中修改模式已开启，请在监工会话中结束任务')
-            task=self.store.get('task',request['task_id'])
+            series=self.store.get('series',request['series_id']) if request.get('series_id') else None
+            task=self.store.get('task',request.get('task_id') or (series or {}).get('current_task_id'))
             if task is None:raise ValueError('任务不存在')
-            return self.finish({'task_id':task['id'],'verdict':'cancelled','reason':'用户在插件界面手动结束任务'},task['session_id'])
+            series=series or (self.store.get('series',task['series_id']) if task.get('series_id') else None)
+            if task.get('strictness')=='strict' or (series and series['template'].get('strictness')=='strict'):
+                raise ValueError('严苛任务不能在界面手动结束，请在监工会话中商量')
+            return self.finish({'task_id':task['id'],'scope':request.get('scope'),
+                                'verdict':'cancelled','reason':'用户在插件界面手动结束任务'},task['session_id'])
 
     def publish_settings(self):
-        path=self.directory/'settings.json';write_json(path,self.settings())
+        path=self.directory/'settings.json'
+        if getattr(self,'publisher',None):
+            self.publisher.submit(path,self.settings(),self.status_gid);return
+        write_json(path,self.settings())
         if self.status_gid is not None:
             import os
             os.chown(path,0,self.status_gid);os.chmod(path,0o640)
 
     def act(self,request,session_id):
-        with self.lock:
+        with self.action_lock:
             task=self.task_for(request['task_id'],session_id)
             if task['status'] not in {'scheduled',*ACTIVE}:raise ValueError('任务已结束')
             action=request.get('action')
@@ -125,8 +131,26 @@ class Control:
                 'expected_sha256':saved['sha256']}
 
     def cleanup_task(self,task):
+        if task['id'] in self.cleaning:return
+        task['cleanup_pending']=True
+        self.store.save('task',task)
+        self.cleaning.add(task['id'])
+        self.lock.after_release(lambda:self._cleanup_task(task))
+
+    def _cleanup_task(self,task):
+        try:
+            with self.evidence_lock:self._cleanup_files(task)
+        except Exception:
+            task['cleanup_pending']=True
+            self.store.save('task',task)
+            raise
+        finally:
+            self.cleaning.discard(task['id'])
+            self.publish()
+
+    def _cleanup_files(self,task):
         task.pop('task_prompt',None)
-        task.pop('cleanup_pending',None)
+        export_failed=False
         if task.get('project_dir'):
             try:
                 payload={'folder':str(folder_for(task))}
@@ -134,7 +158,7 @@ class Control:
                 else:user_cleanup(payload)
             except Exception as e:
                 self.store.log('evidence_cleanup_failed',{'task_id':task['id'],'error':str(e)})
-                task['cleanup_pending']=True;self.store.save('task',task)
+                export_failed=True
         self.store.save('task',task)
         with self.store.lock:
             self.store.db.execute('DELETE FROM samples WHERE task_id=?',(task['id'],))
@@ -149,10 +173,12 @@ class Control:
                     previous.pop('task_prompt',None)
                     self.store.db.execute('UPDATE audit SET body=? WHERE id=?',(json.dumps(body,ensure_ascii=False),row['id']))
             self.store.db.commit()
-            self.store.db.execute('PRAGMA wal_checkpoint(TRUNCATE)')
-            self.store.db.execute('VACUUM')
-        if not any(t['status'] in ACTIVE for t in self.live()):
-            for image in (self.directory/'screenshots').glob('*.png'):image.unlink(missing_ok=True)
-            if self.sensor:
-                try:self.sensor.call('cleanup_capture',{})
-                except Exception as e:self.store.log('capture_cleanup_failed',{'error':str(e)})
+            # Reuse freed pages; do not compact the whole database at each task end.
+            self.store.db.execute('PRAGMA wal_checkpoint(PASSIVE)')
+        from .common import screenshot_files
+        with screenshot_files:
+            if not any(t['status'] in ACTIVE for t in self.live()):
+                for image in (self.directory/'screenshots').glob('*.png'):image.unlink(missing_ok=True)
+        # Only the sampling loop owns suspend/resume; cleanup cannot stop a new task.
+        if not export_failed:task.pop('cleanup_pending',None)
+        self.store.save('task',task)

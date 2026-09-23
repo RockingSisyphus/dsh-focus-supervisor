@@ -12,7 +12,7 @@ def environment(monkeypatch, tmp_path):
     monkeypatch.setenv('XDG_CURRENT_DESKTOP', 'GNOME')
     monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path / 'data'))
     monkeypatch.setenv('XDG_CACHE_HOME', str(tmp_path / 'cache'))
-    monkeypatch.delenv('FOCUS_GNOME_SNAPSHOT', raising=False)
+    monkeypatch.setattr('focus_demo.desktop_bridge.call', lambda *a, **k: (_ for _ in ()).throw(RuntimeError('No desktop interface')))
     monkeypatch.setattr(setup.shutil, 'which', lambda _: '/usr/bin/gnome-extensions')
 
 
@@ -41,15 +41,8 @@ def test_active_extension_is_not_a_verified_screenshot(monkeypatch, tmp_path):
     target = tmp_path / 'data/gnome-shell/extensions' / setup.UUID
     target.mkdir(parents=True); (target / 'extension.js').touch()
     monkeypatch.setattr(setup, 'command', lambda args: subprocess.CompletedProcess(args, 0, 'State: ACTIVE\n', ''))
-    path = setup.snapshot_path(); path.parent.mkdir(parents=True)
-    snapshot = {'ts': time.time(), 'screen_capture': None}
-    path.write_text(json.dumps(snapshot))
+    monkeypatch.setattr('focus_demo.desktop_bridge.call', lambda operation: {'code_version':setup.EXPECTED_EXTENSION_CODE_VERSION})
     assert setup.status()['code'] == 'bridge_running'
-    shot = path.parent / 'screen.png'; shot.touch()
-    snapshot['screen_capture'] = {'file': shot.name, 'captured_at': time.time()}
-    path.write_text(json.dumps(snapshot))
-    assert setup.status()['screenshot_verified']
-    snapshot['ts'] -= 60; path.write_text(json.dumps(snapshot))
     assert not setup.status()['screenshot_verified']
 
 
@@ -64,10 +57,10 @@ def test_fresh_bridge_survives_empty_extension_cli(monkeypatch, tmp_path):
     target = tmp_path / 'data/gnome-shell/extensions' / setup.UUID
     target.mkdir(parents=True); (target / 'extension.js').touch()
     monkeypatch.setattr(setup, 'command', lambda args: subprocess.CompletedProcess(args, 0, '', ''))
-    path = setup.snapshot_path(); path.parent.mkdir(parents=True)
-    path.write_text(json.dumps({'ts': time.time(), 'screen_capture': None}))
+    monkeypatch.setattr('focus_demo.desktop_bridge.call', lambda operation: {'code_version':setup.EXPECTED_EXTENSION_CODE_VERSION})
     assert setup.status()['code'] == 'bridge_running'
-    path.write_text(json.dumps({'ts': time.time()-60, 'screen_capture': None}))
+    def disconnected(*args, **kwargs):raise RuntimeError('Disconnected')
+    monkeypatch.setattr('focus_demo.desktop_bridge.call', disconnected)
     assert setup.status()['code'] == 'status_unavailable'
     assert not setup.status()['screenshot_verified']
 

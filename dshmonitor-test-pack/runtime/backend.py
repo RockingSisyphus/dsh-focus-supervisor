@@ -128,7 +128,7 @@ class Backend:
             if task['id'] not in self.original_tasks and Path(task.get('project_dir','')) == Path(os.environ.get('DSH_TEST_SESSION_DIRECTORY',str(self.out)))/'project':
                 def finish_owned_task():
                     try:
-                        result=self.request('/finish',{'task_id':task['id'],'session_id':task['session_id'],'verdict':'cancelled','reason':'测试结束，清理本轮测试任务'})
+                        result=self.request('/finish',{'task_id':task['id'],'session_id':task['session_id'],'scope':'entire_series' if task.get('series_id') else None,'verdict':'cancelled','reason':'测试结束，清理本轮测试任务'})
                         return result if result.get('status') not in ('active','scheduled','awaiting_extension','verified_waiting') else None
                     except OSError:
                         # A restart or final idle exit can close a connection. Read
@@ -137,7 +137,7 @@ class Backend:
                         return stored if stored and stored.get('status') not in ('active','scheduled','awaiting_extension','verified_waiting') else None
                 until(finish_owned_task,45)
 
-        allowed={'instructions','instructions_full','heartbeat_prompt','mascot_size','away_heartbeats','sampling','reporting','protect_task_changes'}
+        allowed={'instructions','instructions_full','heartbeat_prompt','strict_heartbeat_prompt','mascot_size','away_heartbeats','sampling','reporting'}
         current=self.settings()
         patch={k:v for k,v in self.original_settings.items() if k in allowed and current.get(k)!=v}
         if patch and not getattr(self,'defer_settings_restore',False):self.request('/settings/ui',{'patch':patch})

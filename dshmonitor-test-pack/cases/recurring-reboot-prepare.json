@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "id": "recurring-reboot-prepare",
+  "title": "循环严苛任务整机重启前：真实 DSH 建立当前轮",
+  "engine": "dsh",
+  "verification": "product",
+  "group": "manual",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "features": [
+    "scheduling",
+    "persistence",
+    "settings-ui"
+  ],
+  "timeout": 300,
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "tool": "focus_plan",
+      "user": "创建重启恢复专用严苛循环任务",
+      "arguments": {
+        "agreement": "重启后继续当前轮的专用复习任务",
+        "task_prompt": "观察专用测试桌面",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 3600
+        },
+        "allow_early_finish": true,
+        "deadline_policy": "stop",
+        "strictness": "strict",
+        "repeat_json": "{\"frequency\":\"daily\",\"count\":2}"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "active",
+      "op": "state.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "status": "active",
+      "bind": "before"
+    },
+    {
+      "id": "open-settings",
+      "op": "ui.settings"
+    },
+    {
+      "id": "locked",
+      "op": "ui.wait",
+      "expected": {
+        "locked": true
+      },
+      "bind": "panel"
+    },
+    {
+      "id": "checkpoint",
+      "op": "session.save",
+      "keys": [
+        "task",
+        "before",
+        "initial_settings"
+      ]
+    }
+  ]
+}
