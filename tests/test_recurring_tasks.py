@@ -17,7 +17,7 @@ def request(root, start, end, **extra):
     return {'task_id': extra.pop('task_id', 'task_one'), 'agreement': '写作',
             'task_prompt': '核对草稿', 'project_dir': str(root),
             'start_at': start, 'end_at': end, 'allow_early_finish': True,
-            'deadline_policy': 'continue', **extra}
+             **extra}
 
 
 def test_civil_days_weekdays_and_dst():
@@ -80,11 +80,19 @@ def test_occurrence_advance_restart_and_scope(tmp_path, monkeypatch):
         second=core.live()[0]
         assert second['occurrence_index']==1 and second['id']!=first['id']
         assert core.store.get('series',series_id)['consumed']==1
+        legacy_series=core.store.get('series',series_id)
+        legacy_series['template']['deadline_policy']='continue'
+        core.store.save('series',legacy_series)
+        second['deadline_policy']='discuss'
+        core.store.save('task',second)
         core.store.close()
         core=Supervisor(tmp_path,lifecycle)
         assert core.live()[0]['id']==second['id'] and len(core.live())==1
+        assert 'deadline_policy' not in core.live()[0]
+        assert 'deadline_policy' not in core.store.get('series',series_id)['template']
         core.finish({'series_id':series_id,'scope':'current_only','verdict':'cancelled','reason':'本轮取消'},'chat')
         assert core.live()[0]['occurrence_index']==2
+        assert 'deadline_policy' not in core.live()[0]
         core.finish({'series_id':series_id,'scope':'entire_series','verdict':'cancelled','reason':'取消以后'},'chat')
         assert not core.live() and not core.live_series()
     finally: core.store.close()

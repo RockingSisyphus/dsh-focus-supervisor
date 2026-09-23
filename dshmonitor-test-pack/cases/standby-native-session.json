@@ -32,7 +32,6 @@
           "$iso_after": 600
         },
         "allow_early_finish": true,
-        "deadline_policy": "discuss",
         "check_interval_seconds": 5
       },
       "bind": "task"

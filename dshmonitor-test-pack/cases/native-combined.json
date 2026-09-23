@@ -37,7 +37,6 @@
         "$time_after": 300
       },
       "allow_early_finish": true,
-      "deadline_policy": "discuss",
       "check_interval_seconds": 2,
       "strictness": "strict"
     },

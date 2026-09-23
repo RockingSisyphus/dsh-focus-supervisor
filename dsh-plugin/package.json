@@ -1,6 +1,6 @@
 {
   "name": "dsh-focus-supervisor",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "main": "plugin.mjs",
   "description": "DSH chat-native task supervision with an independent system service",

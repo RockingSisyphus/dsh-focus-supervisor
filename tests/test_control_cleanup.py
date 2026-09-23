@@ -6,7 +6,7 @@ from focus_demo.control_lock import ControlLock
 
 
 def plan(core,identifier):
-    return core.plan(dict(task_id=identifier,task_prompt='test',project_dir=str(core.directory),agreement='test',start_at=time.time()-1,end_at=time.time()+90,allow_early_finish=True,deadline_policy='stop'),'chat')
+    return core.plan(dict(task_id=identifier,task_prompt='test',project_dir=str(core.directory),agreement='test',start_at=time.time()-1,end_at=time.time()+90,allow_early_finish=True),'chat')
 
 
 def test_slow_cleanup_allows_new_task_status_and_action(tmp_path):

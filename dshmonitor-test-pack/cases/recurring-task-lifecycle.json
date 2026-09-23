@@ -39,7 +39,6 @@
           "$iso_after": 300
         },
         "allow_early_finish": true,
-        "deadline_policy": "stop",
         "repeat_json": "{\"frequency\":\"daily\",\"count\":3}"
       },
       "bind": "first"
@@ -89,8 +88,7 @@
         "end_at": {
           "$iso_after": 180
         },
-        "allow_early_finish": true,
-        "deadline_policy": "stop"
+        "allow_early_finish": true
       },
       "bind": "collision"
     },

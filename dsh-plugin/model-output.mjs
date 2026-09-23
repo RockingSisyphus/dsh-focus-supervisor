@@ -25,7 +25,7 @@ export function taskContext(state,sessionId,prompts) {
   if(!tasks.length)return '';
   const series=(state.series||[]).filter(s=>s.session_id===sessionId);
   return '[大肥鱼当前任务约定]\n'+tasks.map(task=>JSON.stringify(pick(task,
-    [...taskKeys,'agreement','task_prompt','allow_early_finish','deadline_policy']))).join('\n')+
+    [...taskKeys,'agreement','task_prompt','allow_early_finish']))).join('\n')+
     (series.length?'\n[循环进度]\n'+series.map(s=>JSON.stringify(pick(s,['id','repeat','consumed','missed','next_start_at','current_task_id']))).join('\n'):'')+
     '\n[用户心跳要求]\n'+prompts.heartbeat_prompt+
     (tasks.some(t=>t.strictness==='strict')?'\n[严苛任务附加要求]\n'+prompts.strict_heartbeat_prompt:'');

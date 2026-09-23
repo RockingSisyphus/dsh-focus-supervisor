@@ -10,6 +10,10 @@ test('all chat tools compile against installed DSH; no artifact threshold or for
  const registrations=[],disposers=[];
  const ctx={effect:fn=>{const d=fn();if(d)disposers.push(d);},systemPrompt:{section:()=>()=>{}},tools:{register:t=>registrations.push(t)},on:()=>{},webServer:{register:()=>()=>{}}};
  try{await apply(ctx);assert.equal(registrations.length,10);assert.ok(registrations.some(t=>t.name==='focus_plan'));assert.ok(!registrations.some(t=>t.name==='focus_dashboard'));
+  for(const name of ['focus_plan','focus_revise']){
+   const properties=registrations.find(t=>t.name===name).parameters.properties;
+   assert.ok(!Object.hasOwn(properties,'deadline_policy'),`${name} has no deadline policy parameter`);
+  }
   const settings=registrations.find(t=>t.name==='focus_settings');
   assert.ok(settings.parameters.properties.patch_json.description.includes('instructions_full'),'the model is told it may update the full documentation');}finally{for(const d of disposers.reverse())d();}
 });
@@ -29,16 +33,20 @@ test('focus_help returns the full documentation as plain text without full-acces
   assert.equal(typeof result.text,'string');
   assert.ok(result.text.includes('focus_status')&&result.text.includes('focus_plan'),'full API documentation is returned');
   assert.ok(result.text.includes(shipped.instructions_full),'a stored row without the new field falls back to the shipped document');
+  assert.ok(shipped.instructions_full.includes('到点自动结束监督'));
+  assert.ok(!shipped.instructions_full.includes('deadline_policy'));
+  assert.ok(shipped.instructions.includes('agreement 与 task_prompt 应简短具体'));
+  assert.ok(shipped.heartbeat_prompt.includes('临近结束仍未完成时'));
   assert.ok(result.text.includes('\n'),'documentation keeps real newlines instead of JSON escaping');
   assert.deepEqual(escalations,[],'reading the documentation must not switch the session to full access');
  }finally{for(const d of disposers.reverse())d();await rm(dir,{recursive:true});}
 });
 test('compact heartbeat keeps facts without repeating the agreement',()=>{
- const s=formatReport({phase:'monitor',report_id:'r',task:{id:'t',agreement:'读懂论文',start_at:1,end_at:2,allow_early_finish:true,deadline_policy:'discuss'},overview:{program_count:0,gui_window_count:0,effective_observed_seconds:2,unobserved_gap_seconds:1,programs:[]},capture_error:'没有桌面权限'});
+ const s=formatReport({phase:'monitor',report_id:'r',task:{id:'t',agreement:'读懂论文',start_at:1,end_at:2,allow_early_finish:true},overview:{program_count:0,gui_window_count:0,effective_observed_seconds:2,unobserved_gap_seconds:1,programs:[]},capture_error:'没有桌面权限'});
  for(const expected of ['报告编号：r','没有桌面权限','focus_report'])assert.ok(s.includes(expected));
 });
 test('heartbeat states the plugin-decided absence countdown so the model can ask the user',()=>{
- const base={phase:'monitor',report_id:'r',task:{id:'t',agreement:'读论文',start_at:1,end_at:2,allow_early_finish:true,deadline_policy:'discuss'},overview:{program_count:0,gui_window_count:0,effective_observed_seconds:600,unobserved_gap_seconds:0,programs:[]},presence:{available:true,idle_seconds:620,last_input_at:1}};
+ const base={phase:'monitor',report_id:'r',task:{id:'t',agreement:'读论文',start_at:1,end_at:2,allow_early_finish:true},overview:{program_count:0,gui_window_count:0,effective_observed_seconds:600,unobserved_gap_seconds:0,programs:[]},presence:{available:true,idle_seconds:620,last_input_at:1}};
  const quiet=formatReport({...base,input_activity:{available:true,idle_seconds:620,no_input_in_report:true,consecutive_no_input_heartbeats:2,heartbeats_until_standby:1,away_heartbeats:3}});
  assert.ok(quiet.includes('没有任何鼠标或键盘输入'),'quiet heartbeat says there was no input');
  assert.ok(quiet.includes('2/3')&&quiet.includes('1'),'quiet heartbeat shows the countdown');

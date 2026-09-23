@@ -12,7 +12,7 @@ def core(tmp_path):
     c.store.close()
 
 def plan(core,**kw):
-    req=dict(task_id='t',task_prompt='请结合论文内容向我提问核实理解。',project_dir=str(core.directory),agreement='读完论文，讨论我真正理解的内容。',start_at=time.time()-5,end_at=time.time()+100,allow_early_finish=True,deadline_policy='discuss')
+    req=dict(task_id='t',task_prompt='请结合论文内容向我提问核实理解。',project_dir=str(core.directory),agreement='读完论文，讨论我真正理解的内容。',start_at=time.time()-5,end_at=time.time()+100,allow_early_finish=True)
     req.update(kw)
     return core.plan(req,'chat')
 
@@ -40,12 +40,29 @@ def test_no_early_finish_waits_until_deadline(core):
     core.tick(t['end_at']+1)
     assert not core.live() and core.store.get('task','t')['status']=='completed'
 
-@pytest.mark.parametrize('policy',['stop','discuss','continue'])
-def test_deadline_behavior(core,policy):
-    t=plan(core,deadline_policy=policy)
-    assert t['deadline_policy']=='stop'
+def test_deadline_behavior(core):
+    t=plan(core)
+    assert 'deadline_policy' not in t
     core.tick(t['end_at']+1)
     assert not core.live() and core.store.get('task','t')['status']=='not_completed'
+
+
+@pytest.mark.parametrize('policy',['stop','discuss','continue'])
+def test_removed_deadline_policy_is_rejected(core, policy):
+    with pytest.raises(ValueError,match='参数已移除'):
+        plan(core,deadline_policy=policy)
+    assert core.store.get('task','t') is None
+
+def test_existing_legacy_task_drops_removed_field_on_restart(core):
+    task=plan(core)
+    task['deadline_policy']='discuss'
+    core.store.save('task',task)
+    other=Supervisor(core.directory,core.lifecycle)
+    try:
+        assert 'deadline_policy' not in other.store.get('task','t')
+    finally:
+        other.store.close()
+
 
 def test_pending_delivery_not_duplicated_but_delivered_heartbeat_recurs(core):
     t=plan(core)
@@ -61,7 +78,7 @@ def test_pending_delivery_not_duplicated_but_delivered_heartbeat_recurs(core):
 def test_revision_cancels_stale_checks(core):
     t=plan(core)
     r=core.make_report(t)
-    req={k:t[k] for k in ['agreement','start_at','end_at','allow_early_finish','deadline_policy']}
+    req={k:t[k] for k in ['agreement','start_at','end_at','allow_early_finish']}
     core.revise(dict(req,task_id='t',reason='讨论后延期',end_at=t['end_at']+100),'chat')
     with pytest.raises(ValueError,match='报告已结束'):
         core.observe(dict(report_id=r['id'],decision='on_task',reason=''), 'chat')
@@ -127,7 +144,7 @@ def test_per_task_interval_and_restart(core):
 
 def test_revision_keeps_or_changes_interval(core):
     t=plan(core,check_interval_seconds=120)
-    req={k:t[k] for k in ['agreement','start_at','end_at','allow_early_finish','deadline_policy']}
+    req={k:t[k] for k in ['agreement','start_at','end_at','allow_early_finish']}
     t=core.revise(dict(req,task_id='t',reason='延长时间'),'chat')
     assert t['check_interval_seconds']==120
     t=core.revise(dict(req,task_id='t',reason='调整间隔',check_interval_seconds=30),'chat')
@@ -199,7 +216,7 @@ def test_finished_tasks_do_not_block(core,status):
 
 
 def test_overdue_task_does_not_reserve_time_after_end(core):
-    plan(core,start_at=time.time()-200,end_at=time.time()-100,deadline_policy='continue')
+    plan(core,start_at=time.time()-200,end_at=time.time()-100)
     assert plan(core,task_id='new')['status']=='active'
 
 

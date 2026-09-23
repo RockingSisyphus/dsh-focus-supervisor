@@ -22,8 +22,7 @@
       "end_at": {
         "$iso_after": 600
       },
-      "allow_early_finish": true,
-      "deadline_policy": "discuss"
+      "allow_early_finish": true
     },
     "later_contract": {
       "agreement": "较晚的预约任务：晚上整理实验数据。",
@@ -37,8 +36,7 @@
       "end_at": {
         "$iso_after": 2400
       },
-      "allow_early_finish": true,
-      "deadline_policy": "discuss"
+      "allow_early_finish": true
     },
     "earlier_contract": {
       "agreement": "较早的预约任务：下午先写引言。",
@@ -52,8 +50,7 @@
       "end_at": {
         "$iso_after": 1500
       },
-      "allow_early_finish": true,
-      "deadline_policy": "discuss"
+      "allow_early_finish": true
     }
   },
   "steps": [

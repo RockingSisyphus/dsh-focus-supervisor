@@ -40,7 +40,6 @@
           "$iso_after": 240
         },
         "allow_early_finish": true,
-        "deadline_policy": "stop",
         "repeat_json": "{\"frequency\":\"daily\",\"count\":2}"
       },
       "bind": "series"
@@ -63,7 +62,6 @@
           "$iso_after": 360
         },
         "allow_early_finish": true,
-        "deadline_policy": "stop",
         "reason": "本轮增加阅读时段"
       },
       "bind": "extended"
@@ -85,8 +83,7 @@
         "end_at": {
           "$iso_after": 300
         },
-        "allow_early_finish": true,
-        "deadline_policy": "stop"
+        "allow_early_finish": true
       },
       "bind": "blocked"
     },
@@ -117,7 +114,6 @@
           "$iso_after": 180
         },
         "allow_early_finish": true,
-        "deadline_policy": "stop",
         "reason": "本轮提早完成"
       },
       "bind": "shortened"
@@ -139,8 +135,7 @@
         "end_at": {
           "$iso_after": 230
         },
-        "allow_early_finish": true,
-        "deadline_policy": "stop"
+        "allow_early_finish": true
       },
       "bind": "free"
     },

@@ -20,7 +20,7 @@ def test_partial_merge_and_validation():
 def test_settings_persist_and_keep_existing_permissions(tmp_path):
     core=Supervisor(tmp_path,SimpleNamespace(enable=lambda:None),test_mode=True)
     core.configure({'patch':{'instructions':'CUSTOM','sampling':{'text_chars':900}}},actor='ui')
-    task=core.plan(dict(task_id='t',task_prompt='observe',agreement='work',project_dir=str(tmp_path),start_at=time.time()-1,end_at=time.time()+300,allow_early_finish=True,deadline_policy='discuss',strictness='strict'),'chat')
+    task=core.plan(dict(task_id='t',task_prompt='observe',agreement='work',project_dir=str(tmp_path),start_at=time.time()-1,end_at=time.time()+300,allow_early_finish=True,strictness='strict'),'chat')
     with pytest.raises(ValueError,match='锁定'):core.configure({'patch':{'sampling':{'text_chars':100}}},actor='ui')
     core.configure({'patch':{'sampling':{'interval_seconds':7}}},actor='ai',session_id='chat')
     assert core.live()[0]['id']==task['id']

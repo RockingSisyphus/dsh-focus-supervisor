@@ -15,7 +15,7 @@ def core(tmp_path):
 def plan(c,scheduled=True):
     return c.plan({'task_id':'t','agreement':'理解论文','task_prompt':'请问我论文的关键假设。','project_dir':str(c.project),
         'start_at':time.time()+(100 if scheduled else -10),'end_at':time.time()+1000,
-        'allow_early_finish':True,'deadline_policy':'discuss'},'chat')
+        'allow_early_finish':True},'chat')
 
 def test_settings_permission_matrix(core):
     core.configure({'patch':{'instructions':'我的使用说明','heartbeat_prompt':'我的心跳','mascot_size':200}},'ui')
@@ -33,7 +33,37 @@ def test_settings_permission_matrix(core):
 
 def test_task_prompt_required(core):
     with pytest.raises(ValueError,match='task_prompt'):
-        core.plan({'task_id':'t','agreement':'读论文','start_at':1,'end_at':2,'allow_early_finish':True,'deadline_policy':'stop'},'chat')
+        core.plan({'task_id':'t','agreement':'读论文','start_at':1,'end_at':2,'allow_early_finish':True},'chat')
+
+def test_unmodified_prompt_defaults_are_not_saved_with_other_settings(core):
+    core.configure({'patch':{'mascot_size':180}},'ai','chat')
+    stored=core.store.get('settings','global')
+    assert stored['mascot_size']==180
+    assert all(key not in stored for key in ('instructions','instructions_full','heartbeat_prompt'))
+
+
+def test_only_legacy_shipped_prompts_migrate(tmp_path, monkeypatch):
+    import hashlib
+    import focus_demo.supervisor as supervisor_module
+    from focus_demo.control import DEFAULTS
+    monkeypatch.setattr(supervisor_module,'PREVIOUS_DEFAULT_PROMPT_HASHES',{
+        'instructions':hashlib.sha256('old shipped default'.encode()).hexdigest(),
+        'heartbeat_prompt':hashlib.sha256('old heartbeat'.encode()).hexdigest(),
+    })
+    directory=tmp_path/'legacy'
+    old=Supervisor(directory,SimpleNamespace(enable=lambda:None))
+    old.store.save('settings',{'id':'global','instructions':'old shipped default',
+                               'instructions_full':'user custom manual','heartbeat_prompt':'old heartbeat'})
+    old.store.close()
+    upgraded=Supervisor(directory,SimpleNamespace(enable=lambda:None))
+    try:
+        stored=upgraded.store.get('settings','global')
+        assert 'instructions' not in stored and 'heartbeat_prompt' not in stored
+        assert stored['instructions_full']=='user custom manual'
+        assert upgraded.settings()['instructions']==DEFAULTS['instructions']
+        assert upgraded.settings()['heartbeat_prompt']==DEFAULTS['heartbeat_prompt']
+    finally:upgraded.store.close()
+
 
 def test_full_instructions_fall_back_to_defaults_and_stay_locked_like_instructions(core):
     from focus_demo.control import DEFAULTS

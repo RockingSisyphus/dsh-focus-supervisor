@@ -54,7 +54,6 @@ const agreement = {
   start_at:str('ISO 8601 开始时间，必须带时区'), end_at:str('ISO 8601 结束时间，必须带时区'),
   check_interval_seconds:{type:'integer',description:'常规检查间隔，单位秒。预约时省略默认600秒；修订时省略保留当前间隔。'},
   allow_early_finish:{type:'boolean',required:true},
-  deadline_policy:{type:'string',required:true,enum:['stop','discuss','continue']},
   strictness:{type:'string',enum:['normal','strict'],description:'任务严苛度；省略为普通任务'},
   repeat_json:str('循环规则 JSON：{frequency:"daily"} 或 {frequency:"weekly",weekdays:[1,3,7]}，可加 until:"YYYY-MM-DD" 或 count:5；省略为单次任务',false),
 };

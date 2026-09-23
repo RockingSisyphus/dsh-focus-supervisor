@@ -10,7 +10,7 @@ SPEC=json.loads((Path(__file__).resolve().parents[1]/'dshmonitor-test-pack/lifec
 def test_lifecycle(case,tmp_path):
     core=Supervisor(tmp_path,SimpleNamespace(enable=lambda:None),interval=10,test_mode=True)
     now=time.time()
-    task=core.plan(dict(task_id='t',task_prompt='检查实际进展',project_dir=str(tmp_path),agreement='阅读论文',start_at=now+60,end_at=now+180,allow_early_finish=True,deadline_policy='discuss'),'chat')
+    task=core.plan(dict(task_id='t',task_prompt='检查实际进展',project_dir=str(tmp_path),agreement='阅读论文',start_at=now+60,end_at=now+180,allow_early_finish=True),'chat')
     task.update(start_at=now+case['start'],end_at=now+case['end'])
     core.store.save('task',task)
     try:
@@ -50,7 +50,7 @@ def scheduled_core(tmp_path,presence,interval=10):
     core=Supervisor(tmp_path,SimpleNamespace(enable=lambda:None),interval=interval,test_mode=True)
     now=time.time()
     task=core.plan(dict(task_id='t',task_prompt='检查实际进展',project_dir=str(tmp_path),agreement='阅读论文',
-        start_at=now-5,end_at=now+3600,allow_early_finish=True,deadline_policy='discuss'),'chat')
+        start_at=now-5,end_at=now+3600,allow_early_finish=True),'chat')
     core.presence=presence
     return core,task,now
 

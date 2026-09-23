@@ -1,5 +1,6 @@
 """Durable agreements and evidence. All semantic decisions belong to the DSH agent."""
 from datetime import datetime
+import hashlib
 import math
 import os
 import threading
@@ -17,6 +18,13 @@ from .reports import EvidenceTools, overview
 from . import recurrence
 
 LIVE = {"scheduled", "active", "awaiting_extension", "verified_waiting"}
+# Exact v0.5.0 shipped defaults. Only these saved copies can move to new defaults;
+# user-edited prompts remain untouched.
+PREVIOUS_DEFAULT_PROMPT_HASHES = {
+    'instructions': 'a8b5e7fd4562b7ba63eeb61ea072230b1bb4c1e54a1f4eb8c886c4f290d6a691',
+    'instructions_full': '5398df1584f7e05d70334a24653f385c7b7d1133fd487f5a7dfa06cf0e3d3ac2',
+    'heartbeat_prompt': 'e827eda1bc6931dab92f5fe5a602fd556adfdd4952130b538f3aec442a36a1fd',
+}
 
 
 class Supervisor(TaskLifecycle, Control):
@@ -37,7 +45,7 @@ class Supervisor(TaskLifecycle, Control):
         self.status_gid = None
         self.hold_reports = False
         self.presence = {"available": False}
-        self._migrate_task_strictness()
+        self._migrate_task_defaults()
         inactive={s['id'] for s in self.store.all('series') if s['status']!='active'}
         for task in self.live():
             if task.get('series_id') in inactive:
@@ -71,16 +79,30 @@ class Supervisor(TaskLifecycle, Control):
     def live_series(self):
         return [s for s in self.store.all('series') if s['status'] == 'active']
 
-    def _migrate_task_strictness(self):
+    def _migrate_task_defaults(self):
         stored = self.store.get('settings', 'global') or {}
         legacy = stored.get('protect_task_changes')
         for task in self.store.all('task'):
+            changed = False
+            if 'deadline_policy' in task:
+                del task['deadline_policy']
+                changed = True
             if task['status'] in LIVE and 'strictness' not in task:
                 task['strictness'] = 'strict' if legacy else 'normal'
-                self.store.save('task', task)
-        if legacy is not None:
-            stored.pop('protect_task_changes')
-            self.store.save('settings', {'id': 'global', **stored})
+                changed = True
+            if changed:self.store.save('task', task)
+        for series in self.store.all('series'):
+            if 'deadline_policy' in series['template']:
+                del series['template']['deadline_policy']
+                self.store.save('series', series)
+        settings_changed = legacy is not None
+        if legacy is not None:stored.pop('protect_task_changes')
+        for key, digest in PREVIOUS_DEFAULT_PROMPT_HASHES.items():
+            value = stored.get(key)
+            if isinstance(value, str) and hashlib.sha256(value.encode()).hexdigest() == digest:
+                stored.pop(key)
+                settings_changed = True
+        if settings_changed:self.store.save('settings', {'id': 'global', **stored})
 
     def capture_state(self):
         live=self.live()
@@ -143,10 +165,10 @@ class Supervisor(TaskLifecycle, Control):
             raise ValueError("结束时间必须晚于开始时间")
         if type(request.get("allow_early_finish")) is not bool:
             raise ValueError("请明确是否允许提前结束")
-        if request.get("deadline_policy") not in {"stop", "discuss", "continue"}:
-            raise ValueError("到时策略须为 stop、discuss 或 continue")
+        if 'deadline_policy' in request:
+            raise ValueError('deadline_policy 参数已移除；任务到点自动结束')
         return {"agreement": text.strip(), "start_at": start, "end_at": end,
-                "allow_early_finish": request["allow_early_finish"], "deadline_policy": "stop"}
+                "allow_early_finish": request["allow_early_finish"]}
 
     @staticmethod
     def strictness(request, default='normal'):
@@ -314,7 +336,7 @@ class Supervisor(TaskLifecycle, Control):
             self.store.save("task", task)
             if series and scope=='current_and_future':
                 series.update(candidate)
-                series['template']={k:v for k,v in task.items() if k in ('agreement','allow_early_finish','deadline_policy','check_interval_seconds','strictness','task_prompt','project_dir')}
+                series['template']={k:v for k,v in task.items() if k in ('agreement','allow_early_finish','check_interval_seconds','strictness','task_prompt','project_dir')}
                 series['next_start_at']=task['start_at'];series['next_end_at']=task['end_at']
                 self.store.save('series',series)
             self.publish()

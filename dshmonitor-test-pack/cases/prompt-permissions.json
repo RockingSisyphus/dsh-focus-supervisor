@@ -22,7 +22,6 @@
         "$iso_after": 900
       },
       "allow_early_finish": true,
-      "deadline_policy": "discuss",
       "strictness": "strict"
     }
   },

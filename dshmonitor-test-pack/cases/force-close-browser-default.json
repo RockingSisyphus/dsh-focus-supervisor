@@ -50,8 +50,7 @@
           "$iso_after": 600
         },
         "check_interval_seconds": 6,
-        "allow_early_finish": true,
-        "deadline_policy": "discuss"
+        "allow_early_finish": true
       },
       "bind": "task"
     },

@@ -29,8 +29,7 @@
       "end_at": {
         "$iso_after": 900
       },
-      "allow_early_finish": true,
-      "deadline_policy": "discuss"
+      "allow_early_finish": true
     }
   },
   "present_user": true,

@@ -43,8 +43,7 @@
         "end_at": {
           "$iso_after": 7200
         },
-        "allow_early_finish": true,
-        "deadline_policy": "discuss"
+        "allow_early_finish": true
       },
       "bind": "task1"
     },
@@ -103,8 +102,7 @@
         "end_at": {
           "$iso_after": 7200
         },
-        "allow_early_finish": true,
-        "deadline_policy": "discuss"
+        "allow_early_finish": true
       },
       "bind": "task2"
     },
@@ -163,8 +161,7 @@
         "end_at": {
           "$iso_after": 7200
         },
-        "allow_early_finish": true,
-        "deadline_policy": "discuss"
+        "allow_early_finish": true
       },
       "bind": "task3"
     },
@@ -223,8 +220,7 @@
         "end_at": {
           "$iso_after": 7200
         },
-        "allow_early_finish": true,
-        "deadline_policy": "discuss"
+        "allow_early_finish": true
       },
       "bind": "task4"
     },

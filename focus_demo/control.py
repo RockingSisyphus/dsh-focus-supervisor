@@ -48,7 +48,7 @@ class Control:
             global_patch={k:v for k,v in patch.items() if k!='task_prompt'}
             global_patch.update(options)
             if global_patch:
-                self.store.save('settings',{'id':'global',**{k:value[k] for k in DEFAULTS},**global_patch})
+                self.store.save('settings',{'id':'global',**(self.store.get('settings','global') or {}),**global_patch})
             self.store.log('settings_changed',{'actor':actor,'fields':list(patch),'task_id':request.get('task_id')})
             self.sample=options["sampling"]["interval_seconds"]
             self.publish_settings();self.publish()

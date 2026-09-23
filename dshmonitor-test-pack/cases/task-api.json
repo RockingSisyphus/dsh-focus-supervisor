@@ -24,8 +24,7 @@
       "end_at": {
         "$iso_after": 900
       },
-      "allow_early_finish": true,
-      "deadline_policy": "discuss"
+      "allow_early_finish": true
     }
   },
   "steps": [
@@ -49,8 +48,7 @@
         "end_at": {
           "$iso_after": 900
         },
-        "allow_early_finish": true,
-        "deadline_policy": "discuss"
+        "allow_early_finish": true
       },
       "bind": "result"
     },

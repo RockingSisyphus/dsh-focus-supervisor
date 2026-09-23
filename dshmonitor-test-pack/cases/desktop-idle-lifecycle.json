@@ -91,7 +91,6 @@
           "$iso_after": 400
         },
         "allow_early_finish": false,
-        "deadline_policy": "stop",
         "check_interval_seconds": 10
       },
       "bind": "task"

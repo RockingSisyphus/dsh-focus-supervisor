@@ -32,6 +32,15 @@
       "expected": "focus_help"
     },
     {
+      "id": "panel-asks-for-concise-task-prompts",
+      "op": "assert",
+      "actual": {
+        "$ref": "panel.instructions"
+      },
+      "operator": "contains",
+      "expected": "agreement 与 task_prompt 应简短具体"
+    },
+    {
       "id": "panel-summary-has-no-api-sections",
       "op": "assert",
       "actual": {
@@ -80,6 +89,33 @@
       },
       "operator": "contains",
       "expected": "### focus_settings"
+    },
+    {
+      "id": "help-only-offers-stop",
+      "op": "assert",
+      "actual": {
+        "$ref": "help.raw"
+      },
+      "operator": "contains",
+      "expected": "到点自动结束监督"
+    },
+    {
+      "id": "help-advises-concise-task-prompts",
+      "op": "assert",
+      "actual": {
+        "$ref": "help.raw"
+      },
+      "operator": "contains",
+      "expected": "提示词尽量精简"
+    },
+    {
+      "id": "help-does-not-offer-legacy-deadline-modes",
+      "op": "assert",
+      "actual": {
+        "$ref": "help.raw"
+      },
+      "operator": "not_contains",
+      "expected": "discuss / continue"
     },
     {
       "id": "help-is-plain-text",
