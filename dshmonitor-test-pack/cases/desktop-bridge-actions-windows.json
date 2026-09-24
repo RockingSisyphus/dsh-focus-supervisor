@@ -56,7 +56,7 @@
         "reminder-focus-regression",
         "force-close-process",
         "force-close-window",
-        "force-close-tab-fallback",
+        "force-close-browser-default",
         "force-close-already-gone"
       ],
       "bind": "use"

@@ -50,9 +50,9 @@ def desktop_popup_position(self,step):
 def desktop_popup_click(self,step):
     op=step["op"];p=self.page;b=self.backend
     pid=step.get('pid') or b.last_notification_pid
-    self.popup_previous_request=((self.plugin_state() or {}).get('focus_request') or {}).get('id') if not hasattr(self,'closed_page_token') else None
+    self.popup_previous_request=((self.plugin_state() or {}).get('focus_request') or {}).get('id') if step.get('state_probe',True) and not hasattr(self,'closed_page_token') else None
     self.popup_click_started=time.monotonic()
-    if not p.is_closed():
+    if step.get('observe_page',True) and not p.is_closed():
         p.evaluate("""()=>{
             globalThis.__DSH_TEST_TITLE_OBSERVER__?.disconnect();
             const ids=new WeakMap();let next=0;
@@ -83,7 +83,7 @@ def desktop_popup_click(self,step):
     def closed():
         windows=self.entities.snapshot()['windows']
         observations.append({'elapsed_seconds':round(time.monotonic()-self.popup_click_started,3),
-                             'page_title':None if p.is_closed() else p.title(),
+                             'page_title':None if not step.get('observe_page',True) or p.is_closed() else p.title(),
                              'windows':[{k:w.get(k) for k in ('id','pid','title','focused')} for w in windows]})
         (self.out/(step['id']+'-popup-observations.json')).write_text(json.dumps(observations,ensure_ascii=False),encoding='utf-8')
         return not any(w['pid']==pid for w in windows)

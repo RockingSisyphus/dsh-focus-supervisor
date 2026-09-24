@@ -22,7 +22,7 @@ export default class Driver extends Extension {
   try{const [success]=await new Shell.Screenshot().screenshot(false,stream);if(!success)throw Error('Screenshot output failed');}finally{await new Promise((resolve,reject)=>stream.close_async(GLib.PRIORITY_DEFAULT,null,(s,r)=>{try{resolve(s.close_finish(r));}catch(e){reject(e);}}));}
  }
  snapshot(){return {backend:'gnome-wayland',active_workspace:global.workspace_manager.get_active_workspace_index(),workspace_count:global.workspace_manager.n_workspaces,at:Date.now()/1000,screen:[global.stage.width,global.stage.height],windows:this.windows().map(w=>{
-  const r=w.get_frame_rect();return {id:'gnome:'+w.get_stable_sequence(),pid:w.get_pid(),workspace:w.get_workspace()?.index(),title:w.get_title(),focused:global.display.focus_window===w,minimized:w.minimized,mapped:!w.minimized&&w.showing_on_its_workspace(),rect:[r.x,r.y,r.width,r.height],client_type:w.get_client_type()===Meta.WindowClientType.WAYLAND?'wayland':'x11',gtk_window_path:w.get_gtk_window_object_path(),gtk_application_path:w.get_gtk_application_object_path(),gtk_bus_name:w.get_gtk_unique_bus_name()};
+  const r=w.get_frame_rect(),b=w.get_buffer_rect();return {id:'gnome:'+w.get_stable_sequence(),pid:w.get_pid(),workspace:w.get_workspace()?.index(),title:w.get_title(),focused:global.display.focus_window===w,minimized:w.minimized,mapped:!w.minimized&&w.showing_on_its_workspace(),rect:[r.x,r.y,r.width,r.height],buffer_rect:[b.x,b.y,b.width,b.height],client_type:w.get_client_type()===Meta.WindowClientType.WAYLAND?'wayland':'x11',gtk_window_path:w.get_gtk_window_object_path(),gtk_application_path:w.get_gtk_application_object_path(),gtk_bus_name:w.get_gtk_unique_bus_name()};
  })};}
  async CallAsync([raw],invocation){
   try {

@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "id": "reminder-focus-frozen-background-native",
+  "title": "无浏览器调试连接时恢复冻结的后台 DSH 标签",
+  "engine": "dsh",
+  "features": [
+    "live-reminder-delivery",
+    "ui-navigation"
+  ],
+  "preview": true,
+  "present_user": false,
+  "timeout": 330,
+  "live_desktop": true,
+  "note": "DSH 标签先切后台，再冻结并最小化浏览器窗口；移除测试浏览器端口发现文件，生产 helper 必须通过系统无障碍选中旧标签并恢复原窗口。",
+  "variables": {
+    "contract": {
+      "agreement": "读懂专用测试窗口里的论文文字。",
+      "task_prompt": "脚本模拟：结合真实采集核对任务，不要求提交文件。",
+      "project_dir": {
+        "$ref": "project"
+      },
+      "start_at": {
+        "$iso_after": 86400
+      },
+      "end_at": {
+        "$iso_after": 90000
+      },
+      "allow_early_finish": true,
+      "check_interval_seconds": 6
+    }
+  },
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "我想预约阅读事务论文，允许提前完成；遇到问题可以商量延期。",
+      "tool": "focus_plan",
+      "arguments": {
+        "$ref": "contract"
+      },
+      "bind": "task"
+    },
+    {
+      "id": "scheduled",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.status"
+      },
+      "operator": "equals",
+      "expected": "scheduled"
+    },
+    {
+      "id": "reminder",
+      "op": "model.call",
+      "user": "请提醒我回到监工聊天。switch-existing-tab",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "image": "start",
+        "message": "任务已建好，点下面的按钮回到监工会话。"
+      },
+      "bind": "result"
+    },
+    {
+      "id": "reminder-delivered",
+      "op": "assert",
+      "actual": {
+        "$ref": "result.value.delivery.popup"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "session-b",
+      "op": "ui.new_session"
+    },
+    {
+      "id": "message-b",
+      "op": "model.reply",
+      "user": "焦点回归会话 B",
+      "text": "这是另一个真实会话。"
+    },
+    {
+      "id": "bind-dsh",
+      "op": "fixture.page",
+      "entity": "dsh"
+    },
+    {
+      "id": "cover-tab",
+      "op": "fixture.browser",
+      "entity": "cover",
+      "new_window": false,
+      "window": "dsh",
+      "html": "<title>Background cover</title><input>"
+    },
+    {
+      "id": "other-window",
+      "op": "fixture.browser",
+      "entity": "other",
+      "html": "<title>Other browser window</title><input>"
+    },
+    {
+      "id": "minimize-dsh",
+      "op": "fixture.window",
+      "entity": "dsh",
+      "action": "minimize"
+    },
+    {
+      "id": "before",
+      "op": "fixture.observe",
+      "entity": "dsh",
+      "bind": "before"
+    },
+    {
+      "id": "pre-minimized",
+      "op": "assert",
+      "actual": {
+        "$ref": "before.window.minimized"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "tabs-before",
+      "op": "fixture.browser_inventory",
+      "bind": "tabs_before"
+    },
+    {
+      "id": "freeze-dsh",
+      "op": "fixture.page_lifecycle",
+      "entity": "dsh",
+      "state": "frozen",
+      "bind": "frozen"
+    },
+    {
+      "id": "restart-dsh",
+      "op": "ui.restart_dsh",
+      "bind": "restart",
+      "reload_page": false
+    },
+    {
+      "id": "hide-browser-endpoint",
+      "op": "desktop.hide_browser_connection",
+      "bind": "endpoint"
+    },
+    {
+      "id": "click-reminder",
+      "op": "desktop.popup_click",
+      "wait_closed": false,
+      "state_probe": false,
+      "observe_page": false
+    },
+    {
+      "id": "native-state",
+      "op": "fixture.wait",
+      "entity": "dsh",
+      "bind": "native",
+      "expected": {
+        "window.minimized": false,
+        "window.focused": true
+      },
+      "timeout": 15,
+      "native_only": true
+    },
+    {
+      "id": "actually-restored",
+      "op": "assert",
+      "actual": {
+        "$ref": "native.window.minimized"
+      },
+      "operator": "equals",
+      "expected": false,
+      "continue_on_failure": true
+    },
+    {
+      "id": "actually-focused",
+      "op": "assert",
+      "actual": {
+        "$ref": "native.window.focused"
+      },
+      "operator": "equals",
+      "expected": true,
+      "continue_on_failure": true
+    },
+    {
+      "id": "tabs-after",
+      "op": "fixture.browser_inventory",
+      "bind": "tabs_after"
+    },
+    {
+      "id": "no-duplicate-tab",
+      "op": "assert",
+      "actual": {
+        "$ref": "tabs_after.total"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "tabs_before.total"
+      }
+    },
+    {
+      "id": "resume-browser-page",
+      "op": "fixture.page_lifecycle",
+      "entity": "dsh",
+      "state": "active"
+    },
+    {
+      "id": "right-session",
+      "op": "ui.wait_focused_session",
+      "session_id": {
+        "$ref": "result.value.session_id"
+      },
+      "timeout": 15
+    },
+    {
+      "id": "request-finished",
+      "op": "ui.wait_focus_result",
+      "timeout": 15,
+      "bind": "completion"
+    },
+    {
+      "id": "request-succeeded",
+      "op": "assert",
+      "actual": {
+        "$ref": "completion.request.status"
+      },
+      "operator": "equals",
+      "expected": "completed"
+    },
+    {
+      "id": "tabs-final",
+      "op": "fixture.browser_inventory",
+      "bind": "final_tabs"
+    },
+    {
+      "id": "no-new-tab-final",
+      "op": "assert",
+      "actual": {
+        "$ref": "final_tabs.total"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "tabs_before.total"
+      }
+    }
+  ],
+  "visible_browser": true,
+  "real_tab_visibility": true,
+  "group": "extended",
+  "platforms": [
+    "linux"
+  ],
+  "verification": "product",
+  "browser_dynamic_port": true,
+  "desktop_settings": [
+    {
+      "schema": "org.gnome.desktop.a11y.applications",
+      "key": "screen-reader-enabled",
+      "value": false
+    }
+  ]
+}

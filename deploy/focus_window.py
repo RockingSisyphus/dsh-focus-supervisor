@@ -278,7 +278,7 @@ def _request_current(context):
 
 
 def select_browser_tab(marker,request_context=None):
-    """Bound blocking browser/UIA/AT-SPI calls to one disposable worker."""
+    """Bound blocking native UIA/AT-SPI tab selection to one disposable worker."""
     import sys
     try:
         from focus_demo.process_worker import run_worker
@@ -287,62 +287,8 @@ def select_browser_tab(marker,request_context=None):
     except (OSError,ValueError,RuntimeError,subprocess.TimeoutExpired):return False
 
 
-def _windows_browser_handle(pid,bounds):
-    """Associate the selected browser window once, without its asynchronously updated title."""
-    import win32gui,win32process
-    handles=[]
-    win32gui.EnumWindows(lambda h,_:handles.append(h) if win32gui.IsWindowVisible(h)
-        and win32gui.GetClassName(h)=='Chrome_WidgetWin_1'
-        and win32process.GetWindowThreadProcessId(h)[1]==pid else None,None)
-    if len(handles)==1:return handles[0]
-    rect=[bounds.get(k) for k in ('left','top','width','height')]
-    matches=[]
-    for handle in handles:
-        x,y,r,b=win32gui.GetWindowRect(handle)
-        if [x,y,r-x,b-y]==rect:matches.append(handle)
-    return matches[0] if len(matches)==1 else None
-
-
-def _select_connected_tab(marker,request_context=None):
-    """Reuse an already enabled local Chromium endpoint; never enable debugging."""
-    import urllib.request
-    try:import psutil
-    except ImportError:return False
-    connection_errors=(OSError,ValueError,RuntimeError,psutil.Error)
-    if os.name=='nt':
-        import websocket
-        connection_errors+=(websocket.WebSocketException,)
-    opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    for pid in browser_process_ids():
-        try:
-            args=psutil.Process(pid).cmdline()
-            port=next((a.split('=',1)[1] for a in args if a.startswith('--remote-debugging-port=')),None)
-            if port=='0':
-                profile=next((a.split('=',1)[1] for a in args if a.startswith('--user-data-dir=')),None)
-                port=(Path(profile)/'DevToolsActivePort').read_text().splitlines()[0] if profile else None
-            if not port or not port.isdecimal() or int(port)==0:continue
-            origin='http://127.0.0.1:'+port
-            with opener.open(origin+'/json/list',timeout=.5) as response:tabs=json.load(response)
-            match=next((t for t in tabs if t.get('type')=='page' and marker in t.get('title','')),None)
-            if match:
-                if not _request_current(request_context):return False
-                with opener.open(origin+'/json/activate/'+match['id'],timeout=.5) as response:response.read()
-                if os.name=='nt':
-                    from focus_demo.browser_targets import get,rpc
-                    version=get(origin,'/json/version')
-                    info=rpc(version['webSocketDebuggerUrl'],'Browser.getWindowForTarget',{'targetId':match['id']})
-                    hwnd=_windows_browser_handle(pid,info.get('bounds',{}))
-                    return {'selected':True,'pid':pid,'tab_id':match['id'],'browser_window_id':info['windowId'],
-                            'window_id':'win:'+str(hwnd) if hwnd else None,'source':'cdp'}
-                return True
-        except connection_errors:continue
-    return False
-
-
 def _select_browser_tab(marker,request_context=None):
-    if not marker.startswith('[DSH-') or not marker.endswith(']'):return False
-    connected=_select_connected_tab(marker,request_context)
-    if connected and (os.name!='nt' or connected.get('window_id')):return connected
+    if marker!=MARKER and (not marker.startswith('[DSH-') or not marker.endswith(']')):return False
     from collections import deque
     if os.name == 'nt':
         import win32gui,win32process
@@ -483,6 +429,60 @@ def raise_tagged_tab(directory, marker, pids=None,request_context=None):
         reason = '扩展执行了激活，但合成器没有把焦点给这个窗口'
     return {'backend': 'gnome', 'raised': False, 'reason': reason, 'steps': steps,
             'extension_health': health, 'last_focus': last}
+
+
+
+def wake_existing_dsh_window():
+    """Wake an existing DSH tab before its frozen page is asked to claim.
+
+    A discarded/frozen browser page cannot answer the handoff until its native
+    window is restored. The compositor window ID (or HWND) is selected from a
+    fresh snapshot and independently verified after activation.
+    """
+    if os.name == 'nt':
+        try:
+            import win32gui,win32process
+            pids=set(browser_process_ids());matches=[]
+            def visit(hwnd,_):
+                if win32gui.IsIconic(hwnd) and MARKER in win32gui.GetWindowText(hwnd):
+                    pid=win32process.GetWindowThreadProcessId(hwnd)[1]
+                    if pid in pids:matches.append((hwnd,pid))
+            win32gui.EnumWindows(visit,None)
+            if matches:
+                hwnd,pid=matches[0]
+                target={'window_id':'win:'+str(hwnd),'pid':pid}
+            else:
+                selected=select_browser_tab(MARKER)
+                if not selected:return {'found':False}
+                if not isinstance(selected,dict) or not selected.get('window_id'):
+                    return {'found':True,'raised':False,'reason':'已选中 DSH 标签，但无法关联原生窗口'}
+                target=selected
+            return {'found':True,**raise_windows(MARKER,target=target)}
+        except Exception as error:
+            return {'found':False,'reason':str(error)}
+    try:
+        directory=desktop_dir()
+        windows=[w for w in _snapshot(directory) if w.get('id') and w.get('minimized')
+                 and MARKER in str(w.get('title') or '')]
+        if not windows:
+            if not select_browser_tab(MARKER):return {'found':False}
+            window,_=_locate_window(directory,MARKER,[],wait=True)
+            if not window:
+                return {'found':True,'raised':False,'reason':'已选中 DSH 标签，但无法关联原生窗口'}
+            windows=[window]
+        window=windows[0]
+        target={'id':str(window['id']),'title':str(window['title'])}
+        if focused_window(directory,target['id']):
+            return {'found':True,'raised':True,'window_id':target['id'],'reason':'旧 DSH 窗口已在前台'}
+        result=request_gnome_focus(directory,target,MARKER,pid=window.get('pid'))
+        if not result.get('raised'):
+            return {'found':True,'raised':False,'window_id':target['id'],
+                    'reason':result.get('reason') or '桌面接口未恢复窗口'}
+        raised=wait_for_focus(directory,target['id'])
+        return {'found':True,'raised':raised,'window_id':target['id'],
+                'reason':'旧 DSH 窗口已恢复' if raised else '窗口恢复请求已执行，但没有获得焦点'}
+    except Exception as error:
+        return {'found':False,'reason':str(error)}
 
 
 def raise_dsh_window(marker=MARKER, directory=None, pids=None,request_context=None):

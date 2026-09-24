@@ -85,6 +85,17 @@ class Desktop:
         executable=shutil.which('google-chrome') or shutil.which('google-chrome-stable')
         if not executable:raise FileNotFoundError('Google Chrome is not installed in the test guest')
         return {'headless':False,'executable_path':executable,'env':env}
+    def browser_executable(self):
+        if not self.windows:
+            executable=shutil.which('google-chrome') or shutil.which('google-chrome-stable')
+            if executable:return executable
+            raise FileNotFoundError('Google Chrome is not installed in the test guest')
+        import psutil
+        for process in psutil.process_iter(['name']):
+            if (process.info['name'] or '').lower()=='msedge.exe':
+                try:return process.exe()
+                except (psutil.AccessDenied,psutil.NoSuchProcess):continue
+        raise FileNotFoundError('Microsoft Edge is not running in the test guest')
     def browser_arguments(self,executable,profile):
         args=[str(executable),'--user-data-dir='+str(profile),'--no-first-run',
               '--no-default-browser-check','--disable-sync','--password-store=basic','--lang=en-US','--accept-lang=en-US']

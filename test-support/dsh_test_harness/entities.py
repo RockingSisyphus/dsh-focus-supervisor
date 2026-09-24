@@ -7,6 +7,11 @@ from .wait import until
 class Entities:
     def __init__(self,scenario):
         self.scenario=scenario;self.items={};self.desktop=Desktop();self.last_browser=None
+    def browser_window(self,window):
+        if os.name=='nt':return window
+        from focus_demo.desktop_bridge import call
+        return next((w for w in call('snapshot')['windows']
+                     if w['id']==window['id'] and w['pid']==window['pid']),None)
     def snapshot(self):
         if os.name!='nt':
             from .gnome import call
@@ -19,12 +24,25 @@ class Entities:
                 windows.append({'id':'win:'+str(hwnd),'pid':win32process.GetWindowThreadProcessId(hwnd)[1], 'title':win32gui.GetWindowText(hwnd),'class_name':win32gui.GetClassName(hwnd),'rect':[x,y,r-x,b-y],'focused':foreground==hwnd,'minimized':bool(win32gui.IsIconic(hwnd)),'mapped':not bool(win32gui.IsIconic(hwnd))})
         win32gui.EnumWindows(visit,None)
         return {'backend':'windows','windows':windows,'foreground_handle':foreground}
-    def observe(self,identifier):
+    def observe(self,identifier,include_page=True):
         item=self.items[identifier]
         w=next((w for w in self.snapshot()['windows'] if w['id']==item['window_id']),None)
         value={'entity':identifier,'window_id':item['window_id'],'present':bool(w),'window':w}
         if item.get('children') is not None:value['alive_children']=[c.pid for c in item['children'] if c.is_running() and c.status()!='zombie']
-        if item.get('page'):
+        if item.get('sibling_tab_id') and w:
+            import psutil
+            from focus_demo.native_tabs import capture
+            owner=psutil.Process(item['pid'])
+            current=self.browser_window(w)
+            if current is None:raise RuntimeError('Product desktop snapshot lost browser fixture window')
+            current={**current,'process':{'name':owner.name(),'exe':owner.exe()}}
+            state=capture([current],include_background=True)
+            ids={tab['tab_id'] for tab in state['tabs']}
+            value.update(tab_id=item['tab_id'],tab_closed=item['tab_id'] not in ids,
+                         sibling_present=item['sibling_tab_id'] in ids,
+                         selected_tab_id=next((tab['tab_id'] for tab in state['tabs'] if tab['selected']),None),
+                         tabs_observed=w['id'] in state['windows_scanned'])
+        if include_page and item.get('page'):
             page=item['page'];value.update(tab_closed=page.is_closed(),tab_id=item['tab_id'],browser_window_id=item['browser_window_id'])
             if not page.is_closed():
                 try:value.update(title=page.title(),url=page.url,visibility=page.evaluate('document.visibilityState'))
@@ -35,7 +53,7 @@ class Entities:
     def wait_observed(self,step):
         deadline=time.monotonic()+step.get('timeout',10)
         while True:
-            value=self.observe(step['entity'])
+            value=self.observe(step['entity'],include_page=not step.get('native_only',False))
             def field(path):
                 item=value
                 for key in path.split('.'):
@@ -98,10 +116,11 @@ class Entities:
             import psutil
             root=self.scenario.out/('browser-'+step['entity']);root.mkdir()
             html=root/'page.html';html.write_text(step['html'],encoding='utf-8')
-            probe=context.browser.new_browser_cdp_session()
-            pid=int(next(p['id'] for p in probe.send('SystemInfo.getProcessInfo')['processInfo'] if p['type']=='browser'));probe.detach()
-            argv=self.desktop.browser_arguments(psutil.Process(pid).exe(),root)+['--new-window']
-            process=self.scenario.backend.start_process([*argv,html.as_uri()])
+            sibling=root/'sibling.html'
+            if step.get('sibling_html'):sibling.write_text(step['sibling_html'],encoding='utf-8')
+            argv=self.desktop.browser_arguments(self.desktop.browser_executable(),root)+['--new-window']
+            urls=[html.as_uri()]+([sibling.as_uri()] if step.get('sibling_html') else [])
+            process=self.scenario.backend.start_process([*argv,*urls])
             def located():
                 pids=[]
                 for proc in psutil.process_iter(['pid','cmdline']):
@@ -110,7 +129,31 @@ class Entities:
                 return next((w for w in self.snapshot()['windows'] if w['pid'] in pids and step['title'] in w['title']),None)
             window=until(located,20)
             self.items[step['entity']]={'window_id':window['id'],'pid':window['pid'],'profile':str(root),'process':process}
-            return {**self.observe(step['entity']),'remote_debugging':False}
+            if 'rect' in step:
+                self.window_action({'entity':step['entity'],'action':'layout','rect':step['rect']})
+            if step.get('sibling_html'):
+                from focus_demo.native_tabs import capture
+                last_state={}
+                def identified():
+                    current=self.browser_window(window)
+                    if not current:return None
+                    owner=psutil.Process(current['pid'])
+                    current={**current,'process':{'name':owner.name(),'exe':owner.exe()}}
+                    state=capture([current],include_background=True)
+                    last_state.update(window=current,tabs=state['tabs'],errors=state['errors'],
+                                      windows_scanned=state['windows_scanned'])
+                    target=[t for t in state['tabs'] if step['title'] in t['title']]
+                    sibling_tabs=[t for t in state['tabs'] if step['sibling_title'] in t['title']]
+                    if len(target)!=1 or len(sibling_tabs)!=1:return None
+                    return target[0]['tab_id'],sibling_tabs[0]['tab_id']
+                try:target_id,sibling_id=until(identified,20)
+                except TimeoutError:
+                    (self.scenario.out/'native-tab-identity.json').write_text(json.dumps(last_state,ensure_ascii=False,indent=2),encoding='utf-8')
+                    raise
+                self.items[step['entity']].update(tab_id=target_id,sibling_tab_id=sibling_id)
+            arguments=psutil.Process(window['pid']).cmdline()
+            return {**self.observe(step['entity']),
+                    'remote_debugging':any(arg.startswith('--remote-debugging') for arg in arguments)}
         if step.get('instance'):
             context=self.items[step['instance']]['page'].context
         elif step.get('separate_instance'):
@@ -158,6 +201,29 @@ class Entities:
         if 'url' in step:page.goto(step['url'])
         elif 'html' in step:page.set_content(step['html'])
         return self.observe(step['entity'])
+    def select_tab(self,step):
+        item=self.items[step['entity']]
+        desired=item['sibling_tab_id'] if step['tab']=='sibling' else item['tab_id']
+        window=self.observe(step['entity'])['window']
+        self.desktop.activate(window)
+        if os.name=='nt':
+            from pywinauto import Desktop as Native
+            root=Native(backend='uia').window(handle=int(item['window_id'].split(':')[-1]))
+            match=next(tab for tab in root.descendants(control_type='TabItem')
+                       if 'uia:'+','.join(map(str,tab.element_info.runtime_id))==desired)
+            match.iface_selection_item.Select()
+        else:
+            from focus_demo.native_tabs import capture
+            from focus_demo.atspi_dbus import Bus,ACCESSIBLE
+            import psutil
+            owner=psutil.Process(item['pid'])
+            current={**self.browser_window(window),'process':{'name':owner.name(),'exe':owner.exe()}}
+            match=next(tab for tab in capture([current],include_background=True)['tabs'] if tab['tab_id']==desired)
+            node=match['native_tab'];bus=Bus(2)
+            try:bus.call(node['owner'],node['path'],'org.a11y.atspi.Action','DoAction','i',0)
+            finally:bus.close()
+        return until(lambda:(value if (value:=self.observe(step['entity']))['selected_tab_id']==desired else None),5)
+
     def extension(self,step):
         from .browser_extension import load
         page=self.items[step['entity']]['page']
@@ -209,6 +275,16 @@ class Entities:
         browser_window=session.send('Browser.getWindowForTarget',{'targetId':info['targetId']})['windowId'];session.detach()
         self.items[step['entity']]={'window_id':window['id'],'pid':window['pid'],'page':page,'tab_id':info['targetId'],'browser_window_id':browser_window,'profile':str(root) if step.get('separate_instance') else None}
         return self.observe(step['entity'])
+
+    def page_lifecycle(self,step):
+        """Set a real Chromium page lifecycle state as a desktop precondition."""
+        page=self.items[step['entity']]['page']
+        session=page.context.new_cdp_session(page)
+        try:
+            result=session.send('Page.setWebLifecycleState',{'state':step['state']})
+        finally:
+            session.detach()
+        return {'entity':step['entity'],'state':step['state'],'browser_result':result}
 
     def process_action(self,step):
         import psutil

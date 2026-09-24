@@ -1,4 +1,4 @@
-"""Metadata-only targets from already available Chromium connections."""
+"""Browser-tab action targets from system accessibility and optional existing connections."""
 import json
 from contextlib import closing
 import sys
@@ -35,8 +35,28 @@ def rpc(url,method,params=None):
 
 
 def capture(windows):
+    from focus_demo.native_tabs import capture as native_capture
     result=[];errors=[]
+    try:
+        native=native_capture(windows)
+        for tab in native['tabs']:
+            window=next(w for w in windows if w['id']==tab['window_id'])
+            process=window.get('process',{})
+            document=next(iter(window.get('browser_documents',[])),{})
+            result.append({'id':'tab:'+tab['tab_id'], 'kind':'browser_tab',
+                'tab_id':tab['tab_id'], 'native_tab':tab['native_tab'],
+                'browser_instance_id':str(tab['pid'])+':'+process.get('identity',''),
+                'native_window_id':window['id'], 'window_title':window.get('title',''),
+                'window_rect':window.get('rect'), 'window_buffer_rect':window.get('buffer_rect'),
+                'process':process,'pid':tab['pid'],'title':tab['title'],
+                'url':document.get('url',''),'app':window.get('app','browser'),
+                'focused':window.get('focused',False),'visible':window.get('visible',False),
+                'connection_kind':'system_accessibility_tab','source':'system-accessibility'})
+        errors.extend(native['errors'])
+    except Exception as error:errors.append({'stage':'native_tabs','error':str(error)})
+    native_pids={target['pid'] for target in result}
     for pid in dict.fromkeys(w.get('pid') for w in windows if w.get('pid')):
+        if pid in native_pids:continue
         try:
             origin=endpoint(pid)
             if not origin:continue
@@ -69,6 +89,9 @@ def capture(windows):
 
 
 def observe(expected):
+    if expected.get('native_tab'):
+        from focus_demo.native_tabs import observe as native_observe
+        return native_observe(expected)
     if expected.get('connection_kind')=='cdp':
         origin=endpoint(expected['process']['pid'])
         if not origin:return {'closed':False,'reason':'浏览器连接不可用'}
@@ -84,6 +107,9 @@ def observe(expected):
 
 
 def close(expected):
+    if expected.get('native_tab'):
+        from focus_demo.native_tabs import close as native_close
+        return native_close(expected)
     if expected.get('connection_kind')!='cdp':return {'closed':False,'reason':'没有可直接关闭用户标签的已有连接'}
     origin=endpoint(expected['process']['pid'])
     if not origin:return {'closed':False,'reason':'浏览器连接不可用'}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "reminder-focus-cdp",
-  "title": "已有浏览器连接真实选页并传递原生窗口身份",
+  "id": "reminder-focus-native-connected",
+  "title": "已有浏览器连接时经原生无障碍选页并唤回原窗口",
   "engine": "dsh",
   "features": [
     "live-reminder-delivery"
@@ -214,13 +214,13 @@
       "expected": "completed"
     },
     {
-      "id": "used-connected-browser",
+      "id": "selected-by-native-accessibility",
       "op": "assert",
       "actual": {
         "$ref": "congratulations-capture-user-click-native-result.request.desktop_result.selection.source"
       },
       "operator": "equals",
-      "expected": "cdp"
+      "expected": "uia"
     },
     {
       "id": "right-session",
@@ -285,5 +285,5 @@
     "windows"
   ],
   "verification": "product",
-  "note": "从 review-lifecycle-live 缩减；仅一个原生夹具和一条完成提醒，保留原10秒原生唤回断言。生产动作后独立确认原DSH窗口前台和会话，不用测试器激活。"
+  "note": "浏览器有 CDP 连接也必须由 UIA 选择 DSH 标签；生产点击后独立确认原生窗口、会话和前台。普通浏览器单标签关闭由 force-close-browser-default 等无调试端口场景另验收。"
 }

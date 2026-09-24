@@ -26,6 +26,8 @@ def ui_use_claimant(self,step):
     raise RuntimeError('Claiming page does not correspond to an observed fixture')
 
 def ui_restart_dsh(self,step):
+    if step.get('reload_page') is False:
+        return {**self.backend.restart_dsh(),'page_reloaded':False,'page_token_changed':None}
     previous=self.page.evaluate('globalThis.__DAFEIYU__?.token')
     result=self.backend.restart_dsh()
     self.page.reload(wait_until='domcontentloaded')

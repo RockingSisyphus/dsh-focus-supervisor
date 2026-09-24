@@ -87,14 +87,18 @@ BrowserSkill 场景按正常 `dsh plugin add` 安装 0.3.0 插件，并操作 Ch
 | `fixture.watch_input` | `entity`、`seconds`、`chunks`；分段真实键入，记录前台时间线、实际控件文本和 `focus_retained`。不重复激活目标。 |
 | `desktop.workspace` | 移动指定窗口并切换工作区；只建立前置条件，结束恢复原工作区。 |
 | `desktop.popup_position` | `pid`、`side`；真实拖动提醒，使连续点击时两个按钮不互相遮挡。 |
-| `desktop.popup_click` | 可选 `pid`、`wait_closed`；点击真实按钮，记录坐标及关闭事实，不直接调用产品回调。 |
+| `desktop.popup_click` | 可选 `pid`、`wait_closed`；点击真实按钮，记录坐标及关闭事实，不直接调用产品回调。冻结页面场景可设 `state_probe: false`、`observe_page: false`，避免测试器先唤醒被测页面。 |
 | `ui.wait_focus_result` | `timeout`；从本次点击计时，读取新请求终态。旧请求的 completed 不算本次完成。 |
 | `ui.focus_diagnostics` | 记录请求状态、页面会话、原生窗口及浏览器标签栏；不修改焦点。 |
-| `ui.restart_dsh` | 同 profile、同端口重启测试 DSH，观察页面令牌更新；报告只保留是否变化。 |
+| `ui.restart_dsh` | 同 profile、同端口重启测试 DSH，观察页面令牌更新；`reload_page: false` 保留原标签状态，不由测试器刷新。 |
 | `ui.use_claimant` | 将实际认领页面与已有逻辑窗口对应，用于多个 DSH 页面。 |
 | `ui.use_opened_page` | 浏览器正式入口新开页面后连接观察，不代替生产选页或激活。 |
 
 JSON 中显式断言会话、标签、原生前台、最小化状态、标签数量及输入结果。热态 10 秒、冷态 60 秒，成功后切到原生输入框观察 30 秒。测试恢复/选页仅用于前置条件和明确的后续用户操作；生产恢复期间禁用测试器补救。后台断连、控件找不到和原生观测失败均保留为失败，不改用 mock。
+
+弹窗唤回的生产选页统一走 Linux AT-SPI 或 Windows UIA，再核对原生窗口和目标会话；即使测试浏览器已有 CDP 连接，也不能把连接本身当作唤回成功。`reminder-focus-native-connected` 在 Windows 验证已有连接时实际选页来源仍是 UIA。普通 Chrome/Edge 标签由系统 AT-SPI/UIA 标识并点击标签自身的关闭按钮，不要求远程调试端口。已有 CDP 连接仍可作为可选技术通道，不用于正文采集或唤回；其专项用例列为扩展测试，不计入普通浏览器验收。`force-close-browser-default`、`force-close-browser-minimized-native` 与 `force-close-browser-background-native` 验证普通浏览器的精确关闭与兄弟标签保留。
+
+`fixture.page_lifecycle` 可在真实 Chrome/Edge 标签上设置 `frozen` / `active`，只用于建立浏览器页面生命周期前置条件。冻结期间 `fixture.wait(native_only: true)` 只读原生窗口，不访问页面 JavaScript；先独立确认产品恢复原窗口，再解除测试侧强制冻结并核对原页认领请求。`reminder-focus-stale-minimized` 验证 DSH 重启后旧标签恢复，`reminder-focus-frozen-live` 验证 DSH 持续运行时的旧标签恢复，`reminder-focus-frozen-background-native` 验证后台标签的原生后备；后者移除测试 profile 的端口发现文件。
 
 提醒及冷启动浏览器以本轮实际创建的 PID/启动时间或专用 profile 清理，包括隐藏中的提醒；不清理日常浏览器。
 
@@ -105,24 +109,24 @@ Windows 首次启动 Edge 出现 `Got it` 时，通过真实 UIA Invoke 操作�
 ## 强制关闭目标与困难夹具
 
 - `fixture.app` 支持 `refuse_close: true`、`close_behavior: save_prompt | hang` 和 `child_processes`。关闭事件写入夹具目录 `close-events.jsonl`；保存提示是真实原生对话框，hang 在收到原生关闭事件时阻塞应用。`fixture.observe` 的 `alive_children` 独立读取本轮子进程状态。
-- `fixture.browser` 的 `separate_instance: true` 创建独立 Chrome/Edge 测试进程和 profile；后续窗口/标签用 `instance` 引用它，避免升级强杀结束测试 DSH。`fixture.interact(action=beforeunload_probe)` 通过真实控件取得用户激活，触发浏览器卸载提示并取消，返回实际 dialog 类型。
-- `report.target` 默认匹配原生窗口；`kind: browser_tab` 按实际标签 ID 匹配正式报告引用。没有正文或截图不排除已有身份的动作目标；报告缺少目标时直接指出这一前置失败。
+- `fixture.browser` 的 `native_only: true` 使用独立 Chrome/Edge profile 正常启动目标窗口和兄弟标签，不设置调试端口；`fixture.select_tab` 通过原生无障碍接口建立后台标签前置条件。`separate_instance: true` 只用于扩展的已有连接技术场景。`fixture.interact(action=beforeunload_probe)` 通过真实控件取得用户激活，触发浏览器卸载提示并取消，返回实际 dialog 类型。
+- `report.target` 默认匹配原生窗口；`kind: browser_tab` 按 AT-SPI/UIA 的实际标签身份或已有连接的标签 ID 匹配正式报告引用。没有正文或截图不排除已有身份的动作目标；报告缺少目标时直接指出这一前置失败。
 - `desktop.hide_browser_connection(entity=...)` 对指定测试 profile 移除端口发现文件。测试器保留已建立的连接用于独立观察，这是明确的连接故障注入，不代表浏览器从启动时就未开启调试。
 - `force-close-*.json` 通过固定模型调用真实 `focus_act`；所有效果断言在清理之前。`minimize-window-state` 单独验证真实最小化状态。
 
-`force-close-browser-default` 从启动时就不设置调试端口，使用正式采集的原生窗口引用请求 `browser_tab` 最终关闭；没有精细标签连接时实际升级到浏览器进程。它与 `force-close-tab` 的精细标签路径分别报告，不能将进程后备描述成精细标签关闭。
+`force-close-browser-default` 从启动时不设置调试端口，正式报告记录目标标签的原生身份。Linux 先激活报告关联的 GNOME 窗口再执行 AT-SPI 关闭按钮；Windows 最小化时先恢复该 HWND，再通过 UIA 关闭按钮。两端均独立核对目标标签消失、同窗口兄弟标签和窗口保留；无障碍通道失败时仍按实际结果升级到窗口和进程。
 
-`report.read(report_id)` 只读取正式后台持久化报告。连接故障场景先由真实 DSH `focus_check` 生成最新报告，再观察引用并移除测试端口发现文件；不伪造采样、不修改报告、不自动重试产品失败。
+`report.read(report_id)` 只读取正式后台持久化报告。历史 CDP 连接故障场景先由真实 DSH `focus_check` 生成最新报告，再观察引用并移除测试端口发现文件；该场景已从可运行目录移除，历史版本保留在 Git。当前普通浏览器场景不创建调试端口，不伪造采样或修改报告。
 
 ### 强制关闭场景与产品接口
 
-`force-close-*.json` 使用正式任务、`focus_check` 报告和 `report.target` 取得引用，然后由 `model.call` 经 DSH 调用 `focus_act`。不把夹具 PID 直接传给产品。`force-close-tab-multiwindow` 验证同一浏览器进程、不同窗口、同标题标签；即使原生窗口关联不可用，已确定的 CDP 标签身份仍应出现在报告中。
+`force-close-*.json` 使用正式任务、`focus_check` 报告和 `report.target` 取得引用，然后由 `model.call` 经 DSH 调用 `focus_act`。不把夹具 PID 直接传给产品。普通浏览器的真实验收使用 `native_only` 夹具，实际读取目标进程命令行确认没有调试端口。旧版依赖 CDP 的标签场景已从可运行用例目录移除，历史版本可从 Git 追溯；CDP 仅保留现有连接的协议契约测试，不作为产品验收前提。
 
 ```json
 {"task_id":"任务编号","action":"force_close","report_id":"报告编号","target_ref":"报告引用","target_kind":"browser_tab"}
 ```
 
-`target_kind` 可省略（等于 `process`），也可为 `window` 或 `browser_tab`。窗口关闭最多观察 2.5 秒，未关闭则结束所属进程树；标签优先用已有连接精确关闭，再尝试关联窗口，最后结束关联进程树。单次精细调用由可终止的工作进程执行，上限 3 秒。没有精细通道或无法关联原生窗口时继续后备，不要求调试端口、借用确认或保存确认。
+`target_kind` 可省略（等于 `process`），也可为 `window` 或 `browser_tab`。窗口关闭最多观察 2.5 秒，未关闭则结束所属进程树；标签优先用系统原生无障碍控件精确关闭；报告只有已有连接身份时可使用该连接。原目标仍在才升级到关联窗口，最后结束关联进程树。单次精细调用由可终止的工作进程执行，上限 3 秒。原生控件不可用或动作无效时继续后备，不要求调试端口、借用确认或保存确认；Windows 最小化时无法枚举 UIA 标签不得误报为“已关闭”。
 
 结果保留 `closed`、`already_closed`，并提供 `target_kind`、`requested_target`、`actual_scope`、`attempts`。进程后备提供 `process_result` 及残留 `alive_pids`；部分退出与观察失败不能当作整棵进程树成功关闭。`actual_scope=none` 表示目标已不存在，未执行关闭。最小化保留原行为及字段，使用原生最小化状态确认。
 

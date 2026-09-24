@@ -110,7 +110,6 @@ def test_atspi_tab_search_requests_native_accessibility_before_children(monkeypa
     import focus_demo.atspi_dbus as atspi
     from types import SimpleNamespace
     monkeypatch.setattr(module, "os", SimpleNamespace(name="posix"))
-    monkeypatch.setattr(module,'_select_connected_tab',lambda *_:False)
     monkeypatch.setattr(module,'browser_process_ids',lambda:[123])
     calls=[]
     class Bus:
@@ -165,25 +164,11 @@ def test_selected_native_identity_survives_stale_window_title(monkeypatch):
 
 def test_selected_window_identity_is_forwarded(monkeypatch):
     from types import SimpleNamespace
-    target={'selected':True,'window_id':'win:42','pid':123,'tab_id':'page-1'}
+    target={'selected':True,'window_id':'win:42','pid':123,'source':'uia'}
     monkeypatch.setattr(module,'os',SimpleNamespace(name='nt'))
     monkeypatch.setattr(module,'select_browser_tab',lambda *a:target)
     monkeypatch.setattr(module,'raise_windows',lambda marker,**kw:{'raised':kw.get('target')==target})
     assert module.raise_dsh_window('[DSH-stale]',directory='/tmp')['raised']
-
-
-def test_cdp_window_mapping_does_not_choose_an_arbitrary_same_process_window(monkeypatch):
-    from types import SimpleNamespace
-    rectangles={11:(0,0,800,600),22:(100,100,1000,800)}
-    monkeypatch.setitem(sys.modules,'win32gui',SimpleNamespace(
-        EnumWindows=lambda cb,arg:[cb(h,arg) for h in rectangles],IsWindowVisible=lambda h:True,
-        GetClassName=lambda h:'Chrome_WidgetWin_1',GetWindowRect=lambda h:rectangles[h]))
-    monkeypatch.setitem(sys.modules,'win32process',SimpleNamespace(GetWindowThreadProcessId=lambda h:(1,123)))
-    bounds={'left':100,'top':100,'width':900,'height':700}
-    assert module._windows_browser_handle(123,bounds)==22
-    rectangles[11]=rectangles[22]
-    assert module._windows_browser_handle(123,bounds) is None
-    assert module._windows_browser_handle(999,bounds) is None
 
 
 def test_selected_native_window_cannot_be_reused_by_another_process(monkeypatch):
@@ -193,40 +178,6 @@ def test_selected_native_window_cannot_be_reused_by_another_process(monkeypatch)
     monkeypatch.setitem(sys.modules,'win32process',SimpleNamespace(GetWindowThreadProcessId=lambda h:(1,999)))
     result=module.raise_windows('[DSH-stale]',target={'window_id':'win:42','pid':123})
     assert not result['raised'] and result['stage']=='locate'
-
-
-def test_connected_window_query_failure_allows_native_fallback(monkeypatch):
-    from types import SimpleNamespace
-    from io import BytesIO
-    import urllib.request,psutil,websocket
-    import focus_demo.browser_targets as targets
-    replies=iter([b'[{"type":"page","title":"[DSH-request]","id":"tab-1"}]',b''])
-    monkeypatch.setattr(urllib.request,'build_opener',lambda *a:SimpleNamespace(open=lambda *a,**k:BytesIO(next(replies))))
-    monkeypatch.setattr(module,'browser_process_ids',lambda:[123])
-    monkeypatch.setattr(psutil,'Process',lambda pid:SimpleNamespace(cmdline=lambda:['chrome','--remote-debugging-port=1234']))
-    monkeypatch.setattr(module,'os',SimpleNamespace(name='nt'))
-    monkeypatch.setattr(targets,'get',lambda *a:{'webSocketDebuggerUrl':'ws://unused'})
-    def unavailable(*args):raise websocket.WebSocketTimeoutException('connection unavailable')
-    monkeypatch.setattr(targets,'rpc',unavailable)
-    assert module._select_connected_tab('[DSH-request]') is False
-
-
-def test_linux_connected_selection_does_not_require_websocket(monkeypatch):
-    import builtins
-    from types import SimpleNamespace
-    from io import BytesIO
-    import urllib.request,psutil
-    original=builtins.__import__
-    def without_websocket(name,*args,**kwargs):
-        if name=='websocket':raise ModuleNotFoundError(name)
-        return original(name,*args,**kwargs)
-    replies=iter([b'[{"type":"page","title":"[DSH-request]","id":"tab-1"}]',b''])
-    monkeypatch.setattr(builtins,'__import__',without_websocket)
-    monkeypatch.setattr(module,'os',SimpleNamespace(name='posix'))
-    monkeypatch.setattr(module,'browser_process_ids',lambda:[123])
-    monkeypatch.setattr(psutil,'Process',lambda pid:SimpleNamespace(cmdline=lambda:['chrome','--remote-debugging-port=1234']))
-    monkeypatch.setattr(urllib.request,'build_opener',lambda *a:SimpleNamespace(open=lambda *a,**k:BytesIO(next(replies))))
-    assert module._select_connected_tab('[DSH-request]') is True
 
 
 def test_focus_dbus_reply_does_not_replace_foreground_observation(tmp_path,monkeypatch):
@@ -268,3 +219,20 @@ def test_disconnected_bridge_reports_failure(tmp_path,monkeypatch):
     monkeypatch.setattr(bridge,'call',broken)
     result=module.request_gnome_focus(tmp_path,{'id':'gnome:7','title':'test'},pid=123)
     assert not result['raised'] and 'disconnected' in result['reason']
+
+
+def test_wake_existing_background_dsh_tab_uses_its_native_window(monkeypatch,tmp_path):
+    windows=[{'id':'gnome:4','title':'other tab - Google Chrome','minimized':True,'focused':False,'pid':123}]
+    selected=[];requests=[]
+    monkeypatch.setattr(module,'desktop_dir',lambda:tmp_path)
+    monkeypatch.setattr(module,'_snapshot',lambda *_:windows)
+    def select(marker,*_):
+        selected.append(marker)
+        windows[0]['title']='Task — DeepSeek Harness - Google Chrome'
+        return True
+    monkeypatch.setattr(module,'select_browser_tab',select)
+    monkeypatch.setattr(module,'request_gnome_focus',lambda _d,w,*a,**k:requests.append(w['id']) or {'raised':True})
+    monkeypatch.setattr(module,'wait_for_focus',lambda _d,id,*a,**k:id=='gnome:4')
+    result=module.wake_existing_dsh_window()
+    assert result['found'] and result['raised'] and result['window_id']=='gnome:4'
+    assert selected==[module.MARKER] and requests==['gnome:4']

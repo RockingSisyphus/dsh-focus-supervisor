@@ -37,7 +37,7 @@
 | Windows | DSH Web、Node.js、Python 3、Edge |
 | Linux | DSH Web、Node.js、Python 3、Chrome；推荐 Ubuntu 的 GNOME Wayland 桌面，使用 systemd |
 
-Windows 请先装好 Python 3。后台其余依赖由安装器处理，安装时需要联网并完成系统授权。**浏览器无需额外安装采集扩展或 BrowserSkill。**
+Windows 请先装好 Python 3。后台其余依赖由安装器处理，安装时需要联网并完成系统授权。**浏览器照常启动即可，无需调试端口、额外采集扩展或 BrowserSkill。**
 
 ### 安装插件
 

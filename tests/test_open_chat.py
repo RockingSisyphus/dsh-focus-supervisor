@@ -9,12 +9,13 @@ module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 def harness(monkeypatch):
     opened=[];calls=[];raised=[];state={'claimed':True,'session_ready':True,'marker':'[DSH-r]'}
     monkeypatch.setattr(module,'CLAIM_WAIT_SECONDS',.03)
+    monkeypatch.setattr(module,'THAW_WAIT_SECONDS',.03)
     monkeypatch.setattr(module,'COLD_WAIT_SECONDS',.03)
     monkeypatch.setattr(module,'CLAIM_POLL_SECONDS',.001)
     monkeypatch.setattr(module.os,'startfile',lambda url:opened.append(url),raising=False)
     monkeypatch.setattr(module.subprocess,'Popen',lambda args,**kw:opened.append(args[-1]))
     def native(*args,**kwargs):raised.append((args,kwargs));return {'raised':True,'steps':[{'step':'verify','ok':True}]}
-    monkeypatch.setitem(sys.modules,'focus_window',types.SimpleNamespace(raise_dsh_window=native))
+    monkeypatch.setitem(sys.modules,'focus_window',types.SimpleNamespace(raise_dsh_window=native,wake_existing_dsh_window=lambda:{'found':False}))
     def call(origin,route,payload=None,**kwargs):
         calls.append((origin,route,payload))
         if route=='/focus/open-request':return {'id':'r','open_page':True}
@@ -30,6 +31,33 @@ def test_existing_page_completes_native_operation_without_duplicate(harness):
     assert not harness.opened
     assert harness.raised==[(('[DSH-r]',),{'request_context':{'origin':'http://127.0.0.1:3080','id':'r'}})]
     assert harness.calls[-1][1]=='/focus/open-result'
+
+def test_frozen_existing_window_is_restored_before_cold_open(harness,monkeypatch):
+    harness.state.clear();harness.state.update(claimed=False,session_ready=False)
+    def wake():
+        harness.state.update(claimed=True,session_ready=True,marker='[DSH-r]')
+        return {'found':True,'raised':True,'window_id':'gnome:4'}
+    monkeypatch.setattr(sys.modules['focus_window'],'wake_existing_dsh_window',wake)
+    assert module.open_chat(URL)=='[DSH-r]'
+    assert not harness.opened
+    assert len([c for c in harness.calls if c[1]=='/focus/open-request'])==1
+
+
+def test_existing_window_restore_failure_does_not_open_duplicate(harness,monkeypatch):
+    harness.state.clear();harness.state.update(claimed=False,session_ready=False)
+    monkeypatch.setattr(sys.modules['focus_window'],'wake_existing_dsh_window',
+        lambda:{'found':True,'raised':False,'reason':'桌面接口失效'})
+    with pytest.raises(module.RaiseFailed,match='桌面接口失效'):module.open_chat(URL)
+    assert not harness.opened
+
+
+def test_restored_window_without_page_claim_reports_failure_not_new_tab(harness,monkeypatch):
+    harness.state.clear();harness.state.update(claimed=False,session_ready=False)
+    monkeypatch.setattr(sys.modules['focus_window'],'wake_existing_dsh_window',
+        lambda:{'found':True,'raised':True,'window_id':'gnome:4'})
+    with pytest.raises(RuntimeError,match='未新建重复标签页'):module.open_chat(URL)
+    assert not harness.opened
+
 
 def test_delivery_without_completion_does_not_open_duplicate(harness):
     harness.state.clear();harness.state.update(claimed=True,session_ready=False)

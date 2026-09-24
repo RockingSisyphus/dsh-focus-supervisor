@@ -235,6 +235,17 @@ class Collector:  # 封装当前组件的状态与接口。
             if worker.returncode:raise RuntimeError(worker.stderr[-500:])
             metadata=json.loads(worker.stdout)
             browser['action_targets']=metadata['targets']
+            native_by_window={}
+            for target in metadata['targets']:
+                if target.get('native_tab'):
+                    native_by_window.setdefault(target['native_window_id'],[]).append(target)
+            for document in browser['semantic']['snapshots']:
+                matches=native_by_window.get(document.get('native_window_id'),[])
+                if len(matches)==1:
+                    target=matches[0]
+                    document.update(tab_id=target['tab_id'],native_tab=target['native_tab'],
+                                    window_title=target['window_title'],window_rect=target['window_rect'],
+                                    window_buffer_rect=target['window_buffer_rect'])
             browser['limitations'] += ['浏览器动作目标：'+str(e) for e in metadata['errors']]
         except (OSError,ValueError,RuntimeError,subprocess.TimeoutExpired) as error:
             browser['action_targets']=[]

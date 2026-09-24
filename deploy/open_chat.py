@@ -13,6 +13,7 @@ from urllib.parse import urlparse,parse_qsl,urlencode
 
 COLD_WAIT_SECONDS = 45.0
 CLAIM_WAIT_SECONDS = 12.0  # Includes page navigation and its explicit completion reply.
+THAW_WAIT_SECONDS = 30.0   # An already existing frozen tab may reload after its window is restored.
 
 
 class FocusSuperseded(RuntimeError):
@@ -166,7 +167,19 @@ def open_chat(url, registry=None):
                 try:created=_plugin_call(candidate,'/focus/open-request',{'session':session})
                 except Exception as error:raise PluginUnreachable(str(error)) from error
                 request_id=created.get('id')
-                switched = switch_open_page(candidate,session,request_id=request_id)
+                switched = switch_open_page(candidate,session,request_id=request_id,
+                    wait_seconds=2.0 if created.get('open_page') is False else CLAIM_WAIT_SECONDS)
+                if not switched:
+                    from focus_window import wake_existing_dsh_window
+                    wake=wake_existing_dsh_window()
+                    if wake.get('found'):
+                        _log('旧 DSH 窗口唤醒：'+json.dumps(wake,ensure_ascii=False)[:240])
+                        if not wake.get('raised'):
+                            raise RaiseFailed('找到旧 DSH 窗口，但无法恢复：'+str(wake.get('reason') or '未知原因'))
+                        switched=switch_open_page(candidate,session,request_id=request_id,
+                            wait_seconds=THAW_WAIT_SECONDS)
+                        if not switched:
+                            raise RuntimeError('旧 DSH 窗口已恢复，但页面没有接管会话；未新建重复标签页。')
             except PluginUnreachable as error:
                 _log('插件地址不通（%s），换下一个地址：%s' % (candidate, str(error)[:80]))
                 continue

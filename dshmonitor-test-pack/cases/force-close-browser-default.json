@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "force-close-browser-default",
-  "title": "普通浏览器无调试端口的最终关闭",
+  "title": "普通浏览器仅凭系统无障碍精确关闭单个标签",
   "engine": "dsh",
   "platforms": [
     "linux",
@@ -13,7 +13,8 @@
   "features": [
     "heartbeat",
     "actions",
-    "test-reporting"
+    "test-reporting",
+    "tool.focus_act.force_close.browser_tab"
   ],
   "steps": [
     {
@@ -25,8 +26,39 @@
       "op": "fixture.browser",
       "entity": "target",
       "native_only": true,
+      "rect": [100, 80, 900, 560],
       "title": "Default browser close fixture",
-      "html": "<title>Default browser close fixture</title><input><p>Native browser without debugging port</p>"
+      "html": "<title>Default browser close fixture</title><input><p>Native tab target without debugging port</p>",
+      "sibling_title": "Default browser sibling fixture",
+      "sibling_html": "<title>Default browser sibling fixture</title><input><p>Sibling must remain open</p>",
+      "bind": "fixture"
+    },
+    {
+      "id": "select-target-tab",
+      "op": "fixture.select_tab",
+      "entity": "target",
+      "tab": "target",
+      "bind": "selected"
+    },
+    {
+      "id": "target-selected",
+      "op": "assert",
+      "actual": {
+        "$ref": "selected.selected_tab_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "selected.tab_id"
+      }
+    },
+    {
+      "id": "ordinary-launch",
+      "op": "assert",
+      "actual": {
+        "$ref": "fixture.remote_debugging"
+      },
+      "operator": "equals",
+      "expected": false
     },
     {
       "id": "heartbeat",
@@ -87,7 +119,17 @@
         "$ref": "report.id"
       },
       "entity": "target",
-      "bind": "target"
+      "bind": "target",
+      "kind": "browser_tab"
+    },
+    {
+      "id": "native-identity",
+      "op": "assert",
+      "actual": {
+        "$ref": "target.evidence.native_tab"
+      },
+      "operator": "exists",
+      "expected": true
     },
     {
       "id": "force_close",
@@ -114,7 +156,10 @@
       "op": "fixture.wait",
       "entity": "target",
       "expected": {
-        "present": false
+        "present": true,
+        "tab_closed": true,
+        "sibling_present": true,
+        "tabs_observed": true
       },
       "timeout": 10,
       "bind": "closed"
@@ -138,13 +183,13 @@
       "expected": true
     },
     {
-      "id": "process-fallback",
+      "id": "native-exact-scope",
       "op": "assert",
       "actual": {
         "$ref": "action.value.actual_scope"
       },
       "operator": "equals",
-      "expected": "process"
+      "expected": "browser_tab"
     },
     {
       "id": "finish",
@@ -160,5 +205,6 @@
       }
     }
   ],
-  "present_user": true
+  "present_user": true,
+  "note": "目标浏览器普通启动，没有调试端口；正式报告提供系统无障碍标签身份。经真实 DSH 关闭后独立核对目标页消失、同窗口兄弟页仍在、窗口仍在及实际执行范围为 browser_tab。"
 }

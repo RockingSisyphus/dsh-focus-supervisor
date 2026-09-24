@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "force-close-tab-fallback",
-  "title": "真实标签关闭：fallback",
+  "id": "force-close-browser-minimized-native",
+  "title": "普通浏览器窗口最小化后精确关闭目标标签",
   "engine": "dsh",
   "platforms": [
     "linux",
@@ -9,11 +9,12 @@
   ],
   "group": "regular",
   "verification": "product",
-  "timeout": 360,
+  "timeout": 240,
   "features": [
     "heartbeat",
     "actions",
-    "test-reporting"
+    "test-reporting",
+    "tool.focus_act.force_close.browser_tab"
   ],
   "steps": [
     {
@@ -24,17 +25,39 @@
       "id": "fixture",
       "op": "fixture.browser",
       "entity": "target",
-      "separate_instance": true,
-      "html": "<title>Same tab title</title><input id=\"input\"><p>Dedicated close target</p>"
+      "native_only": true,
+      "title": "Default browser close fixture",
+      "html": "<title>Default browser close fixture</title><input><p>Native tab target without debugging port</p>",
+      "sibling_title": "Default browser sibling fixture",
+      "sibling_html": "<title>Default browser sibling fixture</title><input><p>Sibling must remain open</p>",
+      "bind": "fixture"
     },
     {
-      "id": "sibling",
-      "op": "fixture.browser",
-      "entity": "sibling",
-      "instance": "target",
-      "new_window": false,
-      "window": "target",
-      "html": "<title>Same tab title</title><p>Sibling must survive precise close</p>"
+      "id": "select-target-tab",
+      "op": "fixture.select_tab",
+      "entity": "target",
+      "tab": "target",
+      "bind": "selected"
+    },
+    {
+      "id": "target-selected",
+      "op": "assert",
+      "actual": {
+        "$ref": "selected.selected_tab_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "selected.tab_id"
+      }
+    },
+    {
+      "id": "ordinary-launch",
+      "op": "assert",
+      "actual": {
+        "$ref": "fixture.remote_debugging"
+      },
+      "operator": "equals",
+      "expected": false
     },
     {
       "id": "heartbeat",
@@ -89,26 +112,6 @@
       "minimum_samples": 1
     },
     {
-      "id": "fresh-check",
-      "op": "model.call",
-      "user": "在断开浏览器连接前获取真实最新目标",
-      "tool": "focus_check",
-      "arguments": {
-        "task_id": {
-          "$ref": "task.value.id"
-        }
-      },
-      "bind": "checked"
-    },
-    {
-      "id": "fresh-report",
-      "op": "report.read",
-      "report_id": {
-        "$ref": "checked.value.report_id"
-      },
-      "bind": "report"
-    },
-    {
       "id": "target",
       "op": "report.target",
       "report_id": {
@@ -119,9 +122,19 @@
       "kind": "browser_tab"
     },
     {
-      "id": "connection-loss",
-      "op": "desktop.hide_browser_connection",
-      "entity": "target"
+      "id": "native-identity",
+      "op": "assert",
+      "actual": {
+        "$ref": "target.evidence.native_tab"
+      },
+      "operator": "exists",
+      "expected": true
+    },
+    {
+      "id": "minimize-precondition",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "minimize"
     },
     {
       "id": "force_close",
@@ -148,7 +161,10 @@
       "op": "fixture.wait",
       "entity": "target",
       "expected": {
-        "tab_closed": true
+        "present": true,
+        "tab_closed": true,
+        "sibling_present": true,
+        "tabs_observed": true
       },
       "timeout": 10,
       "bind": "closed"
@@ -172,28 +188,13 @@
       "expected": true
     },
     {
-      "id": "sibling-observe",
-      "op": "fixture.observe",
-      "entity": "sibling",
-      "bind": "sibling"
-    },
-    {
-      "id": "window-fallback-also-closes-sibling",
-      "op": "assert",
-      "actual": {
-        "$ref": "sibling.present"
-      },
-      "operator": "equals",
-      "expected": false
-    },
-    {
-      "id": "scope",
+      "id": "native-exact-scope",
       "op": "assert",
       "actual": {
         "$ref": "action.value.actual_scope"
       },
       "operator": "equals",
-      "expected": "window"
+      "expected": "browser_tab"
     },
     {
       "id": "finish",
@@ -209,8 +210,6 @@
       }
     }
   ],
-  "visible_browser": true,
-  "real_tab_visibility": true,
   "present_user": true,
-  "note": "精确通道断开后应由正常窗口关闭完成；独立确认原窗口及两个标签消失，不要求无必要地升级为进程强杀。强杀升级由拒绝关闭、无响应等场景另验收。"
+  "note": "目标浏览器没有调试端口；先在真实报告中取得目标标签身份，再建立最小化或后台标签前置状态，经真实 DSH 关闭后独立核对目标消失而同窗口兄弟标签和窗口保留。"
 }

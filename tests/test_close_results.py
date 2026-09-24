@@ -184,3 +184,28 @@ def test_one_tab_without_browser_window_does_not_drop_other_tabs(monkeypatch):
     assert result['targets'][0]['native_window_id'] is None
     assert result['targets'][1]['browser_window_id']==42
     assert result['errors'][0]['tab_id']=='unmapped'
+
+
+def test_unobservable_native_tab_does_not_look_already_closed(monkeypatch):
+    from focus_demo import native_tabs
+    monkeypatch.setattr(native_tabs,'capture',lambda *args,**kwargs:{
+        'tabs':[], 'windows_scanned':[],
+        'errors':[{'window_id':'win:7','reason':'窗口已最小化，标签列表不可观察'}]})
+    result=native_tabs.observe({'native_window_id':'win:7','native_tab':{'runtime_id':[1,2]},
+                                'tab_id':'uia:1,2','process':{'pid':12},'app':'browser'})
+    assert result['closed'] is False
+    assert result['reason']=='无法独立读取原生标签列表'
+
+
+def test_native_browser_target_does_not_require_debug_endpoint(monkeypatch):
+    from focus_demo import browser_targets, native_tabs
+    monkeypatch.setattr(native_tabs,'capture',lambda windows:{'tabs':[{
+        'tab_id':'atspi:owner:path','native_tab':{'owner':'owner','path':'path'},
+        'window_id':'gnome:1','pid':12,'title':'Page','selected':True}],
+        'errors':[],'windows_scanned':['gnome:1']})
+    monkeypatch.setattr(browser_targets,'endpoint',lambda pid:(_ for _ in ()).throw(
+        AssertionError('ordinary browser must not need a debugging endpoint')))
+    result=browser_targets.capture([{'id':'gnome:1','pid':12,
+        'process':{'pid':12,'identity':'life','name':'chrome'},'title':'Page'}])
+    assert len(result['targets'])==1
+    assert result['targets'][0]['connection_kind']=='system_accessibility_tab'

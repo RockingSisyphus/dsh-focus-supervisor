@@ -1,7 +1,9 @@
 """Click the real native reminder button; no X11 and no handler injection."""
 import json,os,subprocess,sys,time
 from pathlib import Path
-sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'test-support'))
+root=Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(root))
+sys.path.insert(0,str(root/'test-support'))
 pid=int(sys.argv[1]);mode=sys.argv[2] if len(sys.argv)>2 else 'click'
 if sys.platform=='win32':
     if mode=='keys':
