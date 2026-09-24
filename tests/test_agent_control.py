@@ -65,6 +65,21 @@ def test_only_legacy_shipped_prompts_migrate(tmp_path, monkeypatch):
     finally:upgraded.store.close()
 
 
+def test_obsolete_deadline_phase_is_removed_without_resetting_custom_prompts(tmp_path):
+    directory=tmp_path/'legacy-phase'
+    old=Supervisor(directory,SimpleNamespace(enable=lambda:None))
+    old.store.save('settings',{'id':'global',
+        'instructions_full':'自定义前文；followup 疑点复查、deadline 到时、returned_to_computer；自定义后文',
+        'heartbeat_prompt':'自定义前文；deadline 按约定与用户讨论是否延期，不擅自延长或取消；returned_to_computer；自定义后文'})
+    old.store.close()
+    upgraded=Supervisor(directory,SimpleNamespace(enable=lambda:None))
+    try:
+        settings=upgraded.settings()
+        assert settings['instructions_full']=='自定义前文；followup 疑点复查、returned_to_computer；自定义后文'
+        assert settings['heartbeat_prompt']=='自定义前文；returned_to_computer；自定义后文'
+    finally:upgraded.store.close()
+
+
 def test_full_instructions_fall_back_to_defaults_and_stay_locked_like_instructions(core):
     from focus_demo.control import DEFAULTS
     # An installation upgraded from an older version stores a row without the new field.

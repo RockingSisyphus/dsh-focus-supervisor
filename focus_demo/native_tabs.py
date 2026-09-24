@@ -42,14 +42,19 @@ def _linux(windows):
                         candidates.append({'node':(name,path),'rect':rect,'title':props.get('Name',{}).get('data','')})
                     except RuntimeError:continue
             associated=match_windows([w for w in browser if w['pid']==pid],candidates)
+            roots={}
             for window in (w for w in browser if w['pid']==pid):
                 match=associated.get(window['id'])
-                if not match or 'node' not in match:
+                if not match:
                     result['errors'].append({'window_id':window['id'],'reason':'AT-SPI 顶层窗口无法关联',
                         'native_rect':window.get('buffer_rect') or window.get('rect'),
                         'accessible_rects':[candidate['rect'] for candidate in candidates[:8]]})
                     continue
-                queue=deque([match['node']]);visited=set();count=0;complete=True
+                for node in match.get('nodes') or [match['node']]:
+                    roots.setdefault(node,set()).add(window['id'])
+            for root, window_ids in roots.items():
+                window_id=next(iter(window_ids)) if len(window_ids)==1 else None
+                queue=deque([root]);visited=set();count=0;complete=True
                 try:
                     while queue and count<650:
                         name,path=queue.popleft()
@@ -63,7 +68,9 @@ def _linux(windows):
                                 selected=bool(state and state[0] & (1<<23))
                                 props=bus.call(name,path,'org.freedesktop.DBus.Properties','GetAll','s',ACCESSIBLE)
                                 result['tabs'].append({'tab_id':'atspi:'+name+':'+path,
-                                    'native_tab':{'owner':name,'path':path},'window_id':window['id'],
+                                    'native_tab':{'owner':name,'path':path},'window_id':window_id,
+                                    'window_ids':sorted(window_ids),
+                                    'a11y_root':{'owner':root[0],'path':root[1]},
                                     'pid':pid,'title':props.get('Name',{}).get('data',''),'selected':selected})
                             except RuntimeError:pass
                             continue
@@ -74,8 +81,8 @@ def _linux(windows):
                         except RuntimeError:continue
                     if queue:complete=False
                 except TimeoutError:complete=False
-                if complete:result['windows_scanned'].append(window['id'])
-                else:result['errors'].append({'window_id':window['id'],'reason':'AT-SPI 标签遍历未完成','visited':count})
+                if complete:result['windows_scanned'].extend(sorted(window_ids))
+                else:result['errors'].append({'window_ids':sorted(window_ids),'reason':'AT-SPI 标签遍历未完成','visited':count})
     finally:bus.close()
     return result
 
@@ -153,7 +160,7 @@ def _click_windows(tab):
 
 def observe(expected):
     window_id=expected.get('native_window_id')
-    if not window_id or not expected.get('native_tab'):
+    if not expected.get('native_tab') or (not window_id and not expected['native_tab'].get('owner')):
         return {'closed':False,'reason':'报告没有原生标签身份'}
     node=expected['native_tab']
     if node.get('owner') and node.get('path'):
@@ -185,12 +192,22 @@ def observe(expected):
 def close(expected):
     activation=None
     if sys.platform.startswith('linux'):
-        from .desktop_bridge import call
-        try:
-            activation=call('focus',{'window_id':expected['native_window_id'],
-                                     'pid':expected['process']['pid'],'expires_at':time.time()+2})
-        except Exception as error:
-            activation={'acted':False,'reason':str(error)}
+        if expected.get('native_window_id'):
+            from .desktop_bridge import call
+            try:
+                activation=call('focus',{'window_id':expected['native_window_id'],
+                                         'pid':expected['process']['pid'],'expires_at':time.time()+2})
+            except Exception as error:
+                activation={'acted':False,'reason':str(error)}
+        elif expected.get('a11y_root'):
+            from .atspi_dbus import Bus
+            root=expected['a11y_root'];bus=Bus(1.2)
+            try:
+                activation={'acted':bool(bus.call(root['owner'],root['path'],
+                    'org.a11y.atspi.Component','GrabFocus'))}
+            except Exception as error:
+                activation={'acted':False,'reason':str(error)[:160]}
+            finally:bus.close()
     elif sys.platform=='win32':
         import ctypes
         from ctypes import wintypes

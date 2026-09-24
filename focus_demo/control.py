@@ -26,12 +26,13 @@ class Control:
             value=self.settings();patch=request.get('patch',{})
             if actor=='ui' and value['ui_locked']:raise ValueError('有严苛任务或循环预约时，界面设置已锁定；请在监工聊天中商量修改。')
             if not isinstance(patch,dict) or not patch:raise ValueError('请提供需要修改的设置')
-            allowed={'instructions','instructions_full','heartbeat_prompt','strict_heartbeat_prompt','mascot_size','task_prompt','away_heartbeats','sampling','reporting'}
+            allowed={'instructions','instructions_full','heartbeat_prompt','strict_heartbeat_prompt','mascot_size','task_prompt','away_heartbeats','sampling','reporting','debug_mode'}
             if set(patch)-allowed:raise ValueError('未知设置字段')
             for key in ('instructions','instructions_full','heartbeat_prompt','strict_heartbeat_prompt','task_prompt'):
                 if key in patch and (not isinstance(patch[key],str) or not patch[key].strip()):raise ValueError(f'{key} 不能为空')
             if 'mascot_size' in patch and (type(patch['mascot_size']) is not int or not 80<=patch['mascot_size']<=320):raise ValueError('图片大小范围为80至320像素')
             if 'away_heartbeats' in patch and (type(patch['away_heartbeats']) is not int or not 2<=patch['away_heartbeats']<=10):raise ValueError('离席判定次数须为 2 至 10 的整数')
+            if 'debug_mode' in patch and type(patch['debug_mode']) is not bool:raise ValueError('调试保留模式须为布尔值')
             task=None
             if 'task_prompt' in patch:
                 if actor!='ai':raise ValueError('任务附加提示词通过监工会话修改')
@@ -84,7 +85,8 @@ class Control:
                 if not report or report['task_id']!=task['id'] or report['revision']!=task['revision']:raise ValueError('报告不属于当前任务版本')
                 expected=report['effective']['evidence'].get(request.get('target_ref'))
                 if not expected:raise ValueError('窗口证据不存在，请重新采集')  # 不再限制证据时效：动手时由执行器核对目标是否还在、还是不是它。
-                payload={'expected':expected,'target_kind':request.get('target_kind','process')} if action=='force_close' else expected
+                payload={'expected':expected,'target_kind':request.get('target_kind','process'),
+                         'force_kill':request.get('force_kill',False)} if action=='force_close' else expected
                 result=self.sensor.call('force_close' if action=='force_close' else 'minimize',payload) if self.sensor else {('closed' if action=='force_close' else 'minimized'):False,'reason':'无采集器'}
             elif action=='remind':
                 message=request.get('message')
@@ -133,6 +135,7 @@ class Control:
     def cleanup_task(self,task):
         if task['id'] in self.cleaning:return
         task['cleanup_pending']=True
+        task.setdefault('debug_evidence_retained',bool(self.settings()['debug_mode']))
         self.store.save('task',task)
         self.cleaning.add(task['id'])
         self.lock.after_release(lambda:self._cleanup_task(task))
@@ -149,6 +152,20 @@ class Control:
             self.publish()
 
     def _cleanup_files(self,task):
+        if task.get('debug_evidence_retained'):
+            # Freeze the image references before another ordinary task may clean
+            # the shared content-addressed screenshot directory.
+            images=set()
+            samples=self.store.samples(task['id'])
+            for sample in samples:
+                desktop=sample.get('desktop',{})
+                shots=[desktop.get('desktop_screenshot'),*(w.get('screenshot') for w in desktop.get('windows',[]))]
+                images.update(shot['sha256']+'.png' for shot in shots if isinstance(shot,dict) and shot.get('sha256'))
+            self.store.save('debug_images',{'id':task['id'],'files':sorted(images)})
+            task.pop('cleanup_pending',None)
+            self.store.save('task',task)
+            self.store.log('debug_evidence_retained',{'task_id':task['id'],'samples':len(samples),'images':len(images)})
+            return
         task.pop('task_prompt',None)
         export_failed=False
         if task.get('project_dir'):
@@ -178,7 +195,9 @@ class Control:
         from .common import screenshot_files
         with screenshot_files:
             if not any(t['status'] in ACTIVE for t in self.live()):
-                for image in (self.directory/'screenshots').glob('*.png'):image.unlink(missing_ok=True)
+                retained={name for entry in self.store.all('debug_images') for name in entry['files']}
+                for image in (self.directory/'screenshots').glob('*.png'):
+                    if image.name not in retained:image.unlink(missing_ok=True)
         # Only the sampling loop owns suspend/resume; cleanup cannot stop a new task.
         if not export_failed:task.pop('cleanup_pending',None)
         self.store.save('task',task)

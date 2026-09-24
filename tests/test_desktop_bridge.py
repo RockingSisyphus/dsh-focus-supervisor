@@ -115,7 +115,8 @@ def test_slow_screenshot_persistence_does_not_hold_desktop_channel(tmp_path,monk
         sensor.lock.release()
     finally:
         release.set();worker.join(2)
-    assert result==[{'ts':1}]
+    assert len(result)==1 and result[0]['ts']==1
+    assert set(result[0]['capture_timings'])=={'sensor_exchange','save_images'}
 
 
 def test_sample_commit_does_not_block_status(tmp_path,monkeypatch):

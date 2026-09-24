@@ -80,7 +80,7 @@ dsh plugin --profile web add https://github.com/RockingSisyphus/dsh-focus-superv
 
 为了监督任务，AI 会看到插件采集的桌面内容。这些内容经 DSH 发送给**你配置的模型服务**，使用前请考虑工作资料是否适合交给该服务处理。
 
-插件证据保存在本机，任务结束后按任务生命周期清理；聊天记录由 DSH 管理。采集主要关注当前可见的窗口和页面，部分应用的文字读取范围及平台问题见 [使用说明](https://github.com/RockingSisyphus/dsh-focus-supervisor/blob/main/docs/usage.md) 和 [当前问题](https://github.com/RockingSisyphus/dsh-focus-supervisor/blob/main/docs/known-issues.md)。
+插件证据保存在本机，任务结束后按任务生命周期清理；排查采集问题时可在设置中打开“调试保留模式”，让之后任务的证据在结束后继续留在本机。聊天记录由 DSH 管理。采集主要关注当前可见的窗口和页面，部分应用的文字读取范围及平台问题见 [使用说明](https://github.com/RockingSisyphus/dsh-focus-supervisor/blob/main/docs/usage.md) 和 [当前问题](https://github.com/RockingSisyphus/dsh-focus-supervisor/blob/main/docs/known-issues.md)。
 
 ## 开源与致谢
 

@@ -102,6 +102,46 @@ class Supervisor(TaskLifecycle, Control):
             if isinstance(value, str) and hashlib.sha256(value.encode()).hexdigest() == digest:
                 stored.pop(key)
                 settings_changed = True
+        # Preserve user edits while removing two obsolete phase descriptions
+        # that were saved before deadline reports were replaced by timed stop.
+        replacements = {
+            'instructions_full': (
+                'followup 疑点复查、deadline 到时、returned_to_computer',
+                'followup 疑点复查、returned_to_computer'),
+            'heartbeat_prompt': (
+                '；deadline 按约定与用户讨论是否延期，不擅自延长或取消', ''),
+        }
+        for key, (old, new) in replacements.items():
+            value = stored.get(key)
+            if isinstance(value, str) and old in value:
+                stored[key] = value.replace(old, new)
+                settings_changed = True
+        # Saved copies of the old default must not keep telling the model that
+        # a failed tab close automatically closes its browser.
+        obsolete_close_phrases = {
+            'instructions_full': {
+                'force_close 在最后手段下结束该进程及其子进程':
+                    'force_close 按 target_kind 关闭进程、窗口或标签；标签失败不自动扩大范围',
+                '精细关闭失败自动升级，可能丢失未保存内容':
+                    '窗口关闭失败可升级进程；标签关闭失败先返回提示，只有再次提醒用户后显式传 force_kill=true 才扩大到整个浏览器',
+                '精细关闭被保存提示、拒绝关闭、无响应或连接不可用阻止时，会升级关闭相关窗口/进程树':
+                    '窗口关闭失败可升级进程；标签精确关闭失败不自动扩大范围，需再次提醒用户后显式传 force_kill=true 才扩大到整个浏览器',
+                '没有精确标签连接时，force_close 的 browser_tab 请求沿用所属窗口、进程后备，不要求新建浏览器连接。':
+                    '没有精确标签身份或关闭通道时，browser_tab 请求返回失败；不会自动关闭窗口或浏览器。',
+            },
+            'heartbeat_prompt': {
+                '窗口再次出现或仍持续分心时，先用 remind 告知用户将要强制关闭，再用 force_close 强制结束进程（可能丢失未保存内容），这是最后手段。':
+                    '仍持续分心时先用 remind 告知最终关闭，再按报告目标调用 force_close。若 browser_tab 精确关闭失败，应再次提醒用户；仍未回到任务时才显式传 force_kill=true，扩大关闭整个浏览器。',
+            },
+        }
+        for key, phrases in obsolete_close_phrases.items():
+            value = stored.get(key)
+            if isinstance(value, str):
+                for old, new in phrases.items():
+                    if old in value:
+                        value = value.replace(old, new)
+                        settings_changed = True
+                stored[key] = value
         if settings_changed:self.store.save('settings', {'id': 'global', **stored})
 
     def capture_state(self):
@@ -395,6 +435,7 @@ class Supervisor(TaskLifecycle, Control):
                 self.collecting=False
             return
         self.collecting=True
+        capture_started=time.monotonic()
         try:
             options={k:self.settings()[k] for k in ("sampling","reporting")}
             self.sample=options["sampling"]["interval_seconds"]
@@ -402,14 +443,19 @@ class Supervisor(TaskLifecycle, Control):
             sample["settings"]=options
             self.effective_sampling={"at":sample["ts"],**options}
             accepted=False
+            store_started=time.monotonic()
             for task in active:
                 accepted=self.store.add_live_sample(task['id'],sample) is not None or accepted
+            self.last_capture_timings={**sample.get('capture_timings',{}),
+                'detail_worker':sample['desktop'].get('detail_capture_timings',{}),
+                'store':time.monotonic()-store_started,'total':time.monotonic()-capture_started}
             with self.lock:
                 if accepted:
                     self.last_sample = sample["ts"]
                     self.capture_error = None if sample["desktop"].get("available") else "; ".join(sample["desktop"].get("limitations", []))
         except Exception as error:
             self.capture_error = str(error)
+            self.last_capture_timings={'total':time.monotonic()-capture_started,'error':str(error)[:160]}
 
     def make_report(self, task, phase="monitor", count_input=False, advance=True):
         if not self.presence.get("available"):self.poll_presence()

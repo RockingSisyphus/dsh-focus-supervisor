@@ -66,6 +66,35 @@ def test_cleanup_failure_stays_pending_until_retry(tmp_path):
     finally:core.store.close()
 
 
+def test_debug_retention_keeps_evidence_through_later_normal_cleanup(tmp_path):
+    core=Supervisor(tmp_path,SimpleNamespace(enable=lambda:None),
+                    SimpleNamespace(call=lambda operation,payload=None:{}))
+    try:
+        assert core.settings()['debug_mode'] is False
+        core.configure({'patch':{'debug_mode':True}},actor='ui')
+        first=plan(core,'debug')
+        images=tmp_path/'screenshots';images.mkdir()
+        (images/'kept.png').write_bytes(b'old screenshot')
+        core.store.add_sample(first['id'],{'ts':1,'mono':1,'desktop':{
+            'desktop_screenshot':{'path':'screenshots/kept.png','sha256':'kept'},'windows':[]}})
+        core.store.save('report',{'id':'report-debug','task_id':first['id'],'status':'pending'})
+        core.finish({'task_id':first['id'],'verdict':'cancelled','reason':'test'},'chat')
+        assert core.store.samples(first['id'])
+        assert core.store.get('report','report-debug')
+        assert core.store.get('task',first['id'])['task_prompt']=='test'
+        assert core.store.get('task',first['id'])['debug_evidence_retained']
+        core.configure({'patch':{'debug_mode':False}},actor='ui')
+        second=plan(core,'normal')
+        (images/'removed.png').write_bytes(b'new screenshot')
+        core.store.add_sample(second['id'],{'ts':2,'mono':2,'desktop':{
+            'desktop_screenshot':{'path':'screenshots/removed.png','sha256':'removed'},'windows':[]}})
+        core.finish({'task_id':second['id'],'verdict':'cancelled','reason':'test'},'chat')
+        assert not core.store.samples(second['id'])
+        assert (images/'kept.png').exists()
+        assert not (images/'removed.png').exists()
+    finally:core.store.close()
+
+
 def test_one_failed_cleanup_does_not_abandon_other_tasks():
     import pytest
     lock=ControlLock();done=[]

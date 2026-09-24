@@ -75,7 +75,7 @@ def test_sampling_gap_breaks_continuity():  # 断档前后的同一窗口不能�
     for n, clock in enumerate([1,2,20,21]):  # 中间十八秒无人观察。
         values.append({'sample_id':n+1,'ts':clock,'mono':clock,'desktop':{'available':True,'windows':[]},'browser':{'available':False,'pages':[]}})  # 不伪造真实环境测试。
     raw=timeline(values,.25)  # 原生产压缩算法。
-    assert len(raw['segments'])==2 and raw['unobserved_gap_seconds']==18 and raw['segments'][1]['gap_before_seconds']==18  # 连续性有明确断点。
+    assert len(raw['segments'])==2 and raw['unobserved_gap_seconds']==15 and raw['segments'][1]['gap_before_seconds']==15  # 仅超出合理观察长度的时间记为未知。
 
 
 def test_source_scan_has_no_unbounded_shell_or_process_kill():  # 对新增动作层做最小静态安全门槛，不能代替实机安全认证。

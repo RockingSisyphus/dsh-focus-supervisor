@@ -109,12 +109,12 @@ Windows 首次启动 Edge 出现 `Got it` 时，通过真实 UIA Invoke 操作�
 ## 强制关闭目标与困难夹具
 
 - `fixture.app` 支持 `refuse_close: true`、`close_behavior: save_prompt | hang` 和 `child_processes`。关闭事件写入夹具目录 `close-events.jsonl`；保存提示是真实原生对话框，hang 在收到原生关闭事件时阻塞应用。`fixture.observe` 的 `alive_children` 独立读取本轮子进程状态。
-- `fixture.browser` 的 `native_only: true` 使用独立 Chrome/Edge profile 正常启动目标窗口和兄弟标签，不设置调试端口；`instance: "已有夹具ID"` 在同一 profile 和进程中另开窗口，可验证同进程同标题同尺寸的歧义场景。`fixture.select_tab` 通过原生无障碍接口建立后台标签前置条件。`separate_instance: true` 只用于扩展的已有连接技术场景。`fixture.interact(action=beforeunload_probe)` 通过真实控件取得用户激活，触发浏览器卸载提示并取消，返回实际 dialog 类型。
+- `fixture.browser` 的 `native_only: true` 使用独立 Chrome/Edge profile 正常启动目标窗口和兄弟标签，不设置调试端口；`instance: "已有夹具ID"` 在同一 profile 和进程中另开窗口，可验证同进程同标题同尺寸的歧义场景。`fixture.select_tab` 通过原生无障碍接口建立后台标签前置条件。`separate_instance: true` 只用于扩展的已有连接技术场景。原生浏览器的 `fixture.interact(action="click")` 可点击真实网页控件并建立 `beforeunload` 用户激活；受 Playwright 控制的协议场景仍可用 `beforeunload_probe`。
 - `report.target` 默认匹配原生窗口；`kind: browser_tab` 按 AT-SPI/UIA 的实际标签身份或已有连接的标签 ID 匹配正式报告引用。没有正文或截图不排除已有身份的动作目标；报告缺少目标时直接指出这一前置失败。
 - `desktop.hide_browser_connection(entity=...)` 对指定测试 profile 移除端口发现文件。测试器保留已建立的连接用于独立观察，这是明确的连接故障注入，不代表浏览器从启动时就未开启调试。
 - `force-close-*.json` 通过固定模型调用真实 `focus_act`；所有效果断言在清理之前。`minimize-window-state` 单独验证真实最小化状态。
 
-`force-close-browser-default` 从启动时不设置调试端口，正式报告记录目标标签的原生身份。Linux 先激活报告关联的 GNOME 窗口再执行 AT-SPI 关闭按钮；Windows 最小化时先恢复该 HWND，再通过 UIA 关闭按钮。两端均独立核对目标标签消失、同窗口兄弟标签和窗口保留；无障碍通道失败时仍按实际结果升级到窗口和进程。
+`force-close-browser-default` 从启动时不设置调试端口，正式报告记录目标标签的原生身份。Linux 先激活报告关联的 GNOME 窗口再执行 AT-SPI 关闭按钮；Windows 最小化时先恢复该 HWND，再通过 UIA 关闭按钮。两端均独立核对目标标签消失、同窗口兄弟标签和窗口保留。精确关闭失败时，普通 `browser_tab` 调用返回失败而不扩大关闭范围。
 
 `force-close-browser-same-size-windows` 在 Linux 上通过真实 DSH 报告取得目标后，于同一 Chrome 进程内再建两个同标题同尺寸窗口。测试侧保存目标和兄弟标签的 AT-SPI 对象身份并独立读取最终状态，避免观察器自身也重做有歧义的窗口尺寸匹配；断言目标标签消失且三个窗口和兄弟标签均保留。
 
@@ -128,9 +128,15 @@ Windows 首次启动 Edge 出现 `Got it` 时，通过真实 UIA Invoke 操作�
 {"task_id":"任务编号","action":"force_close","report_id":"报告编号","target_ref":"报告引用","target_kind":"browser_tab"}
 ```
 
-`target_kind` 可省略（等于 `process`），也可为 `window` 或 `browser_tab`。窗口关闭最多观察 2.5 秒，未关闭则结束所属进程树；标签优先用系统原生无障碍控件精确关闭；报告只有已有连接身份时可使用该连接。原目标仍在才升级到关联窗口，最后结束关联进程树。单次精细调用由可终止的工作进程执行，上限 3 秒。原生控件不可用或动作无效时继续后备，不要求调试端口、借用确认或保存确认；Windows 最小化时无法枚举 UIA 标签不得误报为“已关闭”。
+首次标签关闭返回 `closed=false` 且 `escalation_available=true` 时，再次用 `focus_act(action="remind")` 告知整个浏览器可能关闭。若用户仍未回到任务，显式升级：
 
-结果保留 `closed`、`already_closed`，并提供 `target_kind`、`requested_target`、`actual_scope`、`attempts`。进程后备提供 `process_result` 及残留 `alive_pids`；部分退出与观察失败不能当作整棵进程树成功关闭。`actual_scope=none` 表示目标已不存在，未执行关闭。最小化保留原行为及字段，使用原生最小化状态确认。
+```json
+{"task_id":"任务编号","action":"force_close","report_id":"同一有效报告编号","target_ref":"同一报告引用","target_kind":"browser_tab","force_kill":true}
+```
+
+`target_kind` 可省略（等于 `process`），也可为 `window` 或 `browser_tab`。窗口关闭最多观察 2.5 秒，未关闭则结束所属进程树；标签优先用系统原生无障碍控件精确关闭，报告只有已有连接身份时可使用该连接。标签身份缺失、原生控件不可用或动作无效时返回 `closed=false`、`actual_scope=none`、`escalation_available=true` 和影响范围提示，浏览器保持运行。AI 再次提醒用户后若仍未回到任务，才显式传 `force_kill=true` 直接结束所属浏览器进程树。单次精细调用由可终止的工作进程执行，上限 3 秒；不要求调试端口或借用确认。Windows 最小化时无法枚举 UIA 标签不得误报为“已关闭”。
+
+结果保留 `closed`、`already_closed`，并提供 `target_kind`、`requested_target`、`actual_scope`、`attempts`。进程后备提供 `process_result` 及残留 `alive_pids`；部分退出与观察失败不能当作整棵进程树成功关闭。`actual_scope=none` 表示没有执行关闭，须同时看 `closed` 才能区分已消失与失败。最小化保留原行为及字段，使用原生最小化状态确认。
 
 各场景在产品动作之后、清理之前执行 `entity.observe`，记录目标、兄弟窗口/标签及进程状态。进程存活误报、权限拒绝、PID 生命周期变化、部分进程树退出和阻塞工作进程的稳定故障注入属于契约层，不能计为自然产品故障或真实 VM 通过。
 

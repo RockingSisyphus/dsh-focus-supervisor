@@ -429,7 +429,10 @@ class Entities:
             elif operation!='read':raise ValueError('Unknown native control action '+operation)
             interaction={'input_text':control.get_value()} if operation in ('fill','read') else {}
         else:
-            request={'pid':item['pid'],'op':operation,'active_window':True,'role':step.get('role','text'),'name':step.get('name'),'text':step.get('text','')}
+            request={'pid':item['pid'],'op':operation,'active_window':not bool(item.get('profile')),
+                     'role':step.get('role','text'),
+                     'name':step.get('name'),'text':step.get('text',''),
+                     'include_document':bool(item.get('profile'))}
             result=subprocess.run(['/usr/bin/python3',str(Path(__file__).with_name('native_control.py'))],input=json.dumps(request),text=True,capture_output=True,timeout=12)
             if result.returncode:raise RuntimeError('Native control failed: '+result.stderr[-1500:])
             interaction=json.loads(result.stdout)

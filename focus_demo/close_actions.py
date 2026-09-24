@@ -1,4 +1,4 @@
-"""One force-close strategy: exact tab/window first, verified process fallback."""
+"""Close the requested scope; a tab only expands to its browser when explicit."""
 import ctypes
 import json
 import os
@@ -13,7 +13,7 @@ from .platforms import process_info
 
 
 def target_window(expected):
-    return expected.get('native_window_id') or (expected.get('id') if expected.get('kind') != 'browser_tab' else None)
+    return expected.get('native_window_id') or (expected.get('id') if expected.get('kind') not in ('browser_tab','browser_document') else None)
 
 
 def window_state(collector, expected):
@@ -70,11 +70,12 @@ def close_tab(expected, operation='close'):
         return {'closed':False,'reason':str(error)}
 
 
-def force_close(collector, expected, target_kind='process', defer_kill=False):
+def force_close(collector, expected, target_kind='process', defer_kill=False, force_kill=False):
     from .actions import force_close_authorization,kill_verified_process
     if target_kind not in ('process','window','browser_tab'):raise ValueError('target_kind 须为 process、window 或 browser_tab')
+    force_kill=force_kill is True
     process=expected.get('process') or {}
-    result={'closed':False,'target_kind':target_kind,'requested_target':{'id':expected.get('id'),'window_id':target_window(expected),'tab_id':expected.get('tab_id'),'pid':process.get('pid')},'attempts':[]}
+    result={'closed':False,'target_kind':target_kind,'force_kill':force_kill,'requested_target':{'id':expected.get('id'),'window_id':target_window(expected),'tab_id':expected.get('tab_id'),'pid':process.get('pid')},'attempts':[]}
     authorization=force_close_authorization(collector,expected)
     if not authorization.get('authorized'):return {**result,**authorization}
     if authorization.get('already_closed'):return {**result,**authorization,'closed':True,'actual_scope':'none'}
@@ -91,14 +92,14 @@ def force_close(collector, expected, target_kind='process', defer_kill=False):
             result.update(observed,actual_scope=kind)
             return True
         return False
-    if target_kind=='browser_tab' and attempt('browser_tab',lambda:close_tab(expected)):return result
-    if target_kind in ('window','browser_tab'):
-        def window_attempt():
-            outcome=close_window(collector,expected)
-            if target_kind=='browser_tab' and outcome.get('closed'):
-                return {**outcome,'tab_observation':{'closed':True,'basis':'owning_window_destroyed'}}
-            return outcome
-        if attempt('window',window_attempt):return result
+    if target_kind=='browser_tab' and not force_kill:
+        if expected.get('tab_id'):
+            if attempt('browser_tab',lambda:close_tab(expected)):return result
+        else:
+            result['attempts'].append({'scope':'browser_tab','closed':False,'reason':'报告没有可关闭的标签身份'})
+        return {**result,'actual_scope':'none','escalation_available':True,'escalation_scope':'process',
+                'reason':'未能精确关闭标签。升级会结束所属浏览器进程及其窗口，可能连同 DSH 页面一起关闭；请再次提醒用户。若用户仍未回到任务，再以 force_kill=true 调用。'}
+    if target_kind=='window' and attempt('window',lambda:close_window(collector,expected)):return result
     if defer_kill:return {**result,'process_fallback':authorization}
     attempt('process',lambda:kill_verified_process(authorization['pid'],authorization['identity']))
     last=result['attempts'][-1]

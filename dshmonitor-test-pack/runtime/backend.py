@@ -137,7 +137,7 @@ class Backend:
                         return stored if stored and stored.get('status') not in ('active','scheduled','awaiting_extension','verified_waiting') else None
                 until(finish_owned_task,45)
 
-        allowed={'instructions','instructions_full','heartbeat_prompt','strict_heartbeat_prompt','mascot_size','away_heartbeats','sampling','reporting'}
+        allowed={'instructions','instructions_full','heartbeat_prompt','strict_heartbeat_prompt','mascot_size','away_heartbeats','sampling','reporting','debug_mode'}
         current=self.settings()
         patch={k:v for k,v in self.original_settings.items() if k in allowed and current.get(k)!=v}
         if patch and not getattr(self,'defer_settings_restore',False):self.request('/settings/ui',{'patch':patch})

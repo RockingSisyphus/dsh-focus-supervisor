@@ -61,7 +61,8 @@ class Sensor:
             if operation=='minimize':return self.collector.minimize_window_verified(payload)
             if operation=='force_close':
                 from focus_demo.close_actions import force_close
-                return force_close(self.collector,payload['expected'],payload.get('target_kind','process'))
+                return force_close(self.collector,payload['expected'],payload.get('target_kind','process'),
+                                   force_kill=payload.get('force_kill',False))
             if operation=='cleanup_capture':self.collector.suspend();return {'removed':True}
             raise ValueError(operation)
 
@@ -91,7 +92,14 @@ def main():
                 core.capture()  # Suspend immediately, even with a long sampling interval.
                 next_sample=0
             elif now>=next_sample:
-                core.capture();next_sample=time.monotonic()+core.sample
+                delay=max(0,now-next_sample) if next_sample else 0
+                core.capture()
+                if core.settings()['debug_mode']:
+                    with (directory/'capture-debug.jsonl').open('a',encoding='utf-8') as log:
+                        log.write(json.dumps({'event':'capture_cycle','at':time.time(),
+                                              'schedule_delay':round(delay,3),
+                                              'timings':core.last_capture_timings},ensure_ascii=False)+'\n')
+                next_sample=time.monotonic()+core.sample
             stop.wait(.25)
     worker=threading.Thread(target=sample,daemon=True);worker.start();wake_at=0
     try:

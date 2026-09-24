@@ -123,7 +123,7 @@ window.__ModuleLoader__.load({
       if(selected.popup&&!selected.delivery?.popup)setPopup(selected);
       clearTimeout(noticeTimer.current);noticeTimer.current=setTimeout(()=>setNotice(null),12000);
     },[state]);
-    React.useEffect(()=>{if(state?.settings){const value=state.settings;setDraft({instructions:value.instructions,instructions_full:value.instructions_full,heartbeat_prompt:value.heartbeat_prompt,strict_heartbeat_prompt:value.strict_heartbeat_prompt,mascot_size:value.mascot_size,away_heartbeats:value.away_heartbeats??3,sampling:value.sampling,reporting:value.reporting});setSize(value.mascot_size);}},[state?.settings?.strict_heartbeat_prompt,state?.settings?.instructions,state?.settings?.instructions_full,state?.settings?.heartbeat_prompt,state?.settings?.mascot_size,state?.settings?.away_heartbeats,JSON.stringify(state?.settings?.sampling),JSON.stringify(state?.settings?.reporting)]);
+    React.useEffect(()=>{if(state?.settings){const value=state.settings;setDraft({instructions:value.instructions,instructions_full:value.instructions_full,heartbeat_prompt:value.heartbeat_prompt,strict_heartbeat_prompt:value.strict_heartbeat_prompt,mascot_size:value.mascot_size,away_heartbeats:value.away_heartbeats??3,debug_mode:value.debug_mode??false,sampling:value.sampling,reporting:value.reporting});setSize(value.mascot_size);}},[state?.settings?.strict_heartbeat_prompt,state?.settings?.instructions,state?.settings?.instructions_full,state?.settings?.heartbeat_prompt,state?.settings?.mascot_size,state?.settings?.away_heartbeats,state?.settings?.debug_mode,JSON.stringify(state?.settings?.sampling),JSON.stringify(state?.settings?.reporting)]);
     function samplingFields(){
       const schema=globalThis.__DAFEIYU__?.samplingSchema||{};
       return Object.entries(schema).map(([group,fields])=>h('details',{key:group,style:{marginTop:12}},
@@ -341,6 +341,10 @@ window.__ModuleLoader__.load({
         h('input',{type:'number',min:2,max:10,step:1,value:draft.away_heartbeats??3,disabled:state?.settings?.ui_locked||saving,'aria-label':'离席判定次数',
          style:{...fieldStyle,width:80,marginTop:8,textAlign:'center',fontWeight:700},
          onChange:e=>setDraft(d=>({...d,away_heartbeats:Math.min(10,Math.max(2,Math.trunc(Number(e.target.value))||3))}))})),
+       h('label',{style:labelStyle},
+        h('input',{type:'checkbox',checked:!!draft.debug_mode,disabled:state?.settings?.ui_locked||saving,'aria-label':'调试保留模式',
+         onChange:e=>setDraft(d=>({...d,debug_mode:e.target.checked}))}),
+        ' 调试保留模式（默认关闭）：任务结束后保留原始样本、报告、截图和导出证据，便于排查采集问题；这些内容可能包含私人信息并持续占用磁盘。'),
        ...settingsFields(),
        ...samplingFields(),
        h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:14,alignItems:'center'}},

@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 1,
+  "id": "force-close-browser-preexisting-same-size-windows",
+  "title": "报告生成前已存在同进程同尺寸窗口时精确关闭目标标签",
+  "engine": "dsh",
+  "platforms": [
+    "linux"
+  ],
+  "group": "regular",
+  "verification": "product",
+  "timeout": 240,
+  "features": [
+    "heartbeat",
+    "actions",
+    "test-reporting",
+    "tool.focus_act.force_close.browser_tab"
+  ],
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "fixture",
+      "op": "fixture.browser",
+      "entity": "target",
+      "native_only": true,
+      "rect": [
+        100,
+        80,
+        900,
+        560
+      ],
+      "title": "Default browser close fixture",
+      "html": "<title>Default browser close fixture</title><input><p>Native tab target without debugging port</p>",
+      "sibling_title": "Default browser sibling fixture",
+      "sibling_html": "<title>Default browser sibling fixture</title><input><p>Sibling must remain open</p>",
+      "bind": "fixture"
+    },
+    {
+      "id": "select-target-tab",
+      "op": "fixture.select_tab",
+      "entity": "target",
+      "tab": "target",
+      "bind": "selected"
+    },
+    {
+      "id": "target-selected",
+      "op": "assert",
+      "actual": {
+        "$ref": "selected.selected_tab_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "selected.tab_id"
+      }
+    },
+    {
+      "id": "ordinary-launch",
+      "op": "assert",
+      "actual": {
+        "$ref": "fixture.remote_debugging"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "same-size-a",
+      "op": "fixture.browser",
+      "entity": "same-size-a",
+      "native_only": true,
+      "instance": "target",
+      "rect": [
+        125,
+        105,
+        900,
+        560
+      ],
+      "title": "Default browser close fixture",
+      "html": "<title>Default browser close fixture</title><input><p>Same-size browser window</p>",
+      "bind": "same-size-a"
+    },
+    {
+      "id": "same-size-a-same-process",
+      "op": "assert",
+      "actual": {
+        "$ref": "same-size-a.window.pid"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "fixture.window.pid"
+      }
+    },
+    {
+      "id": "same-size-a-same-size",
+      "op": "assert",
+      "actual": {
+        "$ref": "same-size-a.window.rect.2"
+      },
+      "operator": "equals",
+      "expected": 900
+    },
+    {
+      "id": "same-size-b",
+      "op": "fixture.browser",
+      "entity": "same-size-b",
+      "native_only": true,
+      "instance": "target",
+      "rect": [
+        150,
+        130,
+        900,
+        560
+      ],
+      "title": "Default browser close fixture",
+      "html": "<title>Default browser close fixture</title><input><p>Same-size browser window</p>",
+      "bind": "same-size-b"
+    },
+    {
+      "id": "same-size-b-same-process",
+      "op": "assert",
+      "actual": {
+        "$ref": "same-size-b.window.pid"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "fixture.window.pid"
+      }
+    },
+    {
+      "id": "same-size-b-same-size",
+      "op": "assert",
+      "actual": {
+        "$ref": "same-size-b.window.rect.2"
+      },
+      "operator": "equals",
+      "expected": 900
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "建立真实桌面闭环任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "阅读测试文字，分心时提醒",
+        "task_prompt": "只验证测试夹具",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "check_interval_seconds": 6,
+        "allow_early_finish": true
+      },
+      "bind": "task"
+    },
+    {
+      "id": "task-created",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.id"
+      },
+      "operator": "exists",
+      "expected": true
+    },
+    {
+      "id": "activate",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "activate"
+    },
+    {
+      "id": "report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "timeout": 70,
+      "bind": "report",
+      "minimum_samples": 1
+    },
+    {
+      "id": "target",
+      "op": "report.target",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "entity": "target",
+      "bind": "target",
+      "kind": "browser_tab"
+    },
+    {
+      "id": "native-identity",
+      "op": "assert",
+      "actual": {
+        "$ref": "target.evidence.native_tab"
+      },
+      "operator": "exists",
+      "expected": true
+    },
+    {
+      "id": "return-target-to-front",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "activate"
+    },
+    {
+      "id": "force_close",
+      "op": "model.call",
+      "user": "执行生产动作 force_close",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "force_close",
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "target_ref": {
+          "$ref": "target.ref"
+        },
+        "target_kind": "browser_tab"
+      },
+      "bind": "action"
+    },
+    {
+      "id": "closed-observe",
+      "op": "fixture.wait",
+      "entity": "target",
+      "expected": {
+        "present": true,
+        "tab_closed": true,
+        "sibling_present": true,
+        "tabs_observed": true
+      },
+      "timeout": 10,
+      "bind": "closed"
+    },
+    {
+      "id": "other-window-a-survived",
+      "op": "fixture.wait",
+      "entity": "same-size-a",
+      "expected": {
+        "present": true
+      },
+      "timeout": 5,
+      "bind": "other-a"
+    },
+    {
+      "id": "other-window-a-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "other-a.matched"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "other-window-b-survived",
+      "op": "fixture.wait",
+      "entity": "same-size-b",
+      "expected": {
+        "present": true
+      },
+      "timeout": 5,
+      "bind": "other-b"
+    },
+    {
+      "id": "other-window-b-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "other-b.matched"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "closed-result",
+      "op": "assert",
+      "actual": {
+        "$ref": "action.value.closed"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "closed-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "closed.matched"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "native-exact-scope",
+      "op": "assert",
+      "actual": {
+        "$ref": "action.value.actual_scope"
+      },
+      "operator": "equals",
+      "expected": "browser_tab"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "结束测试任务",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "结束本轮测试"
+      }
+    }
+  ],
+  "present_user": true,
+  "note": "在正式采样和报告生成前建立三个同进程同标题同尺寸的普通 Chrome 窗口，验证报告能提供精确原生标签身份，经真实 DSH 只关闭目标标签，所有兄弟标签与其他窗口保留。"
+}

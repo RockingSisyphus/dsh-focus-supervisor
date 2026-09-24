@@ -40,17 +40,23 @@ def capture(windows):
     try:
         native=native_capture(windows)
         for tab in native['tabs']:
-            window=next(w for w in windows if w['id']==tab['window_id'])
-            process=window.get('process',{})
-            document=next(iter(window.get('browser_documents',[])),{})
+            window=next((w for w in windows if w['id']==tab.get('window_id')),None)
+            owned=[w for w in windows if w.get('pid')==tab['pid']]
+            if not owned:continue
+            process=(window or owned[0]).get('process',{})
+            document=next(iter(window.get('browser_documents',[])),{}) if window else {}
             result.append({'id':'tab:'+tab['tab_id'], 'kind':'browser_tab',
                 'tab_id':tab['tab_id'], 'native_tab':tab['native_tab'],
                 'browser_instance_id':str(tab['pid'])+':'+process.get('identity',''),
-                'native_window_id':window['id'], 'window_title':window.get('title',''),
-                'window_rect':window.get('rect'), 'window_buffer_rect':window.get('buffer_rect'),
+                'native_window_id':tab.get('window_id'),'native_window_ids':tab.get('window_ids'),
+                'a11y_root':tab.get('a11y_root'),'selected':tab['selected'],
+                'window_title':window.get('title','') if window else '',
+                'window_rect':window.get('rect') if window else None,
+                'window_buffer_rect':window.get('buffer_rect') if window else None,
                 'process':process,'pid':tab['pid'],'title':tab['title'],
-                'url':document.get('url',''),'app':window.get('app','browser'),
-                'focused':window.get('focused',False),'visible':window.get('visible',False),
+                'url':document.get('url',''),'app':(window or owned[0]).get('app','browser'),
+                'focused':window.get('focused',False) if window else None,
+                'visible':window.get('visible',False) if window else None,
                 'connection_kind':'system_accessibility_tab','source':'system-accessibility'})
         errors.extend(native['errors'])
     except Exception as error:errors.append({'stage':'native_tabs','error':str(error)})

@@ -176,6 +176,7 @@ def test_the_fixture_never_touches_the_real_chat_registry(tmp_path, monkeypatch)
         assert 'DUMMY' not in harness.origin
         after = (registry.read_bytes(), registry.stat().st_mtime_ns) if registry.exists() else None
     assert after == before, '夹具不得改写真机的 %s' % registry
+    assert not Path(harness.info['temporary_home']).exists()
 
 
 def _stub_desktop(monkeypatch, raised=True, reason='合成器拒绝'):

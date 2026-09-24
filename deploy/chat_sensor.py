@@ -7,6 +7,7 @@ import subprocess
 import sys
 import select
 import shutil
+import time
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -19,11 +20,13 @@ signature = None
 for line in sys.stdin:
     try:
         request = json.loads(line)
+        stage_started = time.monotonic()
         env = subprocess.run(['systemctl', '--user', 'show-environment'], capture_output=True, text=True, timeout=4)
         for row in env.stdout.splitlines():
             key, _, value = row.partition('=')
             if key in {'DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY', 'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP', 'XDG_CACHE_HOME', 'XDG_DATA_HOME'}:
                 os.environ[key] = value
+        environment_seconds = time.monotonic() - stage_started
         if request['operation']=='presence':
             from focus_demo.presence import read_presence
             print(json.dumps({'result':read_presence()}),flush=True)
@@ -31,9 +34,8 @@ for line in sys.stdin:
         if request['operation'] in {'notify','cleanup_capture'}:
             payload=request.get('expected') or {}
             if request['operation']=='notify':
-                log=(directory/'notifications.log').open('a')
-                child=subprocess.Popen(['/usr/bin/python3','-I',str(Path(__file__).with_name('desktop_notify.py'))],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,text=True,start_new_session=True)
-                child.stdin.write(json.dumps(payload)+'\n');child.stdin.close();log.close()
+                child=subprocess.Popen(['/usr/bin/python3','-I',str(Path(__file__).with_name('desktop_notify.py'))],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True,start_new_session=True)
+                child.stdin.write(json.dumps(payload)+'\n');child.stdin.close()
                 if not select.select([child.stdout],[],[],12)[0]:
                     child.terminate();raise TimeoutError('桌面提醒启动超时')
                 result=json.loads(child.stdout.readline())
@@ -54,7 +56,10 @@ for line in sys.stdin:
             signature = current
         if request['operation'] == 'capture':
             collector.configure((request.get('expected') or {}).get('sampling',{}))
+            stage_started = time.monotonic()
             sample = collector.capture()
+            collector_seconds = time.monotonic() - stage_started
+            stage_started = time.monotonic()
             images = {}
             shots = [sample['desktop'].get('desktop_screenshot')] + [w.get('screenshot') for w in sample['desktop'].get('windows', [])]
             for shot in shots:
@@ -62,11 +67,15 @@ for line in sys.stdin:
                     source = (directory / shot['path']).resolve()
                     if source.is_relative_to(directory.resolve()) and source.stat().st_size <= 2_000_000:
                         images[shot['sha256']] = base64.b64encode(source.read_bytes()).decode('ascii')
+            sample.setdefault('capture_timings',{}).update(
+                environment=environment_seconds,collector=collector_seconds,
+                image_transfer=time.monotonic()-stage_started)
             result = {'sample': sample, 'images': images}
         elif request['operation'] == 'close_target':
             from focus_demo.close_actions import force_close
             payload=request['expected']
-            result=force_close(collector,payload['expected'],payload.get('target_kind','process'),defer_kill=True)
+            result=force_close(collector,payload['expected'],payload.get('target_kind','process'),
+                               defer_kill=True,force_kill=payload.get('force_kill',False))
         elif request['operation'] == 'observe_close_target':
             from focus_demo.close_actions import observe_target
             payload=request['expected']

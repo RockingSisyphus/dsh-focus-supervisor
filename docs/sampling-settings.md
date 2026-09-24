@@ -16,6 +16,8 @@
 
 低频可能遗漏短时活动。采集时间、不可用、历史及截断标记继续保留；后台标签或隐藏窗口不会因为有缓存而算作当前使用。状态显示最近一次采集实际使用的参数；导出报告的 `settings_timeline` 记录各次参数变化。
 
+活动时长由相邻真实样本估算。两次采样间隔变长时，最多按旧样本当时的设置计入 `max(3 秒, 设置间隔 × 1.5)`；其余时间记入 `unobserved_gap_seconds`，并切断连续聚焦时长。原始样本和目标引用仍保留。采集并非严格定时；Linux 服务在一次采集完成后再等待设置间隔。慢周期会在服务日志中记录分段耗时，不在每轮正常采样时额外写日志。
+
 “模型输出”只控制插件活动文字预览、心跳程序活动目录和正文详情每页长度。不限制模型工具调用次数、DSH通用文件读取或整个会话token，也不删除本地证据。分页结果的 `next_offset` 为下一页入口，null表示结束。
 
 测试仍走 `dshmonitor-test-pack/run.py`：`sampling-settings-ui`、`sampling-settings-live`、`sampling-settings-pagination`、`sampling-settings-browser`、`sampling-settings-reboot`、`sampling-settings-low-frequency`；契约层为 `sampling-settings-contracts`。测试层新增 `model.paginate` 沿真实DSH工具游标读取所有页面；`sample.inspect` 观察原始样本和实际尺寸/时间/长度，不替代产品采集。

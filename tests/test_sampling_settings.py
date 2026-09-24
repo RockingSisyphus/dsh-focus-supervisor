@@ -63,8 +63,32 @@ def test_old_interval_is_used_for_historical_gap():
     slow=[sample(0,10),sample(1,2)]
     assert timeline(slow,2)['unobserved_gap_seconds']==0
     fast=[sample(0,2),sample(1,10)]
-    assert timeline(fast,10)['unobserved_gap_seconds']==10
+    assert timeline(fast,10)['unobserved_gap_seconds']==7
     assert len(timeline(slow,2)['settings_timeline'])==2
+
+
+def test_sparse_samples_preserve_observed_time_and_mark_only_remainder_unknown():
+    from focus_demo.activity import activity_changes
+    from focus_demo.prompts import timeline
+    samples=[]
+    for identifier,clock in enumerate((0,2.4,10,20.8),1):
+        samples.append({'sample_id':identifier,'ts':100+clock,'mono':clock,
+            'desktop':{'available':True,'windows':[{'id':'w','app':'fixture','title':'same',
+                'focused':True,'visible':True,'process':{'identity':'life'}}]},
+            'browser':{'available':False,'pages':[]},
+            'settings':{'sampling':{'interval_seconds':2}}})
+    raw=timeline(samples,2)
+    assert raw['source_sample_ids']==[1,2,3,4]
+    assert [round(segment['real_duration_seconds'],1) for segment in raw['segments']]==[5.4,3]
+    assert raw['segments'][1]['gap_before_seconds']==4.6
+    assert round(raw['unobserved_gap_seconds'],1)==12.4
+    assert raw['recorded_sample_count']==4
+    assert raw['sparse_interval_count']==2
+    assert raw['gap_before_segments_seconds']==4.6
+    assert raw['trailing_gap_seconds']==7.8
+    changes=activity_changes(samples,raw['evidence'])
+    assert round(changes[0]['focus_seconds'],1)==8.4
+    assert round(changes[0]['longest_focus_seconds'],1)==5.4
 
 def test_independent_detail_intervals(tmp_path):
     from focus_demo.details import DetailCollector

@@ -37,3 +37,25 @@ def test_ambiguous_documents_are_not_assigned_fake_window_or_tab_identity():
     assert record['native_window_id'] is None and 'tab_id' not in record
     assert record['selected'] is None and record['focused'] is None
     assert record['native_window_ids']==['left','right'] and record['may_include_hidden']
+
+
+def test_embedded_qq_document_is_attributed_to_qq_not_generic_browser():
+    from focus_demo.prompts import timeline
+    from focus_demo.reports import overview
+    now=time.time()
+    window={'id':'qq','app':'qq.desktop','pid':17,'visible':True,'mapped':True,
+            'focused':False,'title':'QQ','process':{'identity':'qq-life','exe':'/opt/QQ/qq'},
+            'browser_documents':[{'title':'消息','url':'app://./renderer/index.html',
+                                  'selected':True,'text':'聊天正文示例','captured_at':now,
+                                  'capture_interval_seconds':10}]}
+    semantic=snapshots({'windows':[window]}, {})
+    assert semantic['snapshots'][0]['app']=='qq.desktop'
+    samples=[{'sample_id':str(i),'ts':now+i,'mono':i,'desktop':{'available':True,'windows':[window]},
+              'browser':{'available':True,'pages':[],'semantic':semantic}} for i in (1,2)]
+    evidence=timeline(samples,2)
+    documents=[record for record in evidence['evidence'].values() if record.get('kind')=='browser_document']
+    assert len(documents)==2
+    assert all(record['app']=='qq.desktop' and record['text']=='聊天正文示例' for record in documents)
+    summary=overview(evidence)
+    assert summary['browser_semantics']['pages'][0]['text_chars']==6
+    assert any(row['app']=='qq.desktop' and row['targets']>=2 for row in summary['programs'])

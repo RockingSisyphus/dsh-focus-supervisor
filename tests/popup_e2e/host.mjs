@@ -124,6 +124,8 @@ try {
   await apply(context, {socketPath: sock, stateDirectory: path.join(dshHome, 'state')});
 } catch (error) {
   console.error('HOST_ERROR ' + JSON.stringify({error: String((error && error.message) || error)}));
+  await rm(dir, {recursive: true, force: true});
+  await rm(dshHome, {recursive: true, force: true});
   process.exit(1);
 }
 const table = [];
@@ -132,12 +134,13 @@ token = table.find((item) => item.name === '__DAFEIYU__')?.value?.token;
 if (!token) throw new Error('页面拿不到插件令牌：index 注入没有生效');
 
 console.log('HOST ' + JSON.stringify({port: context.webServer.port, token, session,
-  origin: 'http://127.0.0.1:' + context.webServer.port}));
+  origin: 'http://127.0.0.1:' + context.webServer.port, temporary_home: dshHome}));
 
 const shutdown = async () => {
   for (const dispose of disposers.reverse()) try { dispose(); } catch {}
   server.close(); backend.close();
   await rm(dir, {recursive: true, force: true});
+  await rm(dshHome, {recursive: true, force: true});
   process.exit(0);
 };
 process.on('SIGTERM', shutdown);

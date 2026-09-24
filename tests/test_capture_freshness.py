@@ -61,6 +61,8 @@ def test_accessibility_helper_imports_outside_project(tmp_path, monkeypatch):
     result = details.enrich({'windows':[dict(id='test', pid=0, title='test', rect=[0,0,20,20])]})
     assert calls, result.get('limitations')
     assert not any('批量读取失败' in n for n in result.get('limitations', []))
+    assert result['detail_stage_timings']['accessibility'] >= 0
+    assert result['detail_stage_timings']['total'] >= result['detail_stage_timings']['accessibility']
 
 
 def test_missing_bridge_times_out_without_reusing_old_screen(tmp_path,monkeypatch):

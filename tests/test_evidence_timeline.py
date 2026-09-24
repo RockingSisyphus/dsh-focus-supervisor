@@ -85,8 +85,8 @@ def test_sleep_gap_is_not_counted_as_activity():  # 定义当前功能的处理�
     def sample(number, mono):  # 定义当前功能的处理入口。
         return {"sample_id": number, "ts": mono+100, "mono": mono, "desktop": {"windows": [], "available": True}, "browser": {"pages": [], "available": True}}  # 返回本步骤的结果。
     value = timeline([sample(1, 1), sample(2, 2), sample(3, 102)], 0.5)  # 保存下一步骤使用的计算结果。
-    assert sum(segment["real_duration_seconds"] for segment in value["segments"]) == 1  # 验证实际结果符合预期。
-    assert value["unobserved_gap_seconds"] == 100  # 验证实际结果符合预期。
+    assert sum(segment["real_duration_seconds"] for segment in value["segments"]) == 4  # 百秒断档只给上一个样本有限的观察时长。
+    assert value['unobserved_gap_seconds']==97
 
 
 def test_gnome_disconnection_is_not_live(monkeypatch):

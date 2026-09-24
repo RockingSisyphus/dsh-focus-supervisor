@@ -54,7 +54,7 @@ def main():
                     result['input_text']=call(node,'org.a11y.atspi.Text','GetText','ii',0,-1)
                 else:raise ValueError('Unknown native action '+op)
                 print(json.dumps(result));return
-            if role not in ('document web','document frame'):
+            if request.get('include_document') or role not in ('document web','document frame'):
                 try:queue.extend(call(node,ACCESSIBLE,'GetChildren'))
                 except RuntimeError:pass
         raise RuntimeError('Accessible control not found in target process')

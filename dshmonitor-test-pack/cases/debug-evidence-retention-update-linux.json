@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "debug-evidence-retention-update-linux",
+  "title": "Linux 正式更新后验证调试证据保留",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "extended",
+  "platforms": ["linux"],
+  "installation": "existing-system",
+  "features": ["settings-ui", "evidence", "cleanup"],
+  "timeout": 1200,
+  "steps": [
+    {"id": "installer", "op": "vm.command.run", "argv": ["sudo", "bash", "deploy/upgrade-chat.sh", "tester"],
+     "prepare": true, "bind": "installer"},
+    {"id": "installer-exit", "op": "assert", "actual": {"$ref": "installer.code"},
+     "operator": "equals", "expected": 0},
+    {"id": "product", "op": "case.run", "cases": ["debug-evidence-retention"], "bind": "use"},
+    {"id": "product-passed", "op": "assert", "actual": {"$ref": "use.status"},
+     "operator": "equals", "expected": "passed"}
+  ]
+}

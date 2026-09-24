@@ -16,7 +16,9 @@ def snapshots(desktop, options):
             group_key=(window.get('pid'),captured,document.get('document_index'))
             if grouped and group_key in seen_groups:continue
             if grouped:seen_groups.add(group_key)
-            records.append({'native_window_id':None if grouped else window['id'], 'process':window.get('process', {}),
+            records.append({'native_window_id':None if grouped else window['id'], 'app':window.get('app'),
+                            'process':window.get('process', {}),
+                            'a11y_root':document.get('a11y_root'),
                             **({'native_window_ids':document['window_ids'],'association':'ambiguous_process_group','may_include_hidden':True,'document_index':document['document_index']} if grouped else {}),
                             'pid':window.get('pid'), 'browser_instance_id':window.get('process',{}).get('identity'),
                             'title':document['title'], 'url':document['url'], 'selected':document['selected'],

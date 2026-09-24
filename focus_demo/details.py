@@ -147,7 +147,9 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
                 result = self.enrich(desktop)
                 published = {'windows':copy.deepcopy(self.cache),'screen':copy.deepcopy(self.desktop_shot),
                              'limitations':list(result.get('limitations',[])),
-                             'timings':{'desktop_wait':waited,'processing':time.monotonic()-started-waited}}
+                             'timings':{'captured_at':time.time(),'desktop_wait':waited,
+                                        'processing':time.monotonic()-started-waited,
+                                        **result.get('detail_stage_timings',{})}}
             except Exception as error:
                 published = {'windows':{},'screen':None,'limitations':['窗口细节采集失败：'+str(error)]}
             finally:
@@ -214,6 +216,8 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
         return False
 
     def enrich(self, desktop):
+        detail_started=time.monotonic()
+        timings={}
         self.prepare_windows(desktop)
         windows=desktop.get('windows',[])
         candidates = [w for w in windows if not w.get("supervisor_owned") and w.get('visible') is not False and w.get('mapped') is not False and not w.get('minimized')]
@@ -231,11 +235,13 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
         logs_due=self.channel_due("logs",desktop)
         if image_due:self.desktop_shot = None  # 新请求失败不能冒充成功。
         if self.enabled and image_due:  # 明确同意截图后才读像素。
+            stage_started=time.monotonic()
             try:  # 原生接口可能拒绝权限。
                 image, screen, metadata = self.screen(desktop)  # 读取完整桌面可用画面。
                 self.desktop_shot = self.save_image(image, {"scope": "full_desktop", "screen_rect": screen, "captured_at": metadata["captured_at"]}, (self.options["screen_width"], self.options["screen_height"]))  # 保留全画面，不裁掉其他显示器区域。
             except Exception as error:  # 显示失败不等于看到了正常桌面。
                 desktop.setdefault("limitations", []).append("整屏截图不可用："+str(error)[:180])  # 报告真实缺口。
+            timings['full_screen_image']=time.monotonic()-stage_started
         desktop["desktop_screenshot"] = self.desktop_shot  # 整屏图片不归入某个软件的活动时长。
         self.publish_details(desktop)
         rotation = candidates[self.cursor:] + candidates[:self.cursor]  # 预算有限时轮流处理全部对象。
@@ -243,9 +249,15 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
         offset=self.browser_cursor%max(1,len(candidates))
         read_selected = candidates[offset:] + candidates[:offset] if browser_due else selected
         with ThreadPoolExecutor(max_workers=1,thread_name_prefix='window-text') as worker:
-            text = worker.submit(self.read_ui,read_selected,text_due,browser_due) if text_due or browser_due else None
-            if image_due:self.capture_images(desktop,selected,image,screen,metadata)
-            probes, notes = text.result() if text else ({},[])
+            def read_timed():
+                started=time.monotonic()
+                return self.read_ui(read_selected,text_due,browser_due),time.monotonic()-started
+            text = worker.submit(read_timed) if text_due or browser_due else None
+            if image_due:
+                stage_started=time.monotonic()
+                self.capture_images(desktop,selected,image,screen,metadata)
+                timings['window_images']=time.monotonic()-stage_started
+            (probes, notes),timings['accessibility'] = text.result() if text else (({},[]),0)
         desktop.setdefault('limitations',[]).extend(notes)
         for channel,due in (("image",image_due),("text",text_due),("browser",browser_due),("logs",logs_due)):
             if due:self.last_channels[channel]=time.monotonic()
@@ -281,6 +293,8 @@ class DetailCollector:  # 功能：按低频节奏采集细节，日常采样不
         self.publish_details(desktop)
         self.cursor = (self.cursor+1) % max(1, len(candidates))  # 下一轮让后面的窗口优先获取细节。
         if browser_due:self.browser_cursor+=1
+        timings['total']=time.monotonic()-detail_started
+        desktop['detail_stage_timings']=timings
         return desktop  # 原始数据完整进入后续分层报告。
 
     def read_ui(self,selected,native_due=True,browser_due=True):

@@ -149,6 +149,7 @@ class Scenario(ScenarioEngine):
             'heartbeat_prompt':self.page.get_by_label('每次心跳的监工要求（全局）').input_value() if slider.count() else None,
             'strict_heartbeat_prompt':self.page.get_by_label('严苛任务附加要求').input_value() if slider.count() else None,
             'away_heartbeats':int(self.page.get_by_label('离席判定次数').input_value()) if slider.count() else None,
+            'debug_mode':self.page.get_by_label('调试保留模式',exact=True).is_checked() if slider.count() else None,
             'task_groups':self.task_groups(),
             'setup_card':self.setup_card(),
             'panel':self.page.locator('aside > section').first.bounding_box() if self.page.locator('aside > section').count() else None}

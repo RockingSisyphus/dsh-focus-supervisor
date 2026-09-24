@@ -84,14 +84,14 @@ def linux_batch(windows, text_chars=12000, max_nodes=MAX_NODES_PER_WINDOW):  # �
                 offset=budget.options.get('browser_offset',0)%len(nodes)
                 nodes=nodes[offset:]+nodes[:offset]
             else:key=window['id'];nodes=[match['node']]
-            selected.append((key, deque([(name, path, None) for name,path in nodes]), [], set()))
+            selected.append((key, deque([(name, path, None, (name, path)) for name,path in nodes]), [], set()))
             results[key] = {'text': '', 'scope': 'accessibility_excerpt', 'notes': list(notes) + [match['association']]}
         counts = {key: 0 for key, *_ in selected}  # 每个窗口单独限制节点数。
         for key, queue, output, seen in selected:  # 窗口顺序由调度器轮换，正文名额不由节点深度争抢。
             while queue and counts[key] < max_nodes:
                 if not queue or counts[key] >= max_nodes:  # 已完成或达到节点预算。
                     continue  # 处理其他窗口。
-                name, path, parent = queue.popleft()  # 读取实际存在的节点。
+                name, path, parent, root = queue.popleft()  # 读取实际存在的节点。
                 if (name, path) in seen:  # 防止异常循环树。
                     continue  # 不重复请求。
                 seen.add((name, path)); counts[key] += 1  # 记录已访问节点。
@@ -118,7 +118,9 @@ def linux_batch(windows, text_chars=12000, max_nodes=MAX_NODES_PER_WINDOW):  # �
                         try:
                             attrs = bus.call(name, path, 'org.a11y.atspi.Document', 'GetAttributes')
                             uri = attrs.get('DocURL') or attrs.get('URI') or attrs.get('uri')
-                            if uri: output[index]['document_url'] = uri
+                            if uri:
+                                output[index]['document_url'] = uri
+                                output[index]['a11y_root'] = {'owner': root[0], 'path': root[1]}
                         except RuntimeError:
                             pass
                     readable = budget.enter(output[index], output[parent] if parent is not None else None)
@@ -139,7 +141,7 @@ def linux_batch(windows, text_chars=12000, max_nodes=MAX_NODES_PER_WINDOW):  # �
                         pass  # 截图可以继续补充。
                     children = bus.call(name, path, ACCESSIBLE, 'GetChildren')
                     if len(children) > 100: results[key]['notes'].append('子控件超过本次读取上限。')
-                    queue.extend((child[0], child[1], index) for child in children[:100])  # 有界遍历子控件。
+                    queue.extend((child[0], child[1], index, root) for child in children[:100])  # 有界遍历子控件。
                 except RuntimeError:  # 失效对象不阻断其他窗口。
                     continue  # 保留其他已成功读取的证据。
                 finally:  # 即使最后一个接口超时，也保留此前实际文字。

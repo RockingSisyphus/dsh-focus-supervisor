@@ -1,5 +1,6 @@
 """Deterministic window activity facts; no judgement about the user's work."""
 from .common import digest
+from .time_coverage import split_interval
 
 
 def activity_changes(samples, evidence, previous=()):
@@ -15,8 +16,8 @@ def activity_changes(samples, evidence, previous=()):
             continue
         interval = sample.get('settings', {}).get('sampling', {}).get('interval_seconds', 2)
         following = samples[index+1] if index+1 < len(samples) else None
-        seconds = following['mono']-sample['mono'] if following else 0
-        known = following and following.get('desktop', {}).get('available') and 0 < seconds <= max(3,interval*4)
+        seconds, gap = split_interval(sample, following, interval) if following else (0, 0)
+        known = following and following.get('desktop', {}).get('available') and seconds > 0
         seconds = seconds if known else 0
         current = {}
         for window in desktop.get('windows', []):
@@ -63,7 +64,7 @@ def activity_changes(samples, evidence, previous=()):
             rows[identity]['changes'].append({'at':sample['ts'],'type':'not_in_window_inventory'})
             streak.pop(identity,None)
         last=current
-        if not known:streak={};last={}
+        if not known or gap:streak={};last={}
     for row in rows.values():
         for key in ('focus_seconds','visible_seconds','longest_focus_seconds'):row[key]=round(row[key],3)
     return list(rows.values())

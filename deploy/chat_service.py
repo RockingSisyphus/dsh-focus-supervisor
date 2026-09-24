@@ -65,6 +65,7 @@ class Sensor:
         self.process = None
 
     def call(self, operation, expected=None):
+        call_started=time.monotonic()
         if operation in {'export','verify_export','cleanup_export'}:
             account=self.account
             result=subprocess.run([sys.executable,'-I',str(ROOT/'deploy/evidence_worker.py')],
@@ -102,7 +103,10 @@ class Sensor:
         # The pipe exchange is complete. Persistent screenshot writes must not
         # monopolize the desktop channel used for stop, presence and actions.
         if operation == 'capture':
+            result['sample'].setdefault('capture_timings',{})['sensor_exchange']=time.monotonic()-call_started
+            save_started=time.monotonic()
             self.save_images(result['images'])
+            result['sample']['capture_timings']['save_images']=time.monotonic()-save_started
             return result['sample']
         return result
 
@@ -188,7 +192,20 @@ def main():
                 core.capture()  # Suspend immediately, even with a long sampling interval.
                 next_sample=0
             elif now>=next_sample:
-                core.capture();next_sample=time.monotonic()+core.sample
+                schedule_delay=max(0,now-next_sample) if next_sample else 0
+                if schedule_delay>2:
+                    print(json.dumps({'event':'sample_schedule_delay','seconds':round(schedule_delay,3)}),
+                          file=sys.stderr,flush=True)
+                core.capture()
+                if core.settings()['debug_mode']:
+                    print(json.dumps({'event':'capture_cycle','at':time.time(),
+                                      'schedule_delay':round(schedule_delay,3),
+                                      'timings':core.last_capture_timings},ensure_ascii=False),
+                          file=sys.stderr,flush=True)
+                if getattr(core,'last_capture_timings',{}).get('total',0)>max(5,core.sample*2):
+                    print(json.dumps({'event':'slow_capture','timings':core.last_capture_timings},ensure_ascii=False),
+                          file=sys.stderr,flush=True)
+                next_sample=time.monotonic()+core.sample
             stop.wait(.25)
     capture_thread = threading.Thread(target=sampler, daemon=True)
     capture_thread.start()

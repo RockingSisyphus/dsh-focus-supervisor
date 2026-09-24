@@ -1,0 +1,305 @@
+{
+  "schemaVersion": 1,
+  "id": "force-close-browser-no-tab-identity",
+  "title": "真实报告仅有窗口身份时标签请求不自动杀浏览器，显式升级才结束进程",
+  "engine": "dsh",
+  "platforms": [
+    "linux",
+    "windows"
+  ],
+  "group": "extended",
+  "verification": "product",
+  "timeout": 300,
+  "features": [
+    "heartbeat",
+    "actions",
+    "test-reporting",
+    "tool.focus_act.force_close.browser_tab"
+  ],
+  "steps": [
+    {
+      "id": "workspace",
+      "op": "ui.workspace"
+    },
+    {
+      "id": "fixture",
+      "op": "fixture.browser",
+      "entity": "target",
+      "native_only": true,
+      "rect": [
+        100,
+        80,
+        900,
+        560
+      ],
+      "title": "Default browser close fixture",
+      "html": "<title>Default browser close fixture</title><input><p>Native tab target without debugging port</p>",
+      "sibling_title": "Default browser sibling fixture",
+      "sibling_html": "<title>Default browser sibling fixture</title><input><p>Sibling must remain open</p>",
+      "bind": "fixture"
+    },
+    {
+      "id": "select-target-tab",
+      "op": "fixture.select_tab",
+      "entity": "target",
+      "tab": "target",
+      "bind": "selected"
+    },
+    {
+      "id": "target-selected",
+      "op": "assert",
+      "actual": {
+        "$ref": "selected.selected_tab_id"
+      },
+      "operator": "equals",
+      "expected": {
+        "$ref": "selected.tab_id"
+      }
+    },
+    {
+      "id": "ordinary-launch",
+      "op": "assert",
+      "actual": {
+        "$ref": "fixture.remote_debugging"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "heartbeat",
+      "op": "heartbeat.enable"
+    },
+    {
+      "id": "plan",
+      "op": "model.call",
+      "user": "建立真实桌面闭环任务",
+      "tool": "focus_plan",
+      "arguments": {
+        "agreement": "阅读测试文字，分心时提醒",
+        "task_prompt": "只验证测试夹具",
+        "project_dir": {
+          "$ref": "project"
+        },
+        "start_at": {
+          "$iso_after": -1
+        },
+        "end_at": {
+          "$iso_after": 600
+        },
+        "check_interval_seconds": 6,
+        "allow_early_finish": true
+      },
+      "bind": "task"
+    },
+    {
+      "id": "task-created",
+      "op": "assert",
+      "actual": {
+        "$ref": "task.value.id"
+      },
+      "operator": "exists",
+      "expected": true
+    },
+    {
+      "id": "activate",
+      "op": "fixture.window",
+      "entity": "target",
+      "action": "activate"
+    },
+    {
+      "id": "report",
+      "op": "report.wait",
+      "task_id": {
+        "$ref": "task.value.id"
+      },
+      "phase": "monitor",
+      "timeout": 70,
+      "bind": "report",
+      "minimum_samples": 1
+    },
+    {
+      "id": "target",
+      "op": "report.target",
+      "report_id": {
+        "$ref": "report.id"
+      },
+      "entity": "target",
+      "bind": "target",
+      "kind": "window"
+    },
+    {
+      "id": "first-close",
+      "op": "model.call",
+      "user": "根据当前窗口证据尝试仅关闭对应浏览器标签",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "force_close",
+        "target_kind": "browser_tab",
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "target_ref": {
+          "$ref": "target.ref"
+        }
+      },
+      "bind": "first"
+    },
+    {
+      "id": "first-failed",
+      "op": "assert",
+      "actual": {
+        "$ref": "first.value.closed"
+      },
+      "operator": "equals",
+      "expected": false
+    },
+    {
+      "id": "no-escalation",
+      "op": "assert",
+      "actual": {
+        "$ref": "first.value.actual_scope"
+      },
+      "operator": "equals",
+      "expected": "none"
+    },
+    {
+      "id": "escalation-offered",
+      "op": "assert",
+      "actual": {
+        "$ref": "first.value.escalation_available"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "browser-still-present",
+      "op": "fixture.wait",
+      "entity": "target",
+      "expected": {
+        "present": true,
+        "tab_closed": false,
+        "sibling_present": true
+      },
+      "timeout": 5,
+      "bind": "before_force"
+    },
+    {
+      "id": "browser-preserved",
+      "op": "assert",
+      "actual": {
+        "$ref": "before_force.matched"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "repeat-reminder",
+      "op": "model.call",
+      "user": "再次提醒用户，说明关闭整个浏览器的范围",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "remind",
+        "message": "请立即回到任务；若继续分心，我会关闭整个浏览器，包括其他标签。",
+        "image": "urgent"
+      },
+      "bind": "reminder"
+    },
+    {
+      "id": "still-off-task",
+      "op": "fixture.wait",
+      "entity": "target",
+      "expected": {
+        "present": true
+      },
+      "timeout": 3,
+      "bind": "still"
+    },
+    {
+      "id": "force-browser",
+      "op": "model.call",
+      "user": "提醒后仍未回到任务，明确升级结束所属浏览器",
+      "tool": "focus_act",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "action": "force_close",
+        "target_kind": "browser_tab",
+        "force_kill": true,
+        "report_id": {
+          "$ref": "report.id"
+        },
+        "target_ref": {
+          "$ref": "target.ref"
+        }
+      },
+      "bind": "forced"
+    },
+    {
+      "id": "force-result",
+      "op": "assert",
+      "actual": {
+        "$ref": "forced.value.actual_scope"
+      },
+      "operator": "equals",
+      "expected": "process"
+    },
+    {
+      "id": "force-closed",
+      "op": "assert",
+      "actual": {
+        "$ref": "forced.value.closed"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "browser-gone",
+      "op": "fixture.wait",
+      "entity": "target",
+      "expected": {
+        "present": false
+      },
+      "timeout": 10,
+      "bind": "after_force"
+    },
+    {
+      "id": "browser-gone-assert",
+      "op": "assert",
+      "actual": {
+        "$ref": "after_force.matched"
+      },
+      "operator": "equals",
+      "expected": true
+    },
+    {
+      "id": "dsh-alive",
+      "op": "model.call",
+      "user": "确认 DSH 工具链仍可运行",
+      "tool": "focus_status",
+      "arguments": {},
+      "bind": "status_after"
+    },
+    {
+      "id": "finish",
+      "op": "model.call",
+      "user": "结束专用测试任务",
+      "tool": "focus_finish",
+      "arguments": {
+        "task_id": {
+          "$ref": "task.value.id"
+        },
+        "verdict": "completed",
+        "reason": "无标签身份时的警告与显式进程升级均已完成"
+      }
+    }
+  ],
+  "present_user": true,
+  "note": "使用普通启动、无调试端口的真实 Chrome/Edge 和正式报告窗口引用。报告没有对应标签身份时，第一次 browser_tab 请求经 DSH 返回提示且浏览器存活；再次真实提醒后 force_kill=true 才结束专用浏览器进程。未伪造产品报告或关闭结果。"
+}

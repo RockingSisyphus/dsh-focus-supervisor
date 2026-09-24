@@ -98,6 +98,9 @@ def ui_settings(self,step):
         if section.get_attribute('open') is None:section.locator('summary').click()
         section.get_by_role('button',name='恢复本组默认值').click()
     for key, value in step.get('values', {}).items():
+        if key=='debug_mode':
+            p.get_by_label('调试保留模式',exact=True).set_checked(value)
+            continue
         if key not in ('sampling','reporting'):
             targets[key].fill(str(value));continue
         section=p.locator('details').filter(has=p.locator('summary',has_text='采集设置' if key=='sampling' else '模型输出'))

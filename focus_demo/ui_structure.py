@@ -118,6 +118,8 @@ def describe_window(nodes, truncated=False, limit=12000):
     result['documents'] = [dict(describe(branch, truncated, limit),
                                 title=by_id[root].get('name', ''),
                                 url=by_id[root]['document_url'],
-                                selected=True, source='system-accessibility')
+                                selected=True, source='system-accessibility',
+                                **({'a11y_root': by_id[root]['a11y_root']}
+                                   if by_id[root].get('a11y_root') else {}))
                            for root, branch in branches.items()]
     return result

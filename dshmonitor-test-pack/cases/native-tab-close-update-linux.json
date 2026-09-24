@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "native-tab-close-update-linux",
+  "title": "更新 Linux 后台并回归同尺寸窗口精确关闭、失败提示与显式进程升级",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "manual",
+  "platforms": ["linux"],
+  "installation": "existing-system",
+  "features": ["actions", "tool.focus_act.force_close.browser_tab"],
+  "timeout": 900,
+  "steps": [
+    {
+      "id": "upgrade",
+      "op": "vm.command.run",
+      "argv": ["sudo", "bash", "deploy/upgrade-chat.sh", "tester"],
+      "prepare": true,
+      "bind": "upgrade"
+    },
+    {
+      "id": "upgrade-passed",
+      "op": "assert",
+      "actual": {"$ref": "upgrade.code"},
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "real-dsh",
+      "op": "case.run",
+      "cases": ["force-close-browser-preexisting-same-size-windows", "force-close-browser-preexisting-unfocused-same-size-windows", "force-close-browser-unload-warning", "force-close-browser-no-tab-identity"],
+      "bind": "regression"
+    },
+    {
+      "id": "exact-tab-passed",
+      "op": "assert",
+      "actual": {"$ref": "regression.status"},
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}
