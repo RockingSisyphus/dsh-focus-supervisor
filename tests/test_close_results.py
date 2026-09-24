@@ -197,6 +197,57 @@ def test_unobservable_native_tab_does_not_look_already_closed(monkeypatch):
     assert result['reason']=='无法独立读取原生标签列表'
 
 
+def test_native_tab_observation_survives_ambiguous_same_size_windows(monkeypatch):
+    from focus_demo import atspi_dbus, native_tabs
+    class Bus:
+        def __init__(self, *args):pass
+        def call(self, owner, path, interface, method, *args):
+            assert (owner,path)==(':1.21','/org/a11y/atspi/accessible/1336')
+            if method=='GetRole':
+                raise RuntimeError('GDBus.Error:org.freedesktop.DBus.Error.UnknownObject: tab disappeared')
+            raise AssertionError(method)
+        def close(self):pass
+    monkeypatch.setattr(atspi_dbus,'Bus',Bus)
+    monkeypatch.setattr(native_tabs,'capture',lambda *a,**k:(_ for _ in ()).throw(
+        AssertionError('exact tab observation must not match same-size windows again')))
+    result=native_tabs.observe({'native_window_id':'gnome:139',
+        'native_tab':{'owner':':1.21','path':'/org/a11y/atspi/accessible/1336'},
+        'tab_id':'atspi::1.21:/org/a11y/atspi/accessible/1336','process':{'pid':16136}})
+    assert result['closed'] is True
+
+
+def test_native_tab_observation_keeps_unknown_bus_failure_distinct(monkeypatch):
+    from focus_demo import atspi_dbus, native_tabs
+    class Bus:
+        def __init__(self, *args):pass
+        def call(self, owner, path, interface, method, *args):
+            raise RuntimeError('AT-SPI bus temporarily unavailable')
+        def close(self):pass
+    monkeypatch.setattr(atspi_dbus,'Bus',Bus)
+    result=native_tabs.observe({'native_window_id':'gnome:139',
+        'native_tab':{'owner':':1.21','path':'/org/a11y/atspi/accessible/1336'},
+        'tab_id':'atspi::1.21:/org/a11y/atspi/accessible/1336','process':{'pid':16136}})
+    assert result['closed'] is False
+    assert '无法读取目标标签对象' in result['reason']
+
+
+def test_native_tab_observation_reports_existing_tab_without_window_matching(monkeypatch):
+    from focus_demo import atspi_dbus, native_tabs
+    class Bus:
+        def __init__(self, *args):pass
+        def call(self, owner, path, interface, method, *args):
+            return 37 if method=='GetRole' else [1<<23,0]
+        def close(self):pass
+    monkeypatch.setattr(atspi_dbus,'Bus',Bus)
+    monkeypatch.setattr(native_tabs,'capture',lambda *a,**k:(_ for _ in ()).throw(
+        AssertionError('same-size windows cannot identify the tab')))
+    result=native_tabs.observe({'native_window_id':'gnome:139',
+        'native_tab':{'owner':':1.21','path':'/org/a11y/atspi/accessible/1336'},
+        'tab_id':'atspi::1.21:/org/a11y/atspi/accessible/1336','process':{'pid':16136}})
+    assert result['closed'] is False
+    assert 'reason' not in result
+
+
 def test_native_browser_target_does_not_require_debug_endpoint(monkeypatch):
     from focus_demo import browser_targets, native_tabs
     monkeypatch.setattr(native_tabs,'capture',lambda windows:{'tabs':[{

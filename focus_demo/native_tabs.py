@@ -155,6 +155,22 @@ def observe(expected):
     window_id=expected.get('native_window_id')
     if not window_id or not expected.get('native_tab'):
         return {'closed':False,'reason':'报告没有原生标签身份'}
+    node=expected['native_tab']
+    if node.get('owner') and node.get('path'):
+        from .atspi_dbus import Bus,ACCESSIBLE
+        bus=Bus(1.2)
+        try:
+            try:
+                role=bus.call(node['owner'],node['path'],ACCESSIBLE,'GetRole')
+                if role!=37:return {'closed':True,'tab_id':expected.get('tab_id')}
+                state=bus.call(node['owner'],node['path'],ACCESSIBLE,'GetState')
+                if not state:return {'closed':False,'reason':'无法读取目标标签状态'}
+                return {'closed':bool(state[0] & (1<<6)), 'tab_id':expected.get('tab_id')}
+            except (RuntimeError,TimeoutError) as error:
+                if 'org.freedesktop.DBus.Error.UnknownObject' in str(error):
+                    return {'closed':True,'tab_id':expected.get('tab_id')}
+                return {'closed':False,'reason':'无法读取目标标签对象：'+str(error)[:160]}
+        finally:bus.close()
     window={'id':window_id,'pid':expected['process']['pid'],'process':expected['process'],
             'app':expected.get('app','browser'),'title':expected.get('window_title',''),
             'rect':expected.get('window_rect') or [0,0,0,0],

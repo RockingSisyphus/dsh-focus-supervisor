@@ -30,18 +30,36 @@ class Entities:
         value={'entity':identifier,'window_id':item['window_id'],'present':bool(w),'window':w}
         if item.get('children') is not None:value['alive_children']=[c.pid for c in item['children'] if c.is_running() and c.status()!='zombie']
         if item.get('sibling_tab_id') and w:
-            import psutil
-            from focus_demo.native_tabs import capture
-            owner=psutil.Process(item['pid'])
-            current=self.browser_window(w)
-            if current is None:raise RuntimeError('Product desktop snapshot lost browser fixture window')
-            current={**current,'process':{'name':owner.name(),'exe':owner.exe()}}
-            state=capture([current],include_background=True)
-            ids={tab['tab_id'] for tab in state['tabs']}
-            value.update(tab_id=item['tab_id'],tab_closed=item['tab_id'] not in ids,
-                         sibling_present=item['sibling_tab_id'] in ids,
-                         selected_tab_id=next((tab['tab_id'] for tab in state['tabs'] if tab['selected']),None),
-                         tabs_observed=w['id'] in state['windows_scanned'])
+            if os.name!='nt' and item.get('native_tab'):
+                from focus_demo.atspi_dbus import Bus,ACCESSIBLE
+                bus=Bus(1.2)
+                def state(node):
+                    try:
+                        if bus.call(node['owner'],node['path'],ACCESSIBLE,'GetRole')!=37:return False,False
+                        flags=bus.call(node['owner'],node['path'],ACCESSIBLE,'GetState')[0]
+                        return not bool(flags & (1<<6)),bool(flags & (1<<23))
+                    except (RuntimeError,TimeoutError) as error:
+                        if 'org.freedesktop.DBus.Error.UnknownObject' in str(error):return False,False
+                        return None,None
+                try:target=state(item['native_tab']);sibling=state(item['sibling_native_tab'])
+                finally:bus.close()
+                value.update(tab_id=item['tab_id'],tab_closed=not target[0] if target[0] is not None else None,
+                             sibling_present=sibling[0],
+                             selected_tab_id=item['tab_id'] if target[1] else item['sibling_tab_id'] if sibling[1] else None,
+                             tabs_observed=target[0] is not None and sibling[0] is not None)
+            else:
+                import psutil
+                from focus_demo.native_tabs import capture
+                owner=psutil.Process(item['pid'])
+                current=self.browser_window(w)
+                if current is None:raise RuntimeError('Product desktop snapshot lost browser fixture window')
+                current={**current,'process':{'name':owner.name(),'exe':owner.exe()}}
+                state=capture([current],include_background=True)
+                ids={tab['tab_id'] for tab in state['tabs']}
+                value.update(tab_id=item['tab_id'],tab_closed=item['tab_id'] not in ids,
+                             sibling_present=item['sibling_tab_id'] in ids,
+                             selected_tab_id=next((tab['tab_id'] for tab in state['tabs'] if tab['selected']),None),
+                             tabs_observed=w['id'] in state['windows_scanned'])
         if include_page and item.get('page'):
             page=item['page'];value.update(tab_closed=page.is_closed(),tab_id=item['tab_id'],browser_window_id=item['browser_window_id'])
             if not page.is_closed():
@@ -114,9 +132,12 @@ class Entities:
         context=self.scenario.page.context
         if step.get('native_only'):
             import psutil
-            root=self.scenario.out/('browser-'+step['entity']);root.mkdir()
-            html=root/'page.html';html.write_text(step['html'],encoding='utf-8')
-            sibling=root/'sibling.html'
+            shared=step.get('instance')
+            root=Path(self.items[shared]['profile']) if shared else self.scenario.out/('browser-'+step['entity'])
+            if not shared:root.mkdir()
+            existing={w['id'] for w in self.snapshot()['windows'] if w['pid']==self.items[shared]['pid']} if shared else set()
+            html=root/(step['entity']+'-page.html');html.write_text(step['html'],encoding='utf-8')
+            sibling=root/(step['entity']+'-sibling.html')
             if step.get('sibling_html'):sibling.write_text(step['sibling_html'],encoding='utf-8')
             argv=self.desktop.browser_arguments(self.desktop.browser_executable(),root)+['--new-window']
             urls=[html.as_uri()]+([sibling.as_uri()] if step.get('sibling_html') else [])
@@ -126,7 +147,7 @@ class Entities:
                 for proc in psutil.process_iter(['pid','cmdline']):
                     args=proc.info['cmdline'] or []
                     if '--user-data-dir='+str(root) in args and not any(a.startswith('--type=') for a in args):pids.append(proc.pid)
-                return next((w for w in self.snapshot()['windows'] if w['pid'] in pids and step['title'] in w['title']),None)
+                return next((w for w in self.snapshot()['windows'] if w['pid'] in pids and w['id'] not in existing and step['title'] in w['title']),None)
             window=until(located,20)
             self.items[step['entity']]={'window_id':window['id'],'pid':window['pid'],'profile':str(root),'process':process}
             if 'rect' in step:
@@ -145,12 +166,13 @@ class Entities:
                     target=[t for t in state['tabs'] if step['title'] in t['title']]
                     sibling_tabs=[t for t in state['tabs'] if step['sibling_title'] in t['title']]
                     if len(target)!=1 or len(sibling_tabs)!=1:return None
-                    return target[0]['tab_id'],sibling_tabs[0]['tab_id']
-                try:target_id,sibling_id=until(identified,20)
+                    return target[0],sibling_tabs[0]
+                try:target_tab,sibling_tab=until(identified,20)
                 except TimeoutError:
                     (self.scenario.out/'native-tab-identity.json').write_text(json.dumps(last_state,ensure_ascii=False,indent=2),encoding='utf-8')
                     raise
-                self.items[step['entity']].update(tab_id=target_id,sibling_tab_id=sibling_id)
+                self.items[step['entity']].update(tab_id=target_tab['tab_id'],sibling_tab_id=sibling_tab['tab_id'],
+                    native_tab=target_tab['native_tab'],sibling_native_tab=sibling_tab['native_tab'])
             arguments=psutil.Process(window['pid']).cmdline()
             return {**self.observe(step['entity']),
                     'remote_debugging':any(arg.startswith('--remote-debugging') for arg in arguments)}

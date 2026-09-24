@@ -109,12 +109,14 @@ Windows 首次启动 Edge 出现 `Got it` 时，通过真实 UIA Invoke 操作�
 ## 强制关闭目标与困难夹具
 
 - `fixture.app` 支持 `refuse_close: true`、`close_behavior: save_prompt | hang` 和 `child_processes`。关闭事件写入夹具目录 `close-events.jsonl`；保存提示是真实原生对话框，hang 在收到原生关闭事件时阻塞应用。`fixture.observe` 的 `alive_children` 独立读取本轮子进程状态。
-- `fixture.browser` 的 `native_only: true` 使用独立 Chrome/Edge profile 正常启动目标窗口和兄弟标签，不设置调试端口；`fixture.select_tab` 通过原生无障碍接口建立后台标签前置条件。`separate_instance: true` 只用于扩展的已有连接技术场景。`fixture.interact(action=beforeunload_probe)` 通过真实控件取得用户激活，触发浏览器卸载提示并取消，返回实际 dialog 类型。
+- `fixture.browser` 的 `native_only: true` 使用独立 Chrome/Edge profile 正常启动目标窗口和兄弟标签，不设置调试端口；`instance: "已有夹具ID"` 在同一 profile 和进程中另开窗口，可验证同进程同标题同尺寸的歧义场景。`fixture.select_tab` 通过原生无障碍接口建立后台标签前置条件。`separate_instance: true` 只用于扩展的已有连接技术场景。`fixture.interact(action=beforeunload_probe)` 通过真实控件取得用户激活，触发浏览器卸载提示并取消，返回实际 dialog 类型。
 - `report.target` 默认匹配原生窗口；`kind: browser_tab` 按 AT-SPI/UIA 的实际标签身份或已有连接的标签 ID 匹配正式报告引用。没有正文或截图不排除已有身份的动作目标；报告缺少目标时直接指出这一前置失败。
 - `desktop.hide_browser_connection(entity=...)` 对指定测试 profile 移除端口发现文件。测试器保留已建立的连接用于独立观察，这是明确的连接故障注入，不代表浏览器从启动时就未开启调试。
 - `force-close-*.json` 通过固定模型调用真实 `focus_act`；所有效果断言在清理之前。`minimize-window-state` 单独验证真实最小化状态。
 
 `force-close-browser-default` 从启动时不设置调试端口，正式报告记录目标标签的原生身份。Linux 先激活报告关联的 GNOME 窗口再执行 AT-SPI 关闭按钮；Windows 最小化时先恢复该 HWND，再通过 UIA 关闭按钮。两端均独立核对目标标签消失、同窗口兄弟标签和窗口保留；无障碍通道失败时仍按实际结果升级到窗口和进程。
+
+`force-close-browser-same-size-windows` 在 Linux 上通过真实 DSH 报告取得目标后，于同一 Chrome 进程内再建两个同标题同尺寸窗口。测试侧保存目标和兄弟标签的 AT-SPI 对象身份并独立读取最终状态，避免观察器自身也重做有歧义的窗口尺寸匹配；断言目标标签消失且三个窗口和兄弟标签均保留。
 
 `report.read(report_id)` 只读取正式后台持久化报告。历史 CDP 连接故障场景先由真实 DSH `focus_check` 生成最新报告，再观察引用并移除测试端口发现文件；该场景已从可运行目录移除，历史版本保留在 Git。当前普通浏览器场景不创建调试端口，不伪造采样或修改报告。
 
