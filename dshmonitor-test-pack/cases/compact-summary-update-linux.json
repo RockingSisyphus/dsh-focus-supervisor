@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "compact-summary-update-linux",
+  "title": "升级 Linux 正式后台后验证浏览器页面焦点时长进入真实 DSH 心跳",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "extended",
+  "platforms": ["linux"],
+  "installation": "existing-system",
+  "features": ["heartbeat", "browser-history-capture"],
+  "timeout": 1200,
+  "steps": [
+    {
+      "id": "upgrade",
+      "op": "vm.command.run",
+      "argv": ["sudo", "bash", "deploy/upgrade-chat.sh", "tester"],
+      "prepare": true,
+      "bind": "upgrade"
+    },
+    {
+      "id": "upgrade-passed",
+      "op": "assert",
+      "actual": {"$ref": "upgrade.code"},
+      "operator": "equals",
+      "expected": 0
+    },
+    {
+      "id": "real-dsh",
+      "op": "case.run",
+      "cases": ["report-after-browser-small"],
+      "bind": "regression"
+    },
+    {
+      "id": "heartbeats-passed",
+      "op": "assert",
+      "actual": {"$ref": "regression.status"},
+      "operator": "equals",
+      "expected": "passed"
+    }
+  ]
+}

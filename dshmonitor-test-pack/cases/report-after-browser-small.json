@@ -198,6 +198,13 @@
       "target_title": "FocusTest GTK same title"
     },
     {
+      "id": "article-heartbeat-title-time",
+      "op": "assert",
+      "actual": {"$ref": "material.heartbeat_text"},
+      "operator": "contains",
+      "expected": "聚焦时标题（采样估算）：论文阅读 DSH_BROWSER_ARTICLE"
+    },
+    {
       "id": "article-visible-text",
       "op": "assert",
       "actual": {
@@ -272,6 +279,13 @@
       },
       "bind": "material",
       "target_title": "FocusTest GTK same title"
+    },
+    {
+      "id": "entertainment-heartbeat-title-time",
+      "op": "assert",
+      "actual": {"$ref": "material.heartbeat_text"},
+      "operator": "contains",
+      "expected": "聚焦时标题（采样估算）：娱乐页面 DSH_BROWSER_GAME"
     },
     {
       "id": "entertainment-visible-text",

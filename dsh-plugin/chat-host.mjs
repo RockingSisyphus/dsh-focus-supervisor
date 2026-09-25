@@ -79,9 +79,19 @@ function inputActivityLine(data) {
 }
 export function formatReport(data) {
   const {task,overview}=data;
+  const seconds=value=>`${Number(value||0).toFixed(1)}s`;
+  const shortTitle=value=>value?.length>56?value.slice(0,55)+'…':(value||'(无标题)');
   const rows=overview.activity_changes?.length
-    ? overview.activity_changes.map(p=>`- ${p.title}（${p.window_id}）：焦点 ${p.focus_seconds}s，可见 ${p.visible_seconds}s，最长连续焦点 ${p.longest_focus_seconds}s；变化 ${JSON.stringify(p.recent_changes)}；证据 ${p.latest_evidence?.join(',')||'见活动详情'}`)
-    : (overview.programs||[]).map(p=>`- ${p.app}（${p.id}）：焦点 ${p.focus_seconds}s，可见 ${p.visible_seconds}s；${(p.example_titles||[]).join(' / ')}`);
+    ? overview.activity_changes.map(p=>{
+      const titles=(p.focus_titles||[]).map(item=>`${shortTitle(item.title)} ${seconds(item.seconds)}`);
+      if(p.other_focus_seconds>0)titles.push(`其他标题 ${seconds(p.other_focus_seconds)}`);
+      if(p.unattributed_focus_seconds>0)titles.push(`标题无法归属 ${seconds(p.unattributed_focus_seconds)}`);
+      const titleLine=titles.length?`聚焦时标题（采样估算）：${titles.join(' / ')}`:`末次标题：${shortTitle(p.last_title)}（未记录到按标题划分的聚焦时长）`;
+      const fields=[...new Set((p.recent_changes||[]).flatMap(change=>Object.keys(change.fields||{})))];
+      const changes=`变化 ${p.change_count||0} 次${fields.length?`，最近涉及 ${fields.join('、')}`:''}`;
+      return `- ${p.app||'应用'} 窗口（${p.window_id}）：窗口焦点合计 ${seconds(p.focus_seconds)}，最长连续 ${seconds(p.longest_focus_seconds)}，可见 ${seconds(p.visible_seconds)}；${titleLine}；${changes}；末次证据 ${p.latest_evidence?.join(',')||'见活动详情'}`;
+    })
+    : (overview.programs||[]).map(p=>`- ${p.app}（${p.id}）：程序焦点合计 ${seconds(p.focus_seconds)}，可见 ${seconds(p.visible_seconds)}`);
   const exported=data.evidence_export;
   const overviewLimit=data.reporting?.overview_chars;
   const summary=rows.join('\n')||'没有可用的窗口活动记录。';
@@ -95,6 +105,7 @@ ${task.series_id?`循环编号：${task.series_id}；第 ${task.occurrence_index
 ${inputActivityLine(data)}
 ${overview.activity_changes?.some(p=>p.body_scope==='process_window_group')?'正文含同进程歧义窗口组，可能包含隐藏内容；请结合截图自行判断归属。':''}
 ${shownSummary}
+口径：窗口焦点合计不能算给单个标题；聚焦时标题按采样估算，可见不等于正在使用。
 当前焦点：${(overview.current_objects||[]).filter(o=>o.focused).map(o=>o.title).join('；')||'未知或无焦点'}。
 浏览器正文：${overview.browser_semantics?.snapshots||0} 条（失败 ${overview.browser_semantics?.failed_snapshots||0} 条）。系统摘录可能包含视口外文字；详情 browser-snapshots.json。
 ${(overview.browser_semantics?.limitations||[]).join('；')}

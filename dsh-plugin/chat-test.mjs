@@ -45,6 +45,19 @@ test('compact heartbeat keeps facts without repeating the agreement',()=>{
  const s=formatReport({phase:'monitor',report_id:'r',task:{id:'t',agreement:'读懂论文',start_at:1,end_at:2,allow_early_finish:true},overview:{program_count:0,gui_window_count:0,effective_observed_seconds:2,unobserved_gap_seconds:1,programs:[]},capture_error:'没有桌面权限'});
  for(const expected of ['报告编号：r','没有桌面权限','focus_report'])assert.ok(s.includes(expected));
 });
+test('heartbeat separates a browser window total from titles used during focus',()=>{
+ const row={window_id:'chrome-window',app:'chrome',title:'Video',last_title:'Paper editor',
+  focus_seconds:6,visible_seconds:6,longest_focus_seconds:4,
+  focus_titles:[{title:'Paper editor',seconds:4},{title:'Video',seconds:2}],
+  other_focus_seconds:0,unattributed_focus_seconds:0,change_count:1,
+  recent_changes:[{type:'changed',fields:{title:'Paper editor'}}],latest_evidence:['paper-ref']};
+ const actual=formatReport({phase:'monitor',report_id:'r',task:{id:'t'},overview:{activity_changes:[row],effective_observed_seconds:6,unobserved_gap_seconds:0}});
+ assert.ok(actual.includes('chrome 窗口（chrome-window）：窗口焦点合计 6.0s'));
+ assert.ok(actual.includes('Paper editor 4.0s / Video 2.0s'));
+ assert.ok(actual.includes('窗口焦点合计不能算给单个标题'));
+ assert.ok(actual.includes('末次证据 paper-ref'));
+ assert.ok(!actual.includes('Video（chrome-window）：焦点 6'));
+});
 test('heartbeat states the plugin-decided absence countdown so the model can ask the user',()=>{
  const base={phase:'monitor',report_id:'r',task:{id:'t',agreement:'读论文',start_at:1,end_at:2,allow_early_finish:true},overview:{program_count:0,gui_window_count:0,effective_observed_seconds:600,unobserved_gap_seconds:0,programs:[]},presence:{available:true,idle_seconds:620,last_input_at:1}};
  const quiet=formatReport({...base,input_activity:{available:true,idle_seconds:620,no_input_in_report:true,consecutive_no_input_heartbeats:2,heartbeats_until_standby:1,away_heartbeats:3}});

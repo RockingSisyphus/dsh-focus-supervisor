@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "compact-summary-update-windows",
+  "title": "升级 Windows 正式后台后验证浏览器页面焦点时长进入真实 DSH 心跳",
+  "engine": "command",
+  "execution": "vm-orchestration",
+  "verification": "product",
+  "group": "extended",
+  "platforms": ["windows"],
+  "installation": "existing-system",
+  "features": ["heartbeat", "browser-history-capture"],
+  "timeout": 1500,
+  "steps": [
+    {
+      "id": "installer",
+      "op": "vm.command.start",
+      "argv": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "deploy/install-windows.ps1"]
+    },
+    {"id": "authorize", "op": "vm.authorize"},
+    {"id": "installed", "op": "vm.command.wait", "command": "installer", "timeout": 1200, "bind": "installer"},
+    {"id": "installer-exit", "op": "assert", "actual": {"$ref": "installer.code"}, "operator": "equals", "expected": 0},
+    {"id": "real-dsh", "op": "case.run", "cases": ["report-after-browser-small"], "bind": "regression"},
+    {"id": "heartbeats-passed", "op": "assert", "actual": {"$ref": "regression.status"}, "operator": "equals", "expected": "passed"}
+  ]
+}

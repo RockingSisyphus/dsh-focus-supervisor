@@ -53,27 +53,90 @@ def program_rows(programs):  # 功能：生成轻量目录，每行只留定位�
     return sorted(rows, key=lambda r: (-r["observed_seconds"], r["id"]))  # 长时间活动优先，而不是只优先末尾活动。
 
 
+def activity_rows(effective):
+    """Keep window totals separate from titles observed while that window had focus."""
+    titles, apps, last_titles = {}, {}, {}
+    for segment in effective.get("segments", []):
+        seconds = segment.get("real_duration_seconds", 0)  # activity_changes also uses real sample time.
+        for obj in segment.get("objects", []):
+            identity = str((obj.get("process") or {}).get("identity")) + ":" + obj["id"]
+            apps[identity] = obj.get("app")
+            last_titles[identity] = obj.get("title")
+            if obj.get("focused") and seconds > 0:
+                title = clip(obj.get("title") or "(无标题)", 180)
+                bucket = titles.setdefault(identity, {})
+                bucket[title] = bucket.get(title, 0) + seconds
+    rows = []
+    for original in effective.get("activity_changes", []):
+        identity = original["id"]
+        focused_titles = sorted(
+            ({"title": title, "seconds": round(seconds, 3)} for title, seconds in titles.get(identity, {}).items()),
+            key=lambda entry: (-entry["seconds"], entry["title"]),
+        )
+        row = {key: value for key, value in original.items() if key != "title"}
+        row["app"] = apps.get(identity) or original.get("app")
+        last_state = original.get("last_state") or {}
+        row["last_title"] = last_state["title"] if "title" in last_state else last_titles.get(identity, original.get("title"))
+        row["focus_titles"] = focused_titles
+        row["unattributed_focus_seconds"] = round(max(0, original.get("focus_seconds", 0) - sum(item["seconds"] for item in focused_titles)), 3)
+        rows.append(row)
+    return sorted(rows, key=lambda row: (-row.get("focus_seconds", 0), -row.get("visible_seconds", 0), row["id"]))
+
+
 def browser_summary(effective):
     records = effective.get("browser_snapshots", [])
     latest = {}
     for record in records:
-        key=(record.get("browser_instance_id"), record["tab_id"]) if record.get("tab_id") is not None else (record.get("native_window_id") or record.get('pid'),record.get("captured_at"),record.get('document_index'))
+        if record.get("tab_id") is not None:
+            key = (record.get("browser_instance_id"), record["tab_id"])
+        else:
+            window = record.get("native_window_id") or tuple(record.get("native_window_ids") or ()) or record.get("pid")
+            key = (window, record.get("title"), record.get("url"), record.get("document_index"))
         latest[key] = record
+    recent = sorted(latest.values(), key=lambda record: record.get("captured_at") or 0, reverse=True)
     return {"snapshots": len(records), "successful_snapshots": sum("snapshot" in r for r in records),
             "failed_snapshots": sum("error" in r for r in records), "detail_file": "browser-snapshots.json",
             "pages": [{"title": clip(r.get("title", ""), 120), "app":r.get('app'),
                        "text_chars":len(r.get('snapshot',{}).get('text','')),
                        "captured_at": r.get("captured_at"),
-                       "visibility_class": r.get("visibility_class"), "native_window_id": r.get("native_window_id"), "error": r.get("error"), "truncated": r.get("snapshot", {}).get("truncated")} for r in list(latest.values())[:12]],
+                       "visibility_class": r.get("visibility_class"), "native_window_id": r.get("native_window_id"), "error": r.get("error"), "truncated": r.get("snapshot", {}).get("truncated")} for r in recent[:12]],
             "limitations": effective.get("browser_semantic_status", []),
-            "note": "系统无障碍读取可见窗口的选中页面；页面片段不等同稳定标签身份，未聚焦不影响采集。正文可能包含视口外内容，不重复累计使用时长。"}
+            "note": "页面目录显示最近观察到的不同窗口/标题组合，不代表各页使用时长或稳定标签身份。未聚焦不影响采集；正文可能包含视口外内容。"}
 
 
 def overview(effective, limit=12):  # 功能：统计覆盖整个检查区间，并提供可翻页的程序目录。
     programs = build_reports(effective)  # 所有片段都参与统计。
     rows = program_rows(programs)  # 创建轻量目录。
     current = sorted(effective.get("current_objects", (effective.get("segments", [])[-1].get("objects", []) if effective.get("segments") else [])), key=lambda obj: (not obj.get("focused"), not obj.get("visible")))  # 当前焦点不能被大量背景窗口挤掉。
-    return {"activity_changes": [{k:v for k,v in row.items() if k not in ("changes","evidence_refs","last_state")} | {"change_count":len(row["changes"]),"recent_changes":[c for c in row["changes"] if c["type"]!="observed"][-3:],"latest_evidence":row["evidence_refs"][-1:] } for row in effective.get("activity_changes",[])[:12]], "browser_semantics": browser_summary(effective), "desktop_screenshot": {k: v for k, v in (effective.get("desktop_screenshot") or {}).items() if k != "path"}, "gui_window_count": len(effective.get("window_inventory", [])), "programs": rows[:limit], "program_count": len(rows), "next_program_offset": limit if len(rows) > limit else None, "segment_count": len(effective.get("segments", [])), "recorded_sample_count":effective.get("recorded_sample_count",0), "sparse_interval_count":effective.get("sparse_interval_count",0), "effective_observed_seconds": effective.get("effective_observed_seconds", 0), "unobserved_gap_seconds": effective.get("unobserved_gap_seconds", 0), "gap_before_segments_seconds":effective.get("gap_before_segments_seconds",0), "trailing_gap_seconds":effective.get("trailing_gap_seconds",0), "catalog_note": "统计覆盖全部片段；程序目录可用 list_programs 翻页；相邻样本变慢只折算观察时长，原始样本仍保留。尾部缺口没有下个片段，单列 trailing_gap_seconds。同时可见的程序时长不能相加当作总工作时间。", "current_objects": [{k: o.get(k) for k in ("ref", "id", "app", "title", "focused", "visible", "visibility_note")} for o in current[:12]], "current_object_count": len(current), "current_objects_omitted": max(0, len(current)-12)}  # 当前对象只是提示，不替代完整目录。
+    activity = []
+    for row in activity_rows(effective)[:12]:
+        activity.append({
+            **{key: value for key, value in row.items() if key not in ("changes", "evidence_refs", "last_state", "focus_titles")},
+            "focus_titles": row["focus_titles"][:5],
+            "other_focus_seconds": round(sum(item["seconds"] for item in row["focus_titles"][5:]), 3),
+            "change_count": len(row["changes"]),
+            "recent_changes": [change for change in row["changes"] if change["type"] != "observed"][-3:],
+            "latest_evidence": row["evidence_refs"][-1:],
+        })
+    return {
+        "activity_changes": activity,
+        "browser_semantics": browser_summary(effective),
+        "desktop_screenshot": {key: value for key, value in (effective.get("desktop_screenshot") or {}).items() if key != "path"},
+        "gui_window_count": len(effective.get("window_inventory", [])),
+        "programs": rows[:limit], "program_count": len(rows),
+        "next_program_offset": limit if len(rows) > limit else None,
+        "segment_count": len(effective.get("segments", [])),
+        "recorded_sample_count": effective.get("recorded_sample_count", 0),
+        "sparse_interval_count": effective.get("sparse_interval_count", 0),
+        "effective_observed_seconds": effective.get("effective_observed_seconds", 0),
+        "unobserved_gap_seconds": effective.get("unobserved_gap_seconds", 0),
+        "gap_before_segments_seconds": effective.get("gap_before_segments_seconds", 0),
+        "trailing_gap_seconds": effective.get("trailing_gap_seconds", 0),
+        "catalog_note": "统计覆盖全部片段；程序目录可用 list_programs 翻页；example_titles 只是目录样例，不对应整段时长。相邻样本变慢只折算观察时长，原始样本仍保留。尾部缺口没有下个片段，单列 trailing_gap_seconds。同时可见的程序时长不能相加当作总工作时间。窗口焦点合计不属于某个单独标题，按标题时长仅为采样估算。",
+        "current_objects": [{key: obj.get(key) for key in ("ref", "id", "app", "title", "focused", "visible", "visibility_note")} for obj in current[:12]],
+        "current_object_count": len(current),
+        "current_objects_omitted": max(0, len(current) - 12),
+    }
 
 
 def tool_schema(name, description, properties, required=()):  # 功能：统一生成严格、只读的工具接口。
@@ -119,7 +182,7 @@ class EvidenceTools(dict):  # 功能：兼容旧版证据字典，并提供有�
             raise ValueError("分页起点必须是非负整数")  # 防止负索引绕过边界。
         self.calls.append({"name": name, "arguments": copy.deepcopy(args)})  # 记录实际访问的分支。
         if name == 'read_activity_changes':
-            rows=self.effective.get('activity_changes',[])
+            rows=activity_rows(self.effective)
             return {'changes':rows[offset:offset+6], 'total':len(rows),
                     'next_offset':offset+6 if offset+6<len(rows) else None}
         if name == "read_task_material":  # 只读任务创建时已经授权上传的文本。
